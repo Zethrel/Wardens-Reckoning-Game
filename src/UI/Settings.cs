@@ -20,6 +20,9 @@ public static class Settings
     /// The first value is the history atlas's, 105.</summary>
     public static int BorderAlpha { get; set; } = 105;
 
+    /// <summary>How many years run each second while playing.</summary>
+    public static double YearsPerSecond { get; set; } = 2;
+
     public static void Load()
     {
         var config = new ConfigFile();
@@ -28,6 +31,7 @@ public static class Settings
         LastWorld = config.GetValue("game", "last_world", "").AsString();
         Fullscreen = config.GetValue("display", "fullscreen", false).AsBool();
         BorderAlpha = Math.Clamp(config.GetValue("map", "border_alpha", 105).AsInt32(), 0, 255);
+        YearsPerSecond = Math.Clamp(config.GetValue("game", "years_per_second", 2.0).AsDouble(), 0.5, 20);
     }
 
     public static void Save()
@@ -36,6 +40,7 @@ public static class Settings
         config.SetValue("game", "last_world", LastWorld);
         config.SetValue("display", "fullscreen", Fullscreen);
         config.SetValue("map", "border_alpha", BorderAlpha);
+        config.SetValue("game", "years_per_second", YearsPerSecond);
         config.Save(File);
     }
 

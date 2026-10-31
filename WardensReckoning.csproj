@@ -15,5 +15,6 @@
     <Compile Remove="src/Sim/**" />
     <Compile Remove="tests/**" />
     <ProjectReference Include="src/World/World.csproj" />
+    <ProjectReference Include="src/Sim/Sim.csproj" />
   </ItemGroup>
 </Project>

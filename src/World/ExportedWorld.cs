@@ -8,9 +8,10 @@ namespace WardensReckoning.World;
 public sealed record FactionInfo(string Name, byte Red, byte Green, byte Blue, string? Lineage, string? Race);
 
 /// <summary>One settlement's whole history: the year it was founded, its people every year from then,
-/// its holders as (year, faction) each time that changed, and its ruins as (year it fell, year it was lived in again).</summary>
-public sealed record TownRecord(int From, string Name, int X, int Y, int[] People,
-                                (int Year, int? Faction)[] Owners, (int Fell, int? Back)[] Ruins);
+/// its holders as (year, faction) each time that changed, and its ruins as (year it fell, year it was lived in again).
+/// The lists grow as the game runs the years on (ExportedWorld.AddYear).</summary>
+public sealed record TownRecord(int From, string Name, int X, int Y, List<int> People,
+                                List<(int Year, int? Faction)> Owners, List<(int Fell, int? Back)> Ruins);
 
 /// <summary>A settlement in one year: who held it, its people, and whether it lay in ruins.</summary>
 public sealed record TownState(int? Holder, int People, bool Ruined);
@@ -30,6 +31,9 @@ public sealed record TownState(int? Holder, int People, bool Ruined);
 /// </summary>
 public sealed class ExportedWorld
 {
+    // The export's history, read from world.json, followed by every year the game has run since: the game adds
+    // each year it runs with AddYear, so the map, the slider and the legend show the new years as they do the old.
+
     public const string Format = "the-north-world";
 
     /// <summary>The newest version this reader understands; a newer world is refused rather than half read.</summary>
@@ -43,7 +47,11 @@ public sealed class ExportedWorld
     public int Seed { get; }
     public int? HistorySeed { get; }
     public int Size { get; }
-    public int Years { get; }
+    /// <summary>The last year there is a record of: the export's last year, then the game's.</summary>
+    public int Years { get; private set; }
+
+    /// <summary>The export's own last year (where the generator's history ended and the game's began).</summary>
+    public int ExportYears { get; }
 
     /// <summary>How many map cells wide each region of the history's grid is.</summary>
     public int HistoryFactor { get; }
@@ -52,7 +60,7 @@ public sealed class ExportedWorld
     public IReadOnlyList<TownRecord> Towns { get; }
 
     /// <summary>Each faction's people every year from 0 (empty for a faction not in the list).</summary>
-    public IReadOnlyList<int[]> Population { get; }
+    public IReadOnlyList<List<int>> Population { get; }
 
     /// <summary>The settlement sizes, smallest first: (the people it takes, the size's name, which is also the sprite's).</summary>
     public IReadOnlyList<(int People, string Name)> SettlementSizes { get; }
@@ -76,6 +84,7 @@ public sealed class ExportedWorld
         HistorySeed = (int?)data["history_seed"];
         Size = (int)data["size"]!;
         Years = (int)data["years"]!;
+        ExportYears = Years;
         HistoryFactor = (int?)data["history_factor"] ?? 1;
 
         var races = data["faction_races"] as JsonArray;
@@ -90,7 +99,7 @@ public sealed class ExportedWorld
         }
         Factions = factions;
 
-        Population = data["population"]!.AsArray().Select(row => row!.AsArray().Select(v => (int)v!).ToArray()).ToList();
+        Population = data["population"]!.AsArray().Select(row => row!.AsArray().Select(v => (int)v!).ToList()).ToList();
 
         // "pictures" came with the game's first screen; an older export has none, so it gets the generator's sizes.
         if (data["pictures"] is JsonObject pictures)
@@ -117,9 +126,9 @@ public sealed class ExportedWorld
             var place = places[i]!.AsObject();
             towns.Add(new TownRecord(
                 (int)t["from"]!, (string)t["name"]!, (int)place["x"]!, (int)place["y"]!,
-                t["people"]!.AsArray().Select(v => (int)v!).ToArray(),
-                t["owners"]!.AsArray().Select(o => ((int)o![0]!, (int?)o[1])).ToArray(),
-                t["ruins"]!.AsArray().Select(r => ((int)r![0]!, (int?)r[1])).ToArray()));
+                t["people"]!.AsArray().Select(v => (int)v!).ToList(),
+                t["owners"]!.AsArray().Select(o => ((int)o![0]!, (int?)o[1])).ToList(),
+                t["ruins"]!.AsArray().Select(r => ((int)r![0]!, (int?)r[1])).ToList()));
         }
         Towns = towns;
 
@@ -193,13 +202,13 @@ public sealed class ExportedWorld
 
     /// <summary>Its people that year; after its record ends, its last year's.</summary>
     public static int PeopleAt(TownRecord town, int year) =>
-        town.People.Length == 0 ? 0 : town.People[Math.Clamp(year - town.From, 0, town.People.Length - 1)];
+        town.People.Count == 0 ? 0 : town.People[Math.Clamp(year - town.From, 0, town.People.Count - 1)];
 
     /// <summary>The most people it ever had, up to `year` (a ruin is drawn at that size).</summary>
     public static int PeakTo(TownRecord town, int year)
     {
         int peak = 0;
-        for (int i = 0; i <= Math.Min(year - town.From, town.People.Length - 1); i++)
+        for (int i = 0; i <= Math.Min(year - town.From, town.People.Count - 1); i++)
             peak = Math.Max(peak, town.People[i]);
         return peak;
     }
@@ -244,7 +253,7 @@ public sealed class ExportedWorld
 
     /// <summary>Faction `index`'s people in `year`.</summary>
     public int PeopleOf(int index, int year) =>
-        index < Population.Count && year >= 0 && year < Population[index].Length ? Population[index][year] : 0;
+        index < Population.Count && year >= 0 && year < Population[index].Count ? Population[index][year] : 0;
 
     /// <summary>
     /// Who held each region of the history's grid in `year`, row after row (BorderColumns wide), -1 for no one;
@@ -304,6 +313,47 @@ public sealed class ExportedWorld
             for (int i = 0; i < changes.Count; i += 3)
                 Array.Fill(flat, (int)changes[i + 2]!, (int)changes[i]!, (int)changes[i + 1]!);
         }
+    }
+
+    /// <summary>
+    /// Adds the next year (Years + 1) as the game ran it: each settlement's people, holder and whether it lies
+    /// in ruins, in the order of Towns, and each faction's people, in the order of Factions. A holder or a ruin
+    /// is only written down when it changes, as the export writes them. The borders are not changed: until war
+    /// comes to the game (step 5), every year keeps the borders of the last.
+    /// </summary>
+    public void AddYear(IReadOnlyList<int> townPeople, IReadOnlyList<int?> holders, IReadOnlyList<bool> ruined,
+                        IReadOnlyList<int> factionPeople)
+    {
+        if (townPeople.Count != Towns.Count || holders.Count != Towns.Count || ruined.Count != Towns.Count)
+            throw new ArgumentException("one entry for every settlement");
+        if (factionPeople.Count != Factions.Count)
+            throw new ArgumentException("one entry for every faction");
+        int year = Years + 1;
+        for (int i = 0; i < Towns.Count; i++)
+        {
+            var town = Towns[i];
+            if (year < town.From)
+                continue;
+            while (town.People.Count < year - town.From)            // a record that ended early: carry its last year
+                town.People.Add(town.People.Count > 0 ? town.People[^1] : 0);
+            town.People.Add(townPeople[i]);
+            int? before = town.Owners.Count > 0 ? town.Owners[^1].Faction : null;
+            if (holders[i] != before)
+                town.Owners.Add((year, holders[i]));
+            bool was = RuinedAt(town, year - 1);
+            if (ruined[i] && !was)
+                town.Ruins.Add((year, null));
+            else if (!ruined[i] && was)
+                town.Ruins[^1] = (town.Ruins[^1].Fell, year);
+        }
+        for (int f = 0; f < Factions.Count; f++)
+        {
+            var row = Population[f];
+            while (row.Count < year)
+                row.Add(row.Count > 0 ? row[^1] : 0);
+            row.Add(factionPeople[f]);
+        }
+        Years = year;
     }
 
     /// <summary>The name of the size a town of `people` has: the largest whose people it has reached.</summary>

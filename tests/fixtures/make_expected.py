@@ -58,6 +58,46 @@ def towns_drawn(world, year):
     return drawn
 
 
+def one_year(data):
+    """One year's core for every standing town, worked out with the generator's own functions, with an ordinary
+    year's weather (1.0) and no trade: the harvest as path and ruler change it, how well the town is fed, its
+    people after growing or starving, and its size after (history.path_harvests, ruled_harvests, fed_share with
+    a trade.Market of its own land, grow, keep_band)."""
+    from types import SimpleNamespace
+    from north import history, trade
+    going = data["continue"]
+    settings = going["settings"]
+    goods = settings["trade"]["GOODS"]
+    trading = SimpleNamespace(GOODS=goods)
+    staples, extras = trade.staple_goods(trading), trade.extra_goods(trading)
+    factions_now = [SimpleNamespace(path=f["path"], government=f["government"],
+                                    ruler=None if f["ruler"] is None else SimpleNamespace(traits=f["ruler"]["traits"]))
+                    for f in data["factions"]]
+    lows = [low for low, *_rest in settings["settlement"]["SETTLEMENT_SIZES"]]
+    growing = SimpleNamespace(**settings["history"])
+    path_settings = SimpleNamespace(PATH_HARVEST=settings["factions"]["PATH_HARVEST"],
+                                    PATH_STEADINESS=settings["factions"]["PATH_STEADINESS"])
+    result = []
+    for index, (place, town) in enumerate(zip(data["settlements"], going["towns"])):
+        if place["ruined"]:
+            result.append(None)
+            continue
+        here = SimpleNamespace(culture=place["culture"])
+        harvest = history.path_harvests([1.0], [here], factions_now, path_settings)
+        harvest = history.ruled_harvests(harvest, [here], factions_now, settings["leaders"]["GOVERNMENTS"])[0]
+        path = factions_now[place["culture"]].path if place["culture"] is not None else None
+        market = trade.Market()
+        for good, amount in town["yields"].items():
+            market.made[good] = amount * harvest if good in staples + extras else amount
+        for good, details in goods.items():
+            market.needed[good] = place["population"] / 1000 * trade.need_of(details, path)
+        fed = history.fed_share(market, staples, extras)
+        people = history.grow(town["people"], place["capacity"], fed, growing)
+        size = history.keep_band(round(people), lows, town["size"], lows[town["size"]] * history.SIZE_MARGIN)
+        result.append({"harvest": harvest, "fed": fed, "people": people, "size": size})
+    return result
+
+
 def main(generator):
     sys.path.insert(0, str(generator))
     from north import world_file
@@ -91,6 +131,7 @@ def main(generator):
             "borders_sha256": hashlib.sha256(flat.encode()).hexdigest(),
             "drawn": towns_drawn(world, year),
         }
+    expected["one_year"] = one_year(world.data)
     (HERE / "expected.json").write_text(json.dumps(expected, indent=1), encoding="utf-8")
 
     grid = [[(x * x * 7 + y * 31 + (x ^ y) * 13) % 256 for x in range(24)] for y in range(20)]

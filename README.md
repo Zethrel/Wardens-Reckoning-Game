@@ -13,18 +13,21 @@ its first 300 years are made by the generator (Zethrel/Wardens-Reckoning):
    `output\world-42\h42\export\`.
 
 On the map: the mouse wheel zooms, the right or middle mouse button (or
-W, A, S, D and the arrow keys) moves, the slider at the bottom picks the
-year, and Esc opens the menu.
+W, A, S, D and the arrow keys) moves, **Next year** (N) runs a year, **Play**
+(Space) runs them one after another, the slider at the bottom picks the year
+shown, and Esc opens the menu (save, load, settings).
 
 ## The tests
 
-`dotnet test` in this folder runs the tests of `src/World` (and later
-`src/Sim`), with no Godot needed.
+`dotnet test` in this folder runs the tests of `src/World` and `src/Sim`,
+with no Godot needed.
+
+The plan, step by step: `docs/plan.md`.
 
 ## Layout
 
 - `src/World`: reads an exported world (as the generator's north/world_file.py does).
-- `src/Sim`: the history systems in C# (from step 2).
+- `src/Sim`: the history systems in C#, running the years on (so far: harvest, food, growth, ruin).
 - `src/UI`: the screens, in Godot.
 - `tests/`: the tests, and a small exported world to test with.
 

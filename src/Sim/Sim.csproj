@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Copyright (c) 2026 Zethrel. All rights reserved. See LICENSE. -->
+  <!-- The history systems in C#, running the years on from an exported world. Plain .NET, no Godot. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>WardensReckoning.Sim</AssemblyName>
+    <RootNamespace>WardensReckoning.Sim</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../World/World.csproj" />
+  </ItemGroup>
+</Project>

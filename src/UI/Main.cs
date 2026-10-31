@@ -1,5 +1,6 @@
 // Copyright (c) 2026 Zethrel. All rights reserved. See LICENSE.
 using Godot;
+using WardensReckoning.Sim;
 using WardensReckoning.World;
 
 namespace WardensReckoning.UI;
@@ -24,6 +25,17 @@ public partial class Main : Node
             OpenWorld(arguments[at + 1]);
         else
             ShowMainMenu();
+        // `-- --run <years>` runs that many years on the opened world.
+        int run = Array.IndexOf(arguments, "--run");
+        if (run >= 0 && run + 1 < arguments.Length && screen is MapScreen played && int.TryParse(arguments[run + 1], out int count))
+            played.RunYears(count);
+        // `-- --save` saves the game into the saves folder, as the in-game menu's Save does.
+        if (Array.IndexOf(arguments, "--save") >= 0 && screen is MapScreen saving)
+            GD.Print(saving.SaveNow());
+        // `-- --load <save>` loads a saved game.
+        int load = Array.IndexOf(arguments, "--load");
+        if (load >= 0 && load + 1 < arguments.Length)
+            LoadGame(arguments[load + 1]);
         // `-- --year <year>` shows that year of the opened world.
         int pick = Array.IndexOf(arguments, "--year");
         if (pick >= 0 && pick + 1 < arguments.Length && screen is MapScreen map && int.TryParse(arguments[pick + 1], out int year))
@@ -74,7 +86,43 @@ public partial class Main : Node
         }
         Settings.LastWorld = Path.Combine(world.Folder, "world.json");
         Settings.Save();
-        Show(new MapScreen(this, world));
+        // A world exported with "continue" starts a new game on it; an older one can only be looked at.
+        Game? game = null;
+        string note = "";
+        try
+        {
+            game = new Game(world, SeedFromArguments() ?? Game.NewSeed());
+        }
+        catch (WorldFileException e)
+        {
+            note = "Only to look at: " + e.Message;
+        }
+        Show(new MapScreen(this, world, game, note));
+    }
+
+    /// <summary>Loads a saved game; back to the main menu with the reason if it cannot.</summary>
+    public void LoadGame(string path)
+    {
+        Game game;
+        try
+        {
+            game = SaveFile.Read(path);
+        }
+        catch (Exception e) when (e is WorldFileException or IOException or UnauthorizedAccessException)
+        {
+            ShowMainMenu("That game could not be loaded: " + e.Message);
+            return;
+        }
+        GetTree().Paused = false;
+        Show(new MapScreen(this, game.World, game));
+    }
+
+    // `-- --seed <number>` starts the game with that seed (for testing).
+    static long? SeedFromArguments()
+    {
+        var arguments = OS.GetCmdlineUserArgs();
+        int at = Array.IndexOf(arguments, "--seed");
+        return at >= 0 && at + 1 < arguments.Length && long.TryParse(arguments[at + 1], out long seed) ? seed : null;
     }
 
     public void Quit() => GetTree().Quit();

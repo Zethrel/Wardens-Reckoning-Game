@@ -3,7 +3,7 @@ using Godot;
 
 namespace WardensReckoning.UI;
 
-/// <summary>The main menu: open a world, open the last one again, settings, quit.</summary>
+/// <summary>The main menu: open a world (a new game on it), open the last one again, load a game, settings, quit.</summary>
 public partial class MainMenu : Control
 {
     readonly Main main;
@@ -29,6 +29,7 @@ public partial class MainMenu : Control
         column.AddChild(Ui.Button("Open a world...", PickWorld));
         if (Settings.LastWorld != "" && File.Exists(Settings.LastWorld))
             column.AddChild(Ui.Button("Open the last world", () => main.OpenWorld(Settings.LastWorld), Settings.LastWorld));
+        column.AddChild(Ui.Button("Load a game", OpenLoad));
         column.AddChild(Ui.Button("Settings", OpenSettings));
         column.AddChild(Ui.Button("Quit", main.Quit));
         if (message != "")
@@ -56,6 +57,15 @@ public partial class MainMenu : Control
         dialog.FileSelected += path => main.OpenWorld(path);
         AddChild(dialog);
         dialog.PopupCentered(new Vector2I(900, 600));
+    }
+
+    void OpenLoad()
+    {
+        var box = column!.GetParent().GetParent<Control>();
+        box.Visible = false;
+        var panel = new LoadPanel(main);
+        panel.Closed += () => box.Visible = true;
+        AddChild(panel);
     }
 
     void OpenSettings()

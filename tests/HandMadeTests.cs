@@ -102,3 +102,50 @@ public class HandMadeTests
     // The four bytes of map cell (x, y) on the 4 x 4 test map.
     static byte[] Pixel(byte[] rgba, int x, int y) => rgba[((y * 4 + x) * 4)..((y * 4 + x) * 4 + 4)];
 }
+
+/// <summary>The world's records growing with the game's years (ExportedWorld.AddYear).</summary>
+public class AddYearTests
+{
+    static ExportedWorld World() => ExportedWorld.Read(Path.Combine(AppContext.BaseDirectory, "fixtures", "world-7"));
+
+    [Fact]
+    public void A_change_of_holder_and_a_ruin_and_its_resettling_are_written_down()
+    {
+        var world = World();
+        int last = world.Years;
+        int n = world.Towns.Count;
+        int i = Enumerable.Range(0, n).First(t => world.Town(t, last) is { Ruined: false, Holder: not null });
+        var people = Enumerable.Range(0, n).Select(t => world.Town(t, last)?.People ?? 0).ToList();
+        var holders = Enumerable.Range(0, n).Select(t => world.Town(t, last)?.Holder).ToList();
+        var ruined = Enumerable.Range(0, n).Select(t => world.Town(t, last)?.Ruined ?? false).ToList();
+        var factions = Enumerable.Range(0, world.Factions.Count).Select(f => world.PeopleOf(f, last)).ToList();
+
+        int other = (holders[i]!.Value + 1) % world.Factions.Count;
+        holders[i] = other;
+        world.AddYear(people, holders, ruined, factions);
+        Assert.Equal(other, world.Town(i, last + 1)!.Holder);
+        Assert.NotEqual(other, world.Town(i, last)!.Holder);
+
+        ruined[i] = true;
+        people[i] = 0;
+        world.AddYear(people, holders, ruined, factions);
+        Assert.True(world.Town(i, last + 2)!.Ruined);
+        Assert.False(world.Town(i, last + 1)!.Ruined);
+
+        ruined[i] = false;
+        people[i] = 40;
+        world.AddYear(people, holders, ruined, factions);
+        Assert.False(world.Town(i, last + 3)!.Ruined, "lived in again");
+        Assert.True(world.Town(i, last + 2)!.Ruined, "and still a ruin the year before");
+        Assert.Equal(40, world.Town(i, last + 3)!.People);
+        Assert.Equal(last + 3, world.Years);
+        Assert.Equal(last, world.ExportYears);
+    }
+
+    [Fact]
+    public void A_year_needs_every_town_and_faction()
+    {
+        var world = World();
+        Assert.Throws<ArgumentException>(() => world.AddYear(new int[1], new int?[1], new bool[1], new int[world.Factions.Count]));
+    }
+}

@@ -4,20 +4,27 @@ using Godot;
 namespace WardensReckoning.UI;
 
 /// <summary>
-/// The in-game menu, opened with Esc: the game pauses while it is open. Saving and loading are shown
-/// but switched off: there is nothing to save until the game runs the years on (step 2 and later).
+/// The in-game menu, opened with Esc: the game pauses while it is open. Save is switched off for a world
+/// that can only be looked at (no game to save).
 /// </summary>
 public partial class PauseMenu : Control
 {
     readonly Main main;
+    readonly Func<string>? save;
     Control? panel;
+    Label? said;
 
     /// <summary>Called when a setting changed, so the map can redraw.</summary>
     public event Action? SettingsChanged;
 
-    public PauseMenu() : this(null!) { }
+    public PauseMenu() : this(null!, null) { }
 
-    public PauseMenu(Main main) => this.main = main;
+    /// <summary>`save` saves the game and returns what to tell the player; null when there is no game.</summary>
+    public PauseMenu(Main main, Func<string>? save)
+    {
+        this.main = main;
+        this.save = save;
+    }
 
     public override void _Ready()
     {
@@ -31,15 +38,15 @@ public partial class PauseMenu : Control
         panel = column.GetParent().GetParent<Control>();
         column.AddChild(Ui.Label("Paused", 28));
         column.AddChild(Ui.Button("Resume", Close));
-        var save = Ui.Button("Save", () => { }, "Saving comes when the game runs the years on.");
-        save.Disabled = true;
-        column.AddChild(save);
-        var load = Ui.Button("Load", () => { }, "Loading comes with saving.");
-        load.Disabled = true;
-        column.AddChild(load);
+        var saving = Ui.Button("Save", () => said!.Text = save!(), save == null ? "This world can only be looked at." : "");
+        saving.Disabled = save == null;
+        column.AddChild(saving);
+        column.AddChild(Ui.Button("Load", OpenLoad));
         column.AddChild(Ui.Button("Settings", OpenSettings));
         column.AddChild(Ui.Button("Main menu", () => main.ShowMainMenu()));
         column.AddChild(Ui.Button("Quit to desktop", main.Quit));
+        said = Ui.Label("", 13);
+        column.AddChild(said);
     }
 
     public bool IsOpen => Visible;
@@ -48,6 +55,7 @@ public partial class PauseMenu : Control
     {
         Visible = true;
         panel!.Visible = true;
+        said!.Text = "";
         GetTree().Paused = true;
     }
 
@@ -55,6 +63,14 @@ public partial class PauseMenu : Control
     {
         Visible = false;
         GetTree().Paused = false;
+    }
+
+    void OpenLoad()
+    {
+        panel!.Visible = false;
+        var loading = new LoadPanel(main);
+        loading.Closed += () => panel.Visible = true;
+        AddChild(loading);
     }
 
     void OpenSettings()

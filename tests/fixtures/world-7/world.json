@@ -57310,6 +57310,7516 @@
   }
  ],
  "history_factor": 1,
+ "continue": {
+  "version": 1,
+  "settings": {
+   "attunement": {
+    "ANIMAL_SHARE": 0.02,
+    "BLAME": 0.075,
+    "CRATER_DEPTH": 0.15,
+    "CRATER_RADIUS": 6,
+    "FAINT": 0.6,
+    "HARVEST_LOSS": 0.3,
+    "HARVEST_RITUAL": [
+     0.9,
+     1.6
+    ],
+    "HARVEST_RITUAL_CHANCE": 0.4,
+    "HARVEST_RITUAL_MARK": 0.06,
+    "HARVEST_RITUAL_METAL": 0.05,
+    "HARVEST_RITUAL_POOR": 0.9,
+    "HARVEST_RITUAL_SKILL": 0.2,
+    "HARVEST_RITUAL_UNEASE": 0.04,
+    "MARK_COLOUR": [
+     150,
+     60,
+     200
+    ],
+    "MARK_HALF_LIFE": 75,
+    "MARK_PER_METAL": 0.03,
+    "PATH_BLAME": {
+     "handcraft": 0.02,
+     "attunement": -0.03,
+     "mechanism": 0.03,
+     "forgecraft": 0.01,
+     "tidecraft": 0.03,
+     "ledgercraft": 0.0,
+     "whispercraft": 0.0,
+     "wilding": 0.05,
+     "physic": 0.02,
+     "gravecraft": -0.01,
+     "resonance": 0.0,
+     "transmutation": -0.01,
+     "waykeeping": 0.01,
+     "reclamation": 0.03,
+     "dreamcraft": -0.02
+    },
+    "PERMANENT": 1.9,
+    "PREY": 0.04,
+    "RITUAL_CHANCE": 0.1,
+    "RITUAL_DEATHS": 0.3,
+    "RITUAL_DESPERATION": 0.05,
+    "RITUAL_METAL": 0.5,
+    "RIVER_SHARE": 0.05,
+    "SEVERE": 3.0,
+    "STRONG": 1.0
+   },
+   "chokepoints": {
+    "BETRAYAL": 0.5,
+    "CONSTRUCTS": {
+     "repair_services": 1.0,
+     "artifact_cores": 2.0
+    },
+    "CONSTRUCT_MAKER": "stitched",
+    "CONTRACT_CHANCE": 0.1,
+    "CONTRACT_OPINION": 0.2,
+    "DEBASED_GOOD": "minted_currency",
+    "DEBASER": "coinhouse",
+    "DEBASE_CHANCE": 0.2,
+    "DEBASE_RECOVERY": 0.05,
+    "DEBASE_RESENTMENT": 0.1,
+    "DEBASE_STEP": 0.2,
+    "DISPLACED_PATHS": [
+     "handcraft",
+     "mechanism"
+    ],
+    "DISPLACE_FULL": 0.5,
+    "DISPLACE_GROWTH": 0.3,
+    "DISPLACE_KINSHIP": 0.03,
+    "DISPLACE_RESENTMENT": 0.05,
+    "DOUBLE_SALE": 0.3,
+    "EMBARGO_OPINION": -0.2,
+    "LEAK_CHANCE": 0.01,
+    "LEAK_FROM": "artifact_cores",
+    "LEAK_GOOD": "resonance_engines",
+    "LEAK_PATH": "mechanism",
+    "LEGITIMACY": 0.3,
+    "LEGITIMACY_GOOD": "ancestor_consultation",
+    "NEEDS": [
+     {
+      "who": "all",
+      "good": "minted_currency",
+      "amount": 0.2,
+      "trade": 0.5
+     },
+     {
+      "who": "all",
+      "good": "notarial_seals",
+      "amount": 0.1,
+      "trade": 0.3
+     },
+     {
+      "who": "attunement",
+      "good": "crystals",
+      "amount": 0.3,
+      "rituals": 0.8
+     },
+     {
+      "who": "hollow_choir",
+      "good": "crystals",
+      "amount": 0.3,
+      "craft": {
+       "soul_bound_relics": 0.8,
+       "ancestor_consultation": 0.5
+      }
+     },
+     {
+      "who": "glassmakers_enclave",
+      "good": "crystals",
+      "amount": 0.3,
+      "craft": {
+       "purified_reagents": 0.8
+      }
+     },
+     {
+      "who": "stitched",
+      "good": "crystals",
+      "amount": 0.2,
+      "craft": {
+       "artifact_cores": 0.8
+      }
+     },
+     {
+      "who": "skywatch",
+      "good": "clockparts",
+      "amount": 0.4,
+      "craft": {
+       "feathersteel": 0.6,
+       "star_charts": 0.4
+      }
+     },
+     {
+      "who": "stitched",
+      "good": "clockparts",
+      "amount": 0.4,
+      "craft": {
+       "repair_services": 0.8,
+       "artifact_cores": 0.5
+      }
+     },
+     {
+      "who": "hearthfall_commons",
+      "good": "irrigation_rights",
+      "amount": 0.3,
+      "harvest": 0.3
+     },
+     {
+      "who": "widegrass_riders",
+      "good": "fresh_water",
+      "amount": 0.3,
+      "craft": {
+       "warhorses": 0.6
+      }
+     },
+     {
+      "who": "kilnrow",
+      "good": "fresh_water",
+      "amount": 0.3,
+      "craft": {
+       "glazed_tile": 0.6
+      }
+     },
+     {
+      "who": "attunement",
+      "good": "mirrorglass",
+      "amount": 0.1,
+      "rituals": 0.2
+     },
+     {
+      "who": "mechanism",
+      "good": "mirrorglass",
+      "amount": 0.1,
+      "craft": {
+       "clockparts": 0.2
+      }
+     },
+     {
+      "who": "grimtide",
+      "good": "feathersteel",
+      "amount": 0.2,
+      "craft": {
+       "battle_contracts": 0.3
+      }
+     },
+     {
+      "who": "coinhouse",
+      "good": "runescripts",
+      "amount": 0.2,
+      "craft": {
+       "insurance_ledgers": 0.5
+      }
+     },
+     {
+      "who": "hearthfall_commons",
+      "good": "nitre_fertilizer",
+      "amount": 0.2,
+      "harvest": 0.15
+     },
+     {
+      "who": "ashwake",
+      "good": "nitre_fertilizer",
+      "amount": 0.2,
+      "craft": {
+       "obsidian_blades": 0.3
+      }
+     },
+     {
+      "who": "mechanism",
+      "good": "artifact_cores",
+      "amount": 0.05
+     },
+     {
+      "who": "grimtide",
+      "good": "rock_salt",
+      "amount": 0.3,
+      "craft": {
+       "war_beasts": 0.4
+      }
+     },
+     {
+      "who": "saltmarch_league",
+      "good": "rock_salt",
+      "amount": 0.3,
+      "craft": {
+       "preserved_fish": 0.6
+      }
+     }
+    ],
+    "RESENTMENT": 0.05,
+    "SABOTAGE_CHANCE": 0.05,
+    "SABOTAGE_RESENTMENT": 0.3,
+    "SABOTAGE_YEARS": [
+     3,
+     10
+    ],
+    "SECRETS": [
+     "sealed_secrets"
+    ],
+    "SECRET_CHANCE": 0.1,
+    "SECRET_SOURING": 0.2,
+    "SMUGGLERS": [
+     "whisperward",
+     "longstep_couriers"
+    ],
+    "SOFT_POWER": 0.02,
+    "STAND_INS": {
+     "rock_salt": [
+      "block_ice"
+     ],
+     "crystals": [
+      "resonance_engines"
+     ],
+     "ancestor_consultation": [
+      "dreamthread"
+     ]
+    }
+   },
+   "death": {
+    "BELIEFS": {
+     "hearthfall_commons": "deny",
+     "glowgrave_conclave": "unknowing",
+     "vernier_guild": "worship"
+    },
+    "DEFAULT_BELIEF": "unknowing",
+    "DIG_ANGER": 0.0,
+    "METAL_DELAY": [
+     20,
+     80
+    ],
+    "METAL_PER_DEATH": [
+     0.03,
+     0.06
+    ],
+    "SIGNS": {}
+   },
+   "factions": {
+    "ALWAYS_FIRST": [
+     "hearthfall_commons",
+     "glowgrave_conclave",
+     "vernier_guild"
+    ],
+    "BELIEF_OPINIONS": {
+     "fear": {
+      "fear": 0.0,
+      "worship": 0.0,
+      "deny": 0.0,
+      "unknowing": 0.0
+     },
+     "worship": {
+      "fear": 0.0,
+      "worship": 0.0,
+      "deny": 0.0,
+      "unknowing": 0.0
+     },
+     "deny": {
+      "fear": 0.0,
+      "worship": 0.0,
+      "deny": 0.0,
+      "unknowing": 0.0
+     },
+     "unknowing": {
+      "fear": 0.0,
+      "worship": 0.0,
+      "deny": 0.0,
+      "unknowing": 0.0
+     }
+    },
+    "DEFAULT_FACTION": {
+     "path": "handcraft",
+     "planning": 0.5,
+     "risk": 0.5,
+     "greed": 0.5
+    },
+    "DEPOSIT_SIZE": [
+     1000,
+     5000
+    ],
+    "FACTIONS": {
+     "hearthfall_commons": {
+      "name": "Hearthfall Commons",
+      "race": "human",
+      "colour": [
+       180,
+       160,
+       120
+      ],
+      "path": "handcraft",
+      "planning": 0.5,
+      "risk": 0.3,
+      "greed": 0.2
+     },
+     "glowgrave_conclave": {
+      "name": "Glowgrave Conclave",
+      "race": "elf",
+      "colour": [
+       119,
+       180,
+       177
+      ],
+      "path": "attunement",
+      "planning": 0.3,
+      "risk": 0.7,
+      "greed": 0.4
+     },
+     "vernier_guild": {
+      "name": "The Vernier Guild",
+      "race": "gnome",
+      "colour": [
+       85,
+       95,
+       150
+      ],
+      "path": "mechanism",
+      "planning": 0.8,
+      "risk": 0.5,
+      "greed": 0.6
+     },
+     "deephands": {
+      "name": "The Deephands",
+      "race": "dwarf",
+      "colour": [
+       120,
+       80,
+       50
+      ],
+      "path": "forgecraft",
+      "planning": 0.7,
+      "risk": 0.4,
+      "greed": 0.6
+     },
+     "saltmarch_league": {
+      "name": "The Saltmarch League",
+      "race": "human",
+      "colour": [
+       70,
+       120,
+       170
+      ],
+      "path": "tidecraft",
+      "planning": 0.6,
+      "risk": 0.6,
+      "greed": 0.7
+     },
+     "ashwake": {
+      "name": "The Ashwake",
+      "race": "giant",
+      "colour": [
+       170,
+       60,
+       40
+      ],
+      "path": "forgecraft",
+      "planning": 0.4,
+      "risk": 0.8,
+      "greed": 0.5
+     },
+     "whisperward": {
+      "name": "The Whisperward",
+      "race": "elf",
+      "colour": [
+       90,
+       70,
+       110
+      ],
+      "path": "whispercraft",
+      "planning": 0.9,
+      "risk": 0.4,
+      "greed": 0.6
+     },
+     "mycelian_circle": {
+      "name": "The Mycelian Circle",
+      "race": "dryad",
+      "colour": [
+       140,
+       110,
+       150
+      ],
+      "path": "attunement",
+      "planning": 0.6,
+      "risk": 0.3,
+      "greed": 0.2
+     },
+     "skywatch": {
+      "name": "The Skywatch",
+      "race": "harpy",
+      "colour": [
+       150,
+       190,
+       230
+      ],
+      "path": "mechanism",
+      "planning": 0.7,
+      "risk": 0.7,
+      "greed": 0.3
+     },
+     "grimtide": {
+      "name": "The Grimtide",
+      "race": "orc_raider",
+      "colour": [
+       110,
+       40,
+       40
+      ],
+      "path": "wilding",
+      "planning": 0.2,
+      "risk": 0.9,
+      "greed": 0.7,
+      "war_readiness": 0.8
+     },
+     "glassmakers_enclave": {
+      "name": "The Glassmakers' Enclave",
+      "race": "gnome",
+      "colour": [
+       180,
+       210,
+       220
+      ],
+      "path": "transmutation",
+      "planning": 0.7,
+      "risk": 0.6,
+      "greed": 0.5
+     },
+     "rootway_wardens": {
+      "name": "The Rootway Wardens",
+      "race": "elf_wood",
+      "colour": [
+       60,
+       110,
+       50
+      ],
+      "path": "wilding",
+      "planning": 0.6,
+      "risk": 0.4,
+      "greed": 0.2
+     },
+     "coinhouse": {
+      "name": "The Coinhouse",
+      "race": "human",
+      "colour": [
+       200,
+       170,
+       40
+      ],
+      "path": "ledgercraft",
+      "planning": 0.8,
+      "risk": 0.3,
+      "greed": 0.9
+     },
+     "hollow_choir": {
+      "name": "The Hollow Choir",
+      "race": "goblin",
+      "colour": [
+       60,
+       60,
+       70
+      ],
+      "path": "gravecraft",
+      "planning": 0.5,
+      "risk": 0.6,
+      "greed": 0.4,
+      "faith": 0.9
+     },
+     "stitched": {
+      "name": "The Stitched",
+      "race": "gnome",
+      "colour": [
+       150,
+       150,
+       130
+      ],
+      "path": "mechanism",
+      "planning": 0.9,
+      "risk": 0.3,
+      "greed": 0.2,
+      "fertility": 0.2
+     },
+     "sluice_assembly": {
+      "name": "The Sluice Assembly",
+      "race": "dwarf",
+      "colour": [
+       60,
+       150,
+       170
+      ],
+      "path": "tidecraft",
+      "planning": 0.8,
+      "risk": 0.3,
+      "greed": 0.6
+     },
+     "emberdraught": {
+      "name": "The Emberdraught",
+      "race": "halfling",
+      "colour": [
+       190,
+       110,
+       50
+      ],
+      "path": "handcraft",
+      "planning": 0.4,
+      "risk": 0.5,
+      "greed": 0.4
+     },
+     "loomfast": {
+      "name": "The Loomfast",
+      "race": "human",
+      "colour": [
+       170,
+       80,
+       130
+      ],
+      "path": "handcraft",
+      "planning": 0.6,
+      "risk": 0.3,
+      "greed": 0.4
+     },
+     "quillmark": {
+      "name": "The Quillmark",
+      "race": "halfling",
+      "colour": [
+       230,
+       220,
+       190
+      ],
+      "path": "mechanism",
+      "planning": 0.7,
+      "risk": 0.4,
+      "greed": 0.4
+     },
+     "salvehand": {
+      "name": "The Salvehand",
+      "race": "lizardfolk",
+      "colour": [
+       110,
+       170,
+       120
+      ],
+      "path": "physic",
+      "planning": 0.7,
+      "risk": 0.3,
+      "greed": 0.3
+     },
+     "widegrass_riders": {
+      "name": "The Widegrass Riders",
+      "race": "centaur",
+      "colour": [
+       190,
+       180,
+       90
+      ],
+      "path": "wilding",
+      "planning": 0.3,
+      "risk": 0.7,
+      "greed": 0.4,
+      "cohesion": 0.7
+     },
+     "kilnrow": {
+      "name": "The Kilnrow",
+      "race": "dwarf",
+      "colour": [
+       170,
+       100,
+       70
+      ],
+      "path": "handcraft",
+      "planning": 0.6,
+      "risk": 0.3,
+      "greed": 0.4
+     },
+     "brinewalkers": {
+      "name": "The Brinewalkers",
+      "race": "kobold",
+      "colour": [
+       220,
+       220,
+       210
+      ],
+      "path": "tidecraft",
+      "planning": 0.5,
+      "risk": 0.4,
+      "greed": 0.5
+     },
+     "frostmoor": {
+      "name": "The Frostmoor",
+      "race": "yeti",
+      "colour": [
+       170,
+       210,
+       240
+      ],
+      "path": "tidecraft",
+      "planning": 0.6,
+      "risk": 0.3,
+      "greed": 0.4
+     },
+     "censer_road": {
+      "name": "The Censer Road",
+      "race": "human_nomad",
+      "colour": [
+       200,
+       130,
+       160
+      ],
+      "path": "waykeeping",
+      "planning": 0.5,
+      "risk": 0.6,
+      "greed": 0.6
+     },
+     "resonant": {
+      "name": "The Resonant",
+      "race": "elf",
+      "colour": [
+       130,
+       100,
+       200
+      ],
+      "path": "resonance",
+      "planning": 0.5,
+      "risk": 0.4,
+      "greed": 0.3
+     },
+     "undermuck": {
+      "name": "The Undermuck",
+      "race": "goblin",
+      "colour": [
+       100,
+       90,
+       50
+      ],
+      "path": "reclamation",
+      "planning": 0.4,
+      "risk": 0.5,
+      "greed": 0.3
+     },
+     "sealwrights": {
+      "name": "The Sealwrights",
+      "race": "human",
+      "colour": [
+       120,
+       40,
+       70
+      ],
+      "path": "ledgercraft",
+      "planning": 0.9,
+      "risk": 0.2,
+      "greed": 0.5
+     },
+     "longstep_couriers": {
+      "name": "The Longstep Couriers",
+      "race": "halfling",
+      "colour": [
+       210,
+       150,
+       90
+      ],
+      "path": "waykeeping",
+      "planning": 0.7,
+      "risk": 0.5,
+      "greed": 0.5
+     },
+     "sleepless": {
+      "name": "The Sleepless",
+      "race": "naga",
+      "colour": [
+       50,
+       50,
+       120
+      ],
+      "path": "dreamcraft",
+      "planning": 0.4,
+      "risk": 0.6,
+      "greed": 0.3
+     }
+    },
+    "FEWEST": 3,
+    "LAND_INFLUENCES": [
+     [
+      "coast",
+      "planning",
+      0.1
+     ],
+     [
+      "rivers",
+      "risk",
+      0.1
+     ],
+     [
+      "highlands",
+      "risk",
+      -0.2
+     ],
+     [
+      "lowlands",
+      "greed",
+      -0.1
+     ]
+    ],
+    "METAL_DEPOSITS": 6,
+    "METAL_NEED": {
+     "handcraft": 1.0,
+     "attunement": 1.5,
+     "mechanism": 1.7,
+     "forgecraft": 2.0,
+     "tidecraft": 1.0,
+     "ledgercraft": 0.8,
+     "whispercraft": 0.5,
+     "wilding": 0.6,
+     "physic": 0.8,
+     "gravecraft": 0.7,
+     "resonance": 1.0,
+     "transmutation": 1.5,
+     "waykeeping": 0.8,
+     "reclamation": 0.9,
+     "dreamcraft": 0.6
+    },
+    "PATHS": {
+     "handcraft": {
+      "suits": {
+       "greed": "low"
+      }
+     },
+     "attunement": {
+      "suits": {
+       "planning": "low",
+       "risk": "high"
+      },
+      "marks_land": true,
+      "works_rituals": true
+     },
+     "mechanism": {
+      "suits": {
+       "planning": "high"
+      }
+     },
+     "forgecraft": {
+      "suits": {
+       "risk": "high",
+       "greed": "high"
+      }
+     },
+     "tidecraft": {
+      "suits": {
+       "planning": "high",
+       "risk": "low"
+      }
+     },
+     "ledgercraft": {
+      "suits": {
+       "planning": "high",
+       "greed": "high"
+      }
+     },
+     "whispercraft": {
+      "suits": {
+       "risk": "low",
+       "greed": "high"
+      }
+     },
+     "wilding": {
+      "suits": {
+       "planning": "low",
+       "greed": "low"
+      }
+     },
+     "physic": {
+      "suits": {
+       "risk": "low",
+       "greed": "low"
+      }
+     },
+     "gravecraft": {
+      "suits": {
+       "planning": "low",
+       "risk": "low"
+      }
+     },
+     "resonance": {
+      "suits": {
+       "risk": "high",
+       "greed": "low"
+      }
+     },
+     "transmutation": {
+      "suits": {
+       "planning": "high",
+       "risk": "high"
+      }
+     },
+     "waykeeping": {
+      "suits": {
+       "planning": "high",
+       "greed": "low"
+      }
+     },
+     "reclamation": {
+      "suits": {
+       "planning": "high",
+       "greed": "low",
+       "risk": "low"
+      }
+     },
+     "dreamcraft": {
+      "suits": {
+       "planning": "low",
+       "risk": "high",
+       "greed": "low"
+      }
+     }
+    },
+    "PATH_HARVEST": {
+     "handcraft": 1.3,
+     "attunement": 1.2,
+     "mechanism": 1.1,
+     "forgecraft": 1.1,
+     "tidecraft": 1.3,
+     "ledgercraft": 1.1,
+     "whispercraft": 1.1,
+     "wilding": 1.2,
+     "physic": 1.2,
+     "gravecraft": 1.1,
+     "resonance": 1.15,
+     "transmutation": 1.15,
+     "waykeeping": 1.15,
+     "reclamation": 1.35,
+     "dreamcraft": 1.1
+    },
+    "PATH_LAND": {
+     "attunement": {
+      "alpine_meadow": "meadow",
+      "permafrost": "meadow",
+      "tundra": "meadow"
+     },
+     "mechanism": {
+      "alpine_meadow": "temperate_forest",
+      "permafrost": "temperate_forest",
+      "tundra": "temperate_forest"
+     },
+     "handcraft": {
+      "alpine_meadow": "temperate_forest",
+      "permafrost": "temperate_forest",
+      "tundra": "temperate_forest"
+     },
+     "forgecraft": {
+      "alpine_meadow": "temperate_forest",
+      "permafrost": "temperate_forest",
+      "tundra": "temperate_forest"
+     },
+     "tidecraft": {
+      "alpine_meadow": "temperate_forest",
+      "permafrost": "temperate_forest",
+      "tundra": "temperate_forest",
+      "desert_scrub": "mediterranean",
+      "cold_desert": "tundra"
+     },
+     "ledgercraft": {
+      "alpine_meadow": "temperate_forest",
+      "permafrost": "temperate_forest",
+      "tundra": "temperate_forest"
+     },
+     "whispercraft": {
+      "alpine_meadow": "temperate_forest",
+      "permafrost": "temperate_forest",
+      "tundra": "temperate_forest"
+     },
+     "wilding": {
+      "alpine_meadow": "meadow",
+      "permafrost": "meadow",
+      "tundra": "meadow",
+      "taiga": "meadow"
+     },
+     "physic": {
+      "alpine_meadow": "temperate_forest",
+      "permafrost": "temperate_forest",
+      "tundra": "temperate_forest"
+     },
+     "gravecraft": {
+      "alpine_meadow": "temperate_forest",
+      "permafrost": "temperate_forest",
+      "tundra": "temperate_forest"
+     },
+     "resonance": {
+      "alpine_meadow": "temperate_forest",
+      "permafrost": "temperate_forest",
+      "tundra": "temperate_forest"
+     },
+     "transmutation": {
+      "alpine_meadow": "temperate_forest",
+      "permafrost": "temperate_forest",
+      "tundra": "temperate_forest"
+     },
+     "waykeeping": {
+      "alpine_meadow": "temperate_forest",
+      "permafrost": "temperate_forest",
+      "tundra": "temperate_forest"
+     },
+     "reclamation": {
+      "alpine_meadow": "temperate_forest",
+      "permafrost": "temperate_forest",
+      "tundra": "temperate_forest",
+      "bog": "meadow",
+      "swamp": "fen"
+     },
+     "dreamcraft": {
+      "alpine_meadow": "temperate_forest",
+      "permafrost": "temperate_forest",
+      "tundra": "temperate_forest"
+     }
+    },
+    "PATH_NAMES": {},
+    "PATH_OPINIONS": {
+     "handcraft": {
+      "handcraft": 0.7,
+      "attunement": -0.3,
+      "mechanism": -0.5
+     },
+     "attunement": {
+      "handcraft": 0.2,
+      "attunement": 0.5,
+      "mechanism": -0.7,
+      "dreamcraft": 0.2
+     },
+     "mechanism": {
+      "handcraft": 0.2,
+      "attunement": -0.7,
+      "mechanism": 0.5,
+      "forgecraft": 0.3,
+      "wilding": -0.2
+     },
+     "forgecraft": {
+      "forgecraft": 0.5,
+      "mechanism": 0.3
+     },
+     "tidecraft": {
+      "tidecraft": 0.5,
+      "waykeeping": 0.3
+     },
+     "ledgercraft": {
+      "ledgercraft": 0.5,
+      "whispercraft": -0.2
+     },
+     "whispercraft": {
+      "whispercraft": 0.5,
+      "ledgercraft": 0.3
+     },
+     "wilding": {
+      "wilding": 0.5,
+      "mechanism": -0.4
+     },
+     "physic": {
+      "physic": 0.5,
+      "gravecraft": -0.6
+     },
+     "gravecraft": {
+      "gravecraft": 0.5,
+      "physic": -0.5
+     },
+     "resonance": {
+      "resonance": 0.5,
+      "gravecraft": -0.3
+     },
+     "transmutation": {
+      "transmutation": 0.5,
+      "attunement": 0.2,
+      "mechanism": 0.2
+     },
+     "waykeeping": {
+      "waykeeping": 0.5,
+      "tidecraft": 0.3
+     },
+     "reclamation": {
+      "reclamation": 0.5
+     },
+     "dreamcraft": {
+      "dreamcraft": 0.5,
+      "attunement": 0.3
+     }
+    },
+    "PATH_OPINION_DEFAULT": 0.0,
+    "PATH_STEADINESS": {
+     "handcraft": 0.5,
+     "attunement": 0.7,
+     "mechanism": 0.3,
+     "forgecraft": 0.6,
+     "tidecraft": 0.4,
+     "ledgercraft": 0.5,
+     "whispercraft": 0.7,
+     "wilding": 0.6,
+     "physic": 0.6,
+     "gravecraft": 0.7,
+     "resonance": 0.6,
+     "transmutation": 0.5,
+     "waykeeping": 0.5,
+     "reclamation": 0.6,
+     "dreamcraft": 0.7
+    },
+    "RELATIONS": [
+     [
+      -1.0,
+      "hostile"
+     ],
+     [
+      -0.6,
+      "distrustful"
+     ],
+     [
+      -0.3,
+      "wary"
+     ],
+     [
+      0.0,
+      "neutral"
+     ],
+     [
+      0.5,
+      "friendly"
+     ],
+     [
+      0.8,
+      "allied"
+     ]
+    ],
+    "TOWNS_PER_FACTION": 5
+   },
+   "happenings": {
+    "ERA_ENDERS": [
+     "faction_fell",
+     "metal_found",
+     "metal_found_mine_grows",
+     "threat_rises"
+    ],
+    "ERA_END_CHANCE": 0.0,
+    "ERA_YEARS": [
+     40,
+     120
+    ],
+    "HAPPENINGS": {
+     "the_plague_of_stalled_breath": {
+      "chance": 0.0008,
+      "reach": "region",
+      "radius": 4,
+      "spread": 0,
+      "years": 3,
+      "effects": {
+       "population": -0.25
+      }
+     },
+     "Routes_turn_to_mud": {
+      "chance": 0.0012,
+      "reach": "routes",
+      "spread": 0.15,
+      "years": 2,
+      "effects": {
+       "trade": 0.4
+      }
+     },
+     "the_long_winter": {
+      "chance": 0.002,
+      "reach": "world",
+      "years": 6,
+      "effects": {
+       "population": -0.3,
+       "harvest": 0.5
+      }
+     },
+     "the_great_dying": {
+      "chance": 0.0003,
+      "reach": "world",
+      "years": 15,
+      "effects": {
+       "population": -0.995,
+       "growth": 0.0
+      }
+     }
+    },
+    "TEMPERS": {
+     "steady": {
+      "weight": 2.0,
+      "chance": 1.0
+     },
+     "peaceful": {
+      "weight": 1.0,
+      "chance": 0.5,
+      "war": 0.15,
+      "splits": 0.3
+     },
+     "troubled": {
+      "weight": 1.0,
+      "chance": 2.0,
+      "war": 1.5,
+      "splits": 1.5
+     }
+    }
+   },
+   "history": {
+    "GROWTH_RATE": 0.01,
+    "HARVEST_VARIATION": 0.4,
+    "HISTORY_GRID": 128,
+    "MEMORY_HALF_LIFE": 50,
+    "RUIN_POPULATION": 50,
+    "RUIN_YEARS": 10,
+    "STARVATION": 0.1,
+    "TRADE_WARMTH": 0.05
+   },
+   "leaders": {
+    "DEFAULT_GOVERNMENT": "balanced heritage",
+    "GOVERNMENTS": {
+     "balanced heritage": {
+      "succession": "heir",
+      "tolerance": 1.0,
+      "ruler_power": 0.5,
+      "after_revolution": [
+       "balanced heritage"
+      ]
+     },
+     "feudal bloodline": {
+      "succession": "strongest",
+      "tolerance": 1.0,
+      "ruler_power": 0.8,
+      "after_revolution": [
+       "feudal bloodline"
+      ]
+     },
+     "autocratic might": {
+      "succession": "heir",
+      "tolerance": 1.0,
+      "ruler_power": 0.3,
+      "after_revolution": [
+       "autocratic might"
+      ]
+     }
+    },
+    "GRIEVANCE_HALF_LIFE": 20,
+    "GRIEVANCE_WEIGHTS": {
+     "hunger": 3.0,
+     "shortages": 2.0,
+     "losses": 1.5,
+     "ruler_against_values": 2.5
+    },
+    "STARTING_GOVERNMENTS": {
+     "hearthfall_commons": "balanced heritage",
+     "glowgrave_conclave": "autocratic might",
+     "vernier_guild": "feudal bloodline"
+    }
+   },
+   "learning": {
+    "FORGET_CHANCE": 0.02,
+    "HYBRIDS": {
+     "runecarving": [
+      "handcraft",
+      "attunement"
+     ],
+     "artifice": [
+      "attunement",
+      "mechanism"
+     ],
+     "shadowbroking": [
+      "ledgercraft",
+      "whispercraft"
+     ],
+     "threshold_physic": [
+      "physic",
+      "gravecraft"
+     ],
+     "pilotage": [
+      "tidecraft",
+      "waykeeping"
+     ],
+     "beastcraft": [
+      "wilding",
+      "mechanism"
+     ]
+    },
+    "LEARNED_SKILL": 0.5,
+    "LEARN_BY_ALLIANCE": 0.002,
+    "LEARN_BY_BORDER": 0.0005,
+    "LEARN_BY_CONQUEST": 0.03,
+    "LEARN_BY_EFFORT": 0.0002,
+    "LEARN_BY_TRADE": 0.0008,
+    "PATHS_AS_SKILLS": true,
+    "START_PATHS": {
+     "deephands": [
+      "handcraft",
+      "mechanism"
+     ],
+     "sluice_assembly": [
+      "mechanism",
+      "handcraft"
+     ],
+     "salvehand": [
+      "handcraft",
+      "mechanism"
+     ],
+     "quillmark": [
+      "handcraft"
+     ],
+     "loomfast": [
+      "mechanism"
+     ],
+     "saltmarch_league": [
+      "handcraft"
+     ],
+     "ashwake": [
+      "handcraft"
+     ],
+     "whisperward": [
+      "handcraft"
+     ],
+     "grimtide": [
+      "handcraft"
+     ],
+     "glassmakers_enclave": [
+      "attunement"
+     ],
+     "rootway_wardens": [
+      "handcraft"
+     ],
+     "coinhouse": [
+      "mechanism"
+     ],
+     "hollow_choir": [
+      "attunement"
+     ],
+     "widegrass_riders": [
+      "handcraft"
+     ],
+     "brinewalkers": [
+      "handcraft"
+     ],
+     "frostmoor": [
+      "handcraft"
+     ],
+     "censer_road": [
+      "handcraft"
+     ],
+     "resonant": [
+      "attunement"
+     ],
+     "undermuck": [
+      "mechanism"
+     ],
+     "sealwrights": [
+      "handcraft"
+     ],
+     "longstep_couriers": [
+      "handcraft"
+     ],
+     "sleepless": [
+      "attunement"
+     ]
+    }
+   },
+   "migration": {
+    "CROWDED": 0.7,
+    "DRIFT_HALF_LIFE": 30,
+    "HUNGRY_YEARS": 3,
+    "MIGRANTS": 0.2,
+    "MIGRATION": 0.1,
+    "MOST_SETTLEMENTS": 135,
+    "REACH": 40
+   },
+   "settlement": {
+    "BIOME_FOOD": {
+     "glacier": 0.0,
+     "ice_field": 0.0,
+     "permafrost": 0.05,
+     "bog": 0.15,
+     "tundra": 0.1,
+     "fen": 0.3,
+     "marsh": 0.4,
+     "swamp": 0.3,
+     "cold_desert": 0.05,
+     "desert": 0.05,
+     "desert_scrub": 0.15,
+     "alpine_meadow": 0.25,
+     "taiga": 0.25,
+     "veldt": 0.5,
+     "prairie": 0.7,
+     "temperate_rainforest": 0.35,
+     "meadow": 0.75,
+     "temperate_forest": 0.5,
+     "mediterranean": 0.55,
+     "savanna": 0.45,
+     "rainforest": 0.35,
+     "monsoon_forest": 0.5
+    },
+    "BORDER_HEIGHT_COST": 4,
+    "BORDER_RIVER_COST": 3,
+    "COMFORTABLE_TEMPERATURE": [
+     5,
+     25
+    ],
+    "DEFAULT_FOOD": 0.3,
+    "ICONS": {
+     "hamlet": [
+      "#"
+     ],
+     "settlement": [
+      "##",
+      "##"
+     ],
+     "village": [
+      "###",
+      "###",
+      "###"
+     ],
+     "town": [
+      "####",
+      "####",
+      "####",
+      "####"
+     ],
+     "city": [
+      "##########",
+      "##########",
+      "##########",
+      "##########",
+      "##########",
+      "##########",
+      "##########",
+      "##########",
+      "##########",
+      "##########"
+     ]
+    },
+    "ICON_FACTION_FOLDER": "icons/factions",
+    "ICON_FOLDER": "icons",
+    "ICON_MAP_SIZE": 1024,
+    "ICON_OUTLINE": [
+     30,
+     30,
+     30
+    ],
+    "ICON_PEOPLES": {
+     "human": "farmers",
+     "elf": "wizards",
+     "gnome": "technologists"
+    },
+    "ICON_RACE_FOLDER": "icons/races",
+    "MAX_SETTLEMENTS": 30,
+    "MIN_DISTANCE": 12,
+    "MIN_SITE_SCORE": 0.4,
+    "PEOPLE_FOOD": {
+     "human": {
+      "glacier": 0.0,
+      "ice_field": 0.0,
+      "permafrost": 0.15,
+      "bog": 0.35,
+      "tundra": 0.1,
+      "fen": 0.5,
+      "marsh": 0.6,
+      "swamp": 0.5,
+      "cold_desert": 0.15,
+      "desert": 0.15,
+      "desert_scrub": 0.25,
+      "alpine_meadow": 0.35,
+      "taiga": 0.25,
+      "veldt": 0.7,
+      "prairie": 0.8,
+      "temperate_rainforest": 0.35,
+      "meadow": 0.85,
+      "temperate_forest": 0.5,
+      "mediterranean": 0.75,
+      "savanna": 0.65,
+      "rainforest": 0.35,
+      "monsoon_forest": 0.5
+     },
+     "elf": {
+      "glacier": 0.0,
+      "ice_field": 0.0,
+      "permafrost": 0.35,
+      "bog": 0.25,
+      "tundra": 0.1,
+      "fen": 0.4,
+      "marsh": 0.5,
+      "swamp": 0.4,
+      "cold_desert": 0.15,
+      "desert": 0.15,
+      "desert_scrub": 0.25,
+      "alpine_meadow": 0.55,
+      "taiga": 0.25,
+      "veldt": 0.5,
+      "prairie": 0.6,
+      "temperate_rainforest": 0.35,
+      "meadow": 0.65,
+      "temperate_forest": 0.5,
+      "mediterranean": 0.65,
+      "savanna": 0.45,
+      "rainforest": 0.25,
+      "monsoon_forest": 0.4
+     },
+     "gnome": {
+      "glacier": 0.0,
+      "ice_field": 0.0,
+      "permafrost": 0.35,
+      "bog": 0.15,
+      "tundra": 0.1,
+      "fen": 0.3,
+      "marsh": 0.4,
+      "swamp": 0.3,
+      "cold_desert": 0.15,
+      "desert": 0.15,
+      "desert_scrub": 0.25,
+      "alpine_meadow": 0.55,
+      "taiga": 0.05,
+      "veldt": 0.5,
+      "prairie": 0.5,
+      "temperate_rainforest": 0.15,
+      "meadow": 0.55,
+      "temperate_forest": 0.3,
+      "mediterranean": 0.65,
+      "savanna": 0.45,
+      "rainforest": 0.25,
+      "monsoon_forest": 0.4
+     }
+    },
+    "PEOPLE_PER_FOOD": 40,
+    "PEOPLE_SITES": {
+     "human": {
+      "weights": {
+       "fresh_water": 2,
+       "food": 3,
+       "away_from_others": 1
+      },
+      "extra": 10
+     },
+     "elf": {
+      "weights": {
+       "high_ground": 3,
+       "near_metal": 2,
+       "fresh_water": 1,
+       "food": 1
+      },
+      "extra": 10
+     },
+     "gnome": {
+      "weights": {
+       "fresh_water": 1,
+       "food": 2,
+       "away_from_others": 3
+      },
+      "extra": 10
+     }
+    },
+    "PICTURES_FROM": 512,
+    "RUIN_DIM": 0.6,
+    "SETTLEMENT_SIZES": [
+     [
+      0,
+      "hamlet",
+      1,
+      [
+       255,
+       0,
+       0
+      ]
+     ],
+     [
+      1000,
+      "settlement",
+      2,
+      [
+       255,
+       128,
+       0
+      ]
+     ],
+     [
+      2000,
+      "village",
+      3,
+      [
+       130,
+       64,
+       24
+      ]
+     ],
+     [
+      3000,
+      "town",
+      4,
+      [
+       66,
+       76,
+       158
+      ]
+     ],
+     [
+      5000,
+      "city",
+      10,
+      [
+       158,
+       51,
+       93
+      ]
+     ]
+    ],
+    "SITE_WEIGHTS": {
+     "fresh_water": 2,
+     "food": 3,
+     "climate": 1,
+     "flat_land": 1,
+     "coast": 1
+    }
+   },
+   "splits": {
+    "BELIEF_CHANCE": 0.0,
+    "CAPITAL_CHOICE": "weighted",
+    "CAPITAL_MOVE_CHANCE": 0.001,
+    "DISTANCE": 0.05,
+    "DIVISION": 0.03,
+    "EMPIRE_HOLD": 0.3,
+    "EMPIRE_JOIN": 0.05,
+    "EMPIRE_JOIN_OPINION": 0.0,
+    "EMPIRE_SHARE": 0.35,
+    "EMPIRE_SMALL": 3,
+    "FAR": 125,
+    "GOVERNMENT_CHANCE": 0.0,
+    "LEADER_SPLIT": 0.6,
+    "MAX_FACTIONS": 20,
+    "MERGE_OPINION": 0.55,
+    "OFFSHOOT_CHANCE": 0.0,
+    "PATH_SPREAD": 0.0,
+    "SPLIT_NAMES": {},
+    "STANCES": {
+     "hostile": {
+      "chance": 0.0,
+      "memory": -0.5
+     },
+     "wary": {
+      "chance": 0.0,
+      "memory": -0.2
+     },
+     "friendly": {
+      "chance": 0.0,
+      "memory": 0.3
+     }
+    },
+    "TRAIT_SPREAD": 0.0
+   },
+   "threats": {
+    "RISE_CHANCE": 0.01,
+    "THREATS_AT_START": 3,
+    "THREAT_KINDS": {
+     "dragon": {
+      "weight": 1,
+      "biomes": [
+       "glacier",
+       "alpine_meadow",
+       "desert",
+       "cold_desert"
+      ],
+      "strength": [
+       4000,
+       9000
+      ],
+      "reach": 50,
+      "raid": 0.12,
+      "deaths": [
+       0.1,
+       0.25
+      ],
+      "harvest": 0.5,
+      "slain": 0.15,
+      "sleep": 0.03,
+      "sleep_years": [
+       40,
+       120
+      ],
+      "move": 0.01
+     },
+     "lich": {
+      "weight": 1,
+      "biomes": [
+       "tundra",
+       "permafrost",
+       "bog"
+      ],
+      "strength": [
+       2500,
+       5000
+      ],
+      "reach": 35,
+      "raid": 0.1,
+      "deaths": [
+       0.05,
+       0.2
+      ],
+      "harvest": 0.7,
+      "slain": 0.1,
+      "sleep": 0.02,
+      "sleep_years": [
+       50,
+       150
+      ]
+     },
+     "vampire": {
+      "weight": 2,
+      "biomes": [
+       "temperate_forest",
+       "taiga",
+       "fen"
+      ],
+      "strength": [
+       800,
+       2000
+      ],
+      "reach": 25,
+      "raid": 0.15,
+      "deaths": [
+       0.03,
+       0.08
+      ],
+      "harvest": 0.95,
+      "slain": 0.25,
+      "move": 0.05
+     },
+     "werewolf": {
+      "weight": 3,
+      "biomes": [
+       "temperate_forest",
+       "taiga",
+       "meadow"
+      ],
+      "strength": [
+       400,
+       1200
+      ],
+      "reach": 20,
+      "raid": 0.2,
+      "deaths": [
+       0.02,
+       0.06
+      ],
+      "slain": 0.35,
+      "move": 0.08
+     },
+     "wraith": {
+      "weight": 2,
+      "biomes": [
+       "bog",
+       "fen",
+       "tundra"
+      ],
+      "strength": [
+       600,
+       1500
+      ],
+      "reach": 20,
+      "raid": 0.12,
+      "deaths": [
+       0.02,
+       0.05
+      ],
+      "harvest": 0.9,
+      "slain": 0.2,
+      "fade": 0.02
+     },
+     "wight": {
+      "weight": 2,
+      "biomes": [
+       "tundra",
+       "permafrost",
+       "alpine_meadow"
+      ],
+      "strength": [
+       700,
+       1600
+      ],
+      "reach": 20,
+      "raid": 0.12,
+      "deaths": [
+       0.03,
+       0.06
+      ],
+      "slain": 0.3
+     },
+     "banshee": {
+      "weight": 2,
+      "biomes": [
+       "marsh",
+       "bog",
+       "meadow"
+      ],
+      "strength": [
+       300,
+       800
+      ],
+      "reach": 15,
+      "raid": 0.1,
+      "deaths": [
+       0.01,
+       0.04
+      ],
+      "harvest": 0.9,
+      "slain": 0.3,
+      "fade": 0.03
+     },
+     "ghoul": {
+      "weight": 3,
+      "biomes": [
+       "desert",
+       "desert_scrub",
+       "swamp"
+      ],
+      "strength": [
+       400,
+       1000
+      ],
+      "reach": 20,
+      "raid": 0.15,
+      "deaths": [
+       0.02,
+       0.05
+      ],
+      "slain": 0.4
+     },
+     "zombie": {
+      "weight": 3,
+      "biomes": [
+       "swamp",
+       "marsh",
+       "rainforest"
+      ],
+      "strength": [
+       500,
+       1500
+      ],
+      "reach": 15,
+      "raid": 0.2,
+      "deaths": [
+       0.02,
+       0.06
+      ],
+      "harvest": 0.8,
+      "slain": 0.5,
+      "fade": 0.04
+     }
+    }
+   },
+   "trade": {
+    "GOODS": {
+     "timber": {
+      "made_by": {
+       "handcraft": 1.5,
+       "tidecraft": 1.0,
+       "wilding": 1.0,
+       "reclamation": 0.8
+      },
+      "need": 0.6
+     },
+     "leather": {
+      "made_by": {
+       "handcraft": 1.5,
+       "wilding": 1.5,
+       "waykeeping": 1.0,
+       "reclamation": 0.8,
+       "physic": 0.8
+      },
+      "need": 0.4
+     },
+     "grain": {
+      "biomes": {
+       "prairie": 1.0,
+       "meadow": 0.9,
+       "veldt": 0.6,
+       "savanna": 0.5
+      },
+      "need": 1.0,
+      "food": true
+     },
+     "herbs": {
+      "biomes": {
+       "swamp": 1.0,
+       "marsh": 0.8,
+       "fen": 0.6,
+       "mediterranean": 0.5
+      },
+      "need": 0.5,
+      "food": true
+     },
+     "spices": {
+      "biomes": {
+       "savanna": 1.0,
+       "monsoon_forest": 0.6,
+       "desert_scrub": 0.5
+      },
+      "need": 0.3,
+      "food": true
+     },
+     "runescripts": {
+      "made_by": {
+       "attunement": 1.0,
+       "gravecraft": 0.8,
+       "resonance": 0.8,
+       "whispercraft": 0.6
+      },
+      "need": 0.2
+     },
+     "crystals": {
+      "made_by": {
+       "attunement": 1.0,
+       "transmutation": 0.8,
+       "dreamcraft": 0.8
+      },
+      "need": 0.4
+     },
+     "ironware": {
+      "made_by": {
+       "mechanism": 2.0,
+       "forgecraft": 1.5
+      },
+      "uses": {
+       "metal": 0.5
+      },
+      "need": 1.0
+     },
+     "clockparts": {
+      "made_by": {
+       "mechanism": 1.5,
+       "waykeeping": 0.8,
+       "ledgercraft": 0.8
+      },
+      "uses": {
+       "metal": 0.3
+      },
+      "need": 0.8
+     },
+     "deepsteel": {
+      "made_by": {
+       "deephands": 1.0,
+       "forgecraft": 0.5
+      },
+      "uses": {
+       "metal": 0.5
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "carved_gems": {
+      "made_by": {
+       "deephands": 1.0
+      },
+      "made_on": [
+       "mountains",
+       "volcanoes"
+      ],
+      "need": 0.2,
+      "wanted": true
+     },
+     "preserved_fish": {
+      "made_by": {
+       "saltmarch_league": 1.0,
+       "tidecraft": 0.5
+      },
+      "made_on": [
+       "coast"
+      ],
+      "need": 0.2,
+      "wanted": true
+     },
+     "navigation_charts": {
+      "made_by": {
+       "saltmarch_league": 1.0,
+       "waykeeping": 0.5
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "obsidian_blades": {
+      "made_by": {
+       "ashwake": 1.0,
+       "forgecraft": 0.5
+      },
+      "made_on": [
+       "volcanoes"
+      ],
+      "need": 0.2,
+      "wanted": true
+     },
+     "geothermal_glass": {
+      "made_by": {
+       "ashwake": 1.0,
+       "forgecraft": 0.5
+      },
+      "made_on": [
+       "volcanoes"
+      ],
+      "need": 0.2,
+      "wanted": true
+     },
+     "sealed_secrets": {
+      "made_by": {
+       "whisperward": 1.0,
+       "whispercraft": 0.5
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "cipher_keys": {
+      "made_by": {
+       "whisperward": 1.0,
+       "whispercraft": 0.5
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "healing_spores": {
+      "made_by": {
+       "mycelian_circle": 1.0,
+       "physic": 0.5
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "symbiotic_armor": {
+      "made_by": {
+       "mycelian_circle": 1.0
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "star_charts": {
+      "made_by": {
+       "skywatch": 1.0,
+       "waykeeping": 0.5
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "feathersteel": {
+      "made_by": {
+       "skywatch": 1.0
+      },
+      "uses": {
+       "metal": 0.3
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "war_beasts": {
+      "made_by": {
+       "grimtide": 1.0,
+       "wilding": 0.5
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "battle_contracts": {
+      "made_by": {
+       "grimtide": 1.0
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "purified_reagents": {
+      "made_by": {
+       "glassmakers_enclave": 1.0,
+       "transmutation": 0.5
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "mirrorglass": {
+      "made_by": {
+       "glassmakers_enclave": 1.0,
+       "transmutation": 0.5
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "rare_herbs": {
+      "made_by": {
+       "rootway_wardens": 1.0,
+       "wilding": 0.5
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "wayfinders_compasses": {
+      "made_by": {
+       "rootway_wardens": 1.0,
+       "waykeeping": 0.5
+      },
+      "uses": {
+       "metal": 0.1
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "minted_currency": {
+      "made_by": {
+       "coinhouse": 1.0,
+       "ledgercraft": 0.5
+      },
+      "uses": {
+       "metal": 0.5
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "insurance_ledgers": {
+      "made_by": {
+       "coinhouse": 1.0,
+       "ledgercraft": 0.5
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "soul_bound_relics": {
+      "made_by": {
+       "hollow_choir": 1.0,
+       "gravecraft": 0.5
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "ancestor_consultation": {
+      "made_by": {
+       "hollow_choir": 1.0,
+       "gravecraft": 0.5
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "repair_services": {
+      "made_by": {
+       "stitched": 1.0
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "artifact_cores": {
+      "made_by": {
+       "stitched": 1.0
+      },
+      "uses": {
+       "metal": 0.4
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "fresh_water": {
+      "made_by": {
+       "sluice_assembly": 1.0,
+       "tidecraft": 0.5
+      },
+      "made_on": [
+       "lowland"
+      ],
+      "need": 0.2,
+      "wanted": true
+     },
+     "irrigation_rights": {
+      "made_by": {
+       "sluice_assembly": 1.0
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "aged_spirits": {
+      "made_by": {
+       "emberdraught": 1.0,
+       "transmutation": 0.5
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "live_yeast_cultures": {
+      "made_by": {
+       "emberdraught": 1.0
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "bolt_cloth": {
+      "made_by": {
+       "loomfast": 1.0
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "mordant_dyes": {
+      "made_by": {
+       "loomfast": 1.0
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "rag_paper": {
+      "made_by": {
+       "quillmark": 1.0
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "printed_broadsheets": {
+      "made_by": {
+       "quillmark": 1.0
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "curative_tinctures": {
+      "made_by": {
+       "salvehand": 1.0,
+       "physic": 0.5
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "prosthetic_limbs": {
+      "made_by": {
+       "salvehand": 1.0,
+       "physic": 0.5
+      },
+      "uses": {
+       "metal": 0.2
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "warhorses": {
+      "made_by": {
+       "widegrass_riders": 1.0,
+       "wilding": 0.5
+      },
+      "made_on": [
+       "lowland"
+      ],
+      "need": 0.2,
+      "wanted": true
+     },
+     "wool_felt": {
+      "made_by": {
+       "widegrass_riders": 1.0,
+       "wilding": 0.5
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "glazed_tile": {
+      "made_by": {
+       "kilnrow": 1.0
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "enamel_flux": {
+      "made_by": {
+       "kilnrow": 1.0
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "rock_salt": {
+      "made_by": {
+       "brinewalkers": 1.0,
+       "tidecraft": 0.5
+      },
+      "made_on": [
+       "salt_flats",
+       "dry",
+       "coast"
+      ],
+      "need": 0.2,
+      "wanted": true
+     },
+     "concentrated_brine": {
+      "made_by": {
+       "brinewalkers": 1.0
+      },
+      "made_on": [
+       "salt_flats",
+       "dry",
+       "coast"
+      ],
+      "need": 0.2,
+      "wanted": true
+     },
+     "block_ice": {
+      "made_by": {
+       "frostmoor": 1.0,
+       "tidecraft": 0.5
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "preservation_vault_time": {
+      "made_by": {
+       "frostmoor": 1.0
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "temple_incense": {
+      "made_by": {
+       "censer_road": 1.0
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "essential_oils": {
+      "made_by": {
+       "censer_road": 1.0
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "instruments": {
+      "made_by": {
+       "resonant": 1.0,
+       "resonance": 0.5
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "composed_works": {
+      "made_by": {
+       "resonant": 1.0,
+       "resonance": 0.5
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "nitre_fertilizer": {
+      "made_by": {
+       "undermuck": 1.0,
+       "reclamation": 0.5
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "biogas": {
+      "made_by": {
+       "undermuck": 1.0,
+       "reclamation": 0.5
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "arbitration_rulings": {
+      "made_by": {
+       "sealwrights": 1.0,
+       "ledgercraft": 0.5
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "notarial_seals": {
+      "made_by": {
+       "sealwrights": 1.0,
+       "ledgercraft": 0.5
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "sealed_parcels": {
+      "made_by": {
+       "longstep_couriers": 1.0,
+       "waykeeping": 0.5
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "route_monopolies": {
+      "made_by": {
+       "longstep_couriers": 1.0
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "dreamthread": {
+      "made_by": {
+       "sleepless": 1.0,
+       "dreamcraft": 0.5
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "sleep_tonics": {
+      "made_by": {
+       "sleepless": 1.0,
+       "dreamcraft": 0.5
+      },
+      "need": 0.2,
+      "wanted": true
+     },
+     "resonance_engines": {
+      "learned": 1.0,
+      "made_by": {
+       "artifice": 1.0
+      },
+      "uses": {
+       "metal": 0.2
+      },
+      "need": 0.0,
+      "wanted": true
+     },
+     "runecarved_gear": {
+      "made_by": {
+       "runecarving": 0.8
+      },
+      "need": 0.0,
+      "wanted": true
+     },
+     "grey_credit": {
+      "made_by": {
+       "shadowbroking": 0.8
+      },
+      "need": 0.0,
+      "wanted": true
+     },
+     "revival_draughts": {
+      "made_by": {
+       "threshold_physic": 0.6
+      },
+      "need": 0.0,
+      "wanted": true
+     },
+     "sea_charters": {
+      "made_by": {
+       "pilotage": 0.8
+      },
+      "made_on": [
+       "coast"
+      ],
+      "need": 0.0,
+      "wanted": true
+     },
+     "armoured_war_beasts": {
+      "made_by": {
+       "beastcraft": 0.6
+      },
+      "uses": {
+       "metal": 0.3
+      },
+      "need": 0.0,
+      "wanted": true
+     }
+    },
+    "MIN_OPINION_TO_TRADE": -0.6,
+    "PEOPLE_GOODS": {},
+    "ROUTE_COLOURS": {
+     "road": [
+      40,
+      25,
+      10
+     ],
+     "river": [
+      255,
+      255,
+      255
+     ],
+     "sea": [
+      255,
+      220,
+      0
+     ]
+    },
+    "TRADE_HANDS": 4,
+    "TRADE_REACH": 60
+   },
+   "war": {
+    "ALLY_OPINION": 0.7,
+    "BATTLE_DEATHS": [
+     0.02,
+     0.08
+    ],
+    "JOIN_KIN": 0.5,
+    "PEACE_WEARINESS": [
+     0.01,
+     0.3
+    ],
+    "RISE_AGAIN": 0.7,
+    "SIZE_IN_BATTLE": 0.2,
+    "WARLIKE": 0.04,
+    "WAR_WEIGHTS": {
+     "hatred": 1.0,
+     "want": 1.0,
+     "ambition": 0.5,
+     "belief": 0.6
+    }
+   }
+  },
+  "towns": [
+   {
+    "people": 1841.423267,
+    "size": 1,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 7.2
+    }
+   },
+   {
+    "people": 2035.175289,
+    "size": 2,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 3.84
+    }
+   },
+   {
+    "people": 2344.730691,
+    "size": 2,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 8.84
+    }
+   },
+   {
+    "people": 0.0,
+    "size": 0,
+    "low_years": 10,
+    "hungry": 0,
+    "yields": {
+     "grain": 2.94,
+     "herbs": 0.6,
+     "spices": 1.3
+    }
+   },
+   {
+    "people": 3519.303703,
+    "size": 3,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 2.0,
+     "herbs": 4.7,
+     "spices": 0.4
+    }
+   },
+   {
+    "people": 30.319272,
+    "size": 0,
+    "low_years": 4,
+    "hungry": 9,
+    "yields": {}
+   },
+   {
+    "people": 0.0,
+    "size": 0,
+    "low_years": 10,
+    "hungry": 18,
+    "yields": {}
+   },
+   {
+    "people": 0.0,
+    "size": 0,
+    "low_years": 10,
+    "hungry": 0,
+    "yields": {}
+   },
+   {
+    "people": 1456.991142,
+    "size": 1,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "spices": 5.4
+    }
+   },
+   {
+    "people": 308.531465,
+    "size": 0,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "spices": 1.8
+    }
+   },
+   {
+    "people": 108.605406,
+    "size": 0,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 10.76,
+     "spices": 2.8
+    }
+   },
+   {
+    "people": 3475.036448,
+    "size": 3,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 0.1,
+     "spices": 3.44
+    }
+   },
+   {
+    "people": 199.1905,
+    "size": 0,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {}
+   },
+   {
+    "people": 2176.686547,
+    "size": 2,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "spices": 6.96
+    }
+   },
+   {
+    "people": 451.810181,
+    "size": 0,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 3.2,
+     "spices": 9.04
+    }
+   },
+   {
+    "people": 2444.545925,
+    "size": 2,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 14.18
+    }
+   },
+   {
+    "people": 1449.203945,
+    "size": 1,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 14.78,
+     "spices": 0.4
+    }
+   },
+   {
+    "people": 105.374247,
+    "size": 0,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {}
+   },
+   {
+    "people": 4544.351045,
+    "size": 3,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 13.82,
+     "spices": 2.1
+    }
+   },
+   {
+    "people": 4013.651978,
+    "size": 3,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 16.42
+    }
+   },
+   {
+    "people": 1337.160742,
+    "size": 1,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "spices": 4.56
+    }
+   },
+   {
+    "people": 2285.772659,
+    "size": 2,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "spices": 8.04
+    }
+   },
+   {
+    "people": 5397.276373,
+    "size": 4,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 12.78,
+     "herbs": 0.6,
+     "spices": 0.2
+    }
+   },
+   {
+    "people": 0.0,
+    "size": 0,
+    "low_years": 10,
+    "hungry": 0,
+    "yields": {}
+   },
+   {
+    "people": 2234.977626,
+    "size": 2,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 1.5,
+     "herbs": 0.3,
+     "spices": 1.2
+    }
+   },
+   {
+    "people": 1356.097442,
+    "size": 1,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 1.2,
+     "spices": 7.68
+    }
+   },
+   {
+    "people": 203.164446,
+    "size": 0,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 3.1,
+     "spices": 1.7
+    }
+   },
+   {
+    "people": 84.12571,
+    "size": 0,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 11.28
+    }
+   },
+   {
+    "people": 1860.569567,
+    "size": 1,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 3.24,
+     "spices": 1.6
+    }
+   },
+   {
+    "people": 2320.718609,
+    "size": 2,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 7.42
+    }
+   },
+   {
+    "people": 2740.161606,
+    "size": 2,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 3.1,
+     "herbs": 1.2,
+     "spices": 6.56
+    }
+   },
+   {
+    "people": 3830.127508,
+    "size": 3,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 8.2,
+     "spices": 1.7
+    }
+   },
+   {
+    "people": 1382.330832,
+    "size": 1,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 4.46,
+     "spices": 0.6
+    }
+   },
+   {
+    "people": 1617.218951,
+    "size": 1,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 2.64
+    }
+   },
+   {
+    "people": 977.97264,
+    "size": 1,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "spices": 6.2
+    }
+   },
+   {
+    "people": 1563.584139,
+    "size": 1,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 1.0,
+     "spices": 2.6
+    }
+   },
+   {
+    "people": 1498.011073,
+    "size": 1,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 1.6,
+     "herbs": 4.0
+    }
+   },
+   {
+    "people": 1023.238496,
+    "size": 1,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 0.8,
+     "herbs": 2.1
+    }
+   },
+   {
+    "people": 994.731842,
+    "size": 0,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 1.6,
+     "herbs": 2.5
+    }
+   },
+   {
+    "people": 3060.12666,
+    "size": 3,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 4.3,
+     "herbs": 2.7,
+     "spices": 0.2
+    }
+   },
+   {
+    "people": 548.103603,
+    "size": 0,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 0.72,
+     "spices": 0.6
+    }
+   },
+   {
+    "people": 61.497134,
+    "size": 0,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 2.7
+    }
+   },
+   {
+    "people": 1557.567036,
+    "size": 1,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 7.52,
+     "herbs": 2.3,
+     "spices": 3.84
+    }
+   },
+   {
+    "people": 1535.192453,
+    "size": 1,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 13.98,
+     "spices": 0.6
+    }
+   },
+   {
+    "people": 1410.007152,
+    "size": 1,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 0.36
+    }
+   },
+   {
+    "people": 545.274349,
+    "size": 0,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 1.06,
+     "herbs": 0.1,
+     "spices": 1.4
+    }
+   },
+   {
+    "people": 65.358496,
+    "size": 0,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "spices": 0.12
+    }
+   },
+   {
+    "people": 46.994692,
+    "size": 0,
+    "low_years": 6,
+    "hungry": 0,
+    "yields": {}
+   },
+   {
+    "people": 264.06146,
+    "size": 0,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 3.28,
+     "spices": 1.1
+    }
+   },
+   {
+    "people": 1974.181087,
+    "size": 2,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 8.02
+    }
+   },
+   {
+    "people": 76.08762,
+    "size": 0,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 1.3,
+     "herbs": 0.2,
+     "spices": 1.46
+    }
+   },
+   {
+    "people": 236.589632,
+    "size": 0,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 3.02
+    }
+   },
+   {
+    "people": 0.0,
+    "size": 0,
+    "low_years": 10,
+    "hungry": 14,
+    "yields": {}
+   },
+   {
+    "people": 0.0,
+    "size": 0,
+    "low_years": 10,
+    "hungry": 0,
+    "yields": {
+     "grain": 0.2
+    }
+   },
+   {
+    "people": 272.061755,
+    "size": 0,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 6.0,
+     "herbs": 3.3,
+     "spices": 12.0
+    }
+   },
+   {
+    "people": 0.0,
+    "size": 0,
+    "low_years": 10,
+    "hungry": 2,
+    "yields": {}
+   },
+   {
+    "people": 746.54117,
+    "size": 0,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 1.7,
+     "spices": 3.52
+    }
+   },
+   {
+    "people": 200.162433,
+    "size": 0,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 0.2,
+     "herbs": 0.1,
+     "spices": 0.4
+    }
+   },
+   {
+    "people": 510.570252,
+    "size": 0,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 4.2,
+     "spices": 9.48
+    }
+   },
+   {
+    "people": 971.940641,
+    "size": 1,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 5.08
+    }
+   },
+   {
+    "people": 744.682359,
+    "size": 0,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 4.5,
+     "spices": 10.44
+    }
+   },
+   {
+    "people": 148.542964,
+    "size": 0,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 0.3,
+     "spices": 0.6
+    }
+   },
+   {
+    "people": 96.448966,
+    "size": 0,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 1.4,
+     "spices": 5.92
+    }
+   },
+   {
+    "people": 711.785593,
+    "size": 0,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 1.0,
+     "herbs": 0.6,
+     "spices": 3.0
+    }
+   },
+   {
+    "people": 0.0,
+    "size": 0,
+    "low_years": 10,
+    "hungry": 12,
+    "yields": {}
+   },
+   {
+    "people": 531.064815,
+    "size": 0,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 4.6,
+     "spices": 3.9
+    }
+   },
+   {
+    "people": 538.229275,
+    "size": 0,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 6.0,
+     "herbs": 2.2,
+     "spices": 0.1
+    }
+   },
+   {
+    "people": 152.390588,
+    "size": 0,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 0.2,
+     "spices": 0.4
+    }
+   },
+   {
+    "people": 66.245944,
+    "size": 0,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 0.4,
+     "spices": 2.96
+    }
+   },
+   {
+    "people": 73.168204,
+    "size": 0,
+    "low_years": 0,
+    "hungry": 0,
+    "yields": {
+     "grain": 1.0,
+     "herbs": 3.7
+    }
+   }
+  ],
+  "memory": [
+   [
+    0,
+    1,
+    -1.0
+   ],
+   [
+    0,
+    2,
+    -1.0
+   ],
+   [
+    0,
+    3,
+    -0.777611
+   ],
+   [
+    0,
+    4,
+    0.179001
+   ],
+   [
+    0,
+    5,
+    -1.0
+   ],
+   [
+    0,
+    6,
+    -0.376733
+   ],
+   [
+    0,
+    7,
+    -0.011114
+   ],
+   [
+    0,
+    8,
+    -0.559273
+   ],
+   [
+    0,
+    9,
+    -0.330504
+   ],
+   [
+    0,
+    10,
+    -0.110865
+   ],
+   [
+    0,
+    11,
+    -0.200287
+   ],
+   [
+    0,
+    12,
+    0.253479
+   ],
+   [
+    0,
+    13,
+    -0.167001
+   ],
+   [
+    0,
+    14,
+    -0.285683
+   ],
+   [
+    0,
+    15,
+    -0.257768
+   ],
+   [
+    0,
+    16,
+    -0.607337
+   ],
+   [
+    0,
+    17,
+    -0.846745
+   ],
+   [
+    0,
+    18,
+    -0.814716
+   ],
+   [
+    0,
+    19,
+    -0.322478
+   ],
+   [
+    0,
+    20,
+    -0.846745
+   ],
+   [
+    0,
+    21,
+    -1.0
+   ],
+   [
+    0,
+    22,
+    -0.882703
+   ],
+   [
+    0,
+    23,
+    -0.895025
+   ],
+   [
+    1,
+    0,
+    -0.882703
+   ],
+   [
+    1,
+    2,
+    -1.0
+   ],
+   [
+    1,
+    3,
+    1.1e-05
+   ],
+   [
+    1,
+    4,
+    0.0
+   ],
+   [
+    1,
+    5,
+    -0.543367
+   ],
+   [
+    1,
+    6,
+    -0.152453
+   ],
+   [
+    1,
+    7,
+    0.118492
+   ],
+   [
+    1,
+    8,
+    0.0
+   ],
+   [
+    1,
+    9,
+    0.199733
+   ],
+   [
+    1,
+    10,
+    0.034376
+   ],
+   [
+    1,
+    11,
+    -0.424524
+   ],
+   [
+    1,
+    12,
+    -0.519911
+   ],
+   [
+    1,
+    13,
+    -0.37799
+   ],
+   [
+    1,
+    14,
+    -0.180271
+   ],
+   [
+    1,
+    15,
+    -0.566416
+   ],
+   [
+    1,
+    16,
+    -0.54995
+   ],
+   [
+    1,
+    17,
+    -0.590496
+   ],
+   [
+    1,
+    18,
+    -0.422079
+   ],
+   [
+    1,
+    19,
+    -0.823591
+   ],
+   [
+    1,
+    20,
+    -0.338698
+   ],
+   [
+    1,
+    21,
+    -0.858565
+   ],
+   [
+    1,
+    22,
+    -0.543367
+   ],
+   [
+    1,
+    23,
+    -0.35801
+   ],
+   [
+    2,
+    0,
+    -0.659188
+   ],
+   [
+    2,
+    1,
+    -1.0
+   ],
+   [
+    2,
+    3,
+    0.019475
+   ],
+   [
+    2,
+    4,
+    -0.416425
+   ],
+   [
+    2,
+    5,
+    -0.087374
+   ],
+   [
+    2,
+    6,
+    -0.823591
+   ],
+   [
+    2,
+    7,
+    -0.650671
+   ],
+   [
+    2,
+    8,
+    -0.919178
+   ],
+   [
+    2,
+    9,
+    -0.319844
+   ],
+   [
+    2,
+    10,
+    0.673189
+   ],
+   [
+    2,
+    11,
+    -0.16427
+   ],
+   [
+    2,
+    12,
+    -0.152871
+   ],
+   [
+    2,
+    13,
+    -0.182902
+   ],
+   [
+    2,
+    14,
+    -0.541988
+   ],
+   [
+    2,
+    15,
+    -0.324273
+   ],
+   [
+    2,
+    16,
+    -0.135719
+   ],
+   [
+    2,
+    17,
+    -0.486329
+   ],
+   [
+    2,
+    18,
+    -0.641145
+   ],
+   [
+    2,
+    19,
+    -0.823591
+   ],
+   [
+    2,
+    20,
+    -0.782569
+   ],
+   [
+    2,
+    21,
+    -0.825871
+   ],
+   [
+    2,
+    22,
+    -0.087374
+   ],
+   [
+    2,
+    23,
+    -0.965713
+   ],
+   [
+    3,
+    0,
+    -0.015682
+   ],
+   [
+    3,
+    1,
+    -0.119149
+   ],
+   [
+    3,
+    2,
+    -0.558644
+   ],
+   [
+    3,
+    4,
+    0.0
+   ],
+   [
+    3,
+    5,
+    0.0
+   ],
+   [
+    3,
+    6,
+    0.014879
+   ],
+   [
+    3,
+    7,
+    -0.02925
+   ],
+   [
+    3,
+    8,
+    -0.013917
+   ],
+   [
+    3,
+    9,
+    0.019337
+   ],
+   [
+    3,
+    10,
+    -0.114962
+   ],
+   [
+    3,
+    11,
+    -0.002775
+   ],
+   [
+    3,
+    12,
+    0.015691
+   ],
+   [
+    3,
+    13,
+    -0.002852
+   ],
+   [
+    3,
+    14,
+    -0.006332
+   ],
+   [
+    3,
+    15,
+    -0.015682
+   ],
+   [
+    3,
+    16,
+    -0.558644
+   ],
+   [
+    3,
+    17,
+    -0.558644
+   ],
+   [
+    3,
+    18,
+    -0.006332
+   ],
+   [
+    3,
+    19,
+    -0.015682
+   ],
+   [
+    3,
+    20,
+    -0.084806
+   ],
+   [
+    3,
+    21,
+    -0.015682
+   ],
+   [
+    3,
+    22,
+    0.0
+   ],
+   [
+    3,
+    23,
+    -0.119149
+   ],
+   [
+    4,
+    0,
+    0.0
+   ],
+   [
+    4,
+    1,
+    -0.189574
+   ],
+   [
+    4,
+    2,
+    -0.10553
+   ],
+   [
+    4,
+    3,
+    0.0
+   ],
+   [
+    4,
+    5,
+    0.0
+   ],
+   [
+    4,
+    6,
+    0.0
+   ],
+   [
+    4,
+    7,
+    0.0
+   ],
+   [
+    4,
+    8,
+    -0.137332
+   ],
+   [
+    4,
+    9,
+    0.0
+   ],
+   [
+    4,
+    10,
+    -0.10553
+   ],
+   [
+    4,
+    11,
+    -0.042168
+   ],
+   [
+    4,
+    12,
+    -0.10553
+   ],
+   [
+    4,
+    13,
+    0.0
+   ],
+   [
+    4,
+    14,
+    -0.076757
+   ],
+   [
+    4,
+    15,
+    0.0
+   ],
+   [
+    4,
+    16,
+    -0.10553
+   ],
+   [
+    4,
+    17,
+    -0.10553
+   ],
+   [
+    4,
+    18,
+    -0.076757
+   ],
+   [
+    4,
+    19,
+    0.0
+   ],
+   [
+    4,
+    20,
+    -0.155231
+   ],
+   [
+    4,
+    21,
+    0.0
+   ],
+   [
+    4,
+    22,
+    0.0
+   ],
+   [
+    4,
+    23,
+    -0.189574
+   ],
+   [
+    5,
+    0,
+    -0.924404
+   ],
+   [
+    5,
+    1,
+    -0.70524
+   ],
+   [
+    5,
+    2,
+    -0.485823
+   ],
+   [
+    5,
+    3,
+    -0.183111
+   ],
+   [
+    5,
+    4,
+    -0.200692
+   ],
+   [
+    5,
+    6,
+    -0.031102
+   ],
+   [
+    5,
+    7,
+    -0.338166
+   ],
+   [
+    5,
+    8,
+    -0.112509
+   ],
+   [
+    5,
+    9,
+    0.185586
+   ],
+   [
+    5,
+    10,
+    -0.372701
+   ],
+   [
+    5,
+    11,
+    -0.389582
+   ],
+   [
+    5,
+    12,
+    -0.115028
+   ],
+   [
+    5,
+    13,
+    -0.236835
+   ],
+   [
+    5,
+    14,
+    -0.493462
+   ],
+   [
+    5,
+    15,
+    -0.572605
+   ],
+   [
+    5,
+    16,
+    -0.574122
+   ],
+   [
+    5,
+    17,
+    -0.575611
+   ],
+   [
+    5,
+    18,
+    -0.598739
+   ],
+   [
+    5,
+    19,
+    -0.823591
+   ],
+   [
+    5,
+    20,
+    -0.677213
+   ],
+   [
+    5,
+    21,
+    -0.858565
+   ],
+   [
+    5,
+    22,
+    -0.344438
+   ],
+   [
+    5,
+    23,
+    -0.711556
+   ],
+   [
+    6,
+    0,
+    -0.423723
+   ],
+   [
+    6,
+    1,
+    -0.741449
+   ],
+   [
+    6,
+    2,
+    -0.29926
+   ],
+   [
+    6,
+    3,
+    0.072683
+   ],
+   [
+    6,
+    4,
+    0.0
+   ],
+   [
+    6,
+    5,
+    -0.073453
+   ],
+   [
+    6,
+    7,
+    -0.29926
+   ],
+   [
+    6,
+    8,
+    0.0
+   ],
+   [
+    6,
+    9,
+    0.05221
+   ],
+   [
+    6,
+    10,
+    -0.29926
+   ],
+   [
+    6,
+    11,
+    -0.255759
+   ],
+   [
+    6,
+    12,
+    -0.232182
+   ],
+   [
+    6,
+    13,
+    -0.316439
+   ],
+   [
+    6,
+    14,
+    -0.290133
+   ],
+   [
+    6,
+    15,
+    -0.316439
+   ],
+   [
+    6,
+    16,
+    -0.29926
+   ],
+   [
+    6,
+    17,
+    -0.29926
+   ],
+   [
+    6,
+    18,
+    -0.290348
+   ],
+   [
+    6,
+    19,
+    -0.423723
+   ],
+   [
+    6,
+    20,
+    -0.707107
+   ],
+   [
+    6,
+    21,
+    -0.423723
+   ],
+   [
+    6,
+    22,
+    -0.073453
+   ],
+   [
+    6,
+    23,
+    -0.741449
+   ],
+   [
+    7,
+    0,
+    0.005806
+   ],
+   [
+    7,
+    1,
+    -0.67146
+   ],
+   [
+    7,
+    2,
+    -0.650671
+   ],
+   [
+    7,
+    3,
+    -0.041419
+   ],
+   [
+    7,
+    4,
+    0.075579
+   ],
+   [
+    7,
+    5,
+    -0.29359
+   ],
+   [
+    7,
+    6,
+    -0.299325
+   ],
+   [
+    7,
+    8,
+    0.310296
+   ],
+   [
+    7,
+    9,
+    -0.268497
+   ],
+   [
+    7,
+    10,
+    -0.170359
+   ],
+   [
+    7,
+    11,
+    -0.25488
+   ],
+   [
+    7,
+    12,
+    -0.428339
+   ],
+   [
+    7,
+    13,
+    -0.077383
+   ],
+   [
+    7,
+    14,
+    -0.365243
+   ],
+   [
+    7,
+    15,
+    -0.002923
+   ],
+   [
+    7,
+    16,
+    -0.484037
+   ],
+   [
+    7,
+    17,
+    -0.484037
+   ],
+   [
+    7,
+    18,
+    -0.558644
+   ],
+   [
+    7,
+    19,
+    0.005806
+   ],
+   [
+    7,
+    20,
+    -0.637118
+   ],
+   [
+    7,
+    21,
+    0.005806
+   ],
+   [
+    7,
+    22,
+    -0.29359
+   ],
+   [
+    7,
+    23,
+    -0.67146
+   ],
+   [
+    8,
+    0,
+    0.005572
+   ],
+   [
+    8,
+    1,
+    -0.167064
+   ],
+   [
+    8,
+    2,
+    -0.972655
+   ],
+   [
+    8,
+    3,
+    0.00026
+   ],
+   [
+    8,
+    4,
+    -0.429316
+   ],
+   [
+    8,
+    5,
+    -0.015887
+   ],
+   [
+    8,
+    6,
+    -0.390752
+   ],
+   [
+    8,
+    7,
+    -0.234357
+   ],
+   [
+    8,
+    9,
+    0.222442
+   ],
+   [
+    8,
+    10,
+    0.00072
+   ],
+   [
+    8,
+    11,
+    -0.256636
+   ],
+   [
+    8,
+    12,
+    0.176479
+   ],
+   [
+    8,
+    13,
+    0.025971
+   ],
+   [
+    8,
+    14,
+    -0.076757
+   ],
+   [
+    8,
+    15,
+    0.024632
+   ],
+   [
+    8,
+    16,
+    -0.502446
+   ],
+   [
+    8,
+    17,
+    -0.508896
+   ],
+   [
+    8,
+    18,
+    -0.084671
+   ],
+   [
+    8,
+    19,
+    0.0
+   ],
+   [
+    8,
+    20,
+    -0.141747
+   ],
+   [
+    8,
+    21,
+    0.007335
+   ],
+   [
+    8,
+    22,
+    -0.008371
+   ],
+   [
+    8,
+    23,
+    -0.167064
+   ],
+   [
+    9,
+    0,
+    -0.095405
+   ],
+   [
+    9,
+    1,
+    -0.531624
+   ],
+   [
+    9,
+    2,
+    -0.384219
+   ],
+   [
+    9,
+    3,
+    -0.076844
+   ],
+   [
+    9,
+    4,
+    0.0
+   ],
+   [
+    9,
+    5,
+    -0.20331
+   ],
+   [
+    9,
+    6,
+    0.017025
+   ],
+   [
+    9,
+    7,
+    -0.384219
+   ],
+   [
+    9,
+    8,
+    -0.074679
+   ],
+   [
+    9,
+    10,
+    -0.353553
+   ],
+   [
+    9,
+    11,
+    -0.384219
+   ],
+   [
+    9,
+    12,
+    -0.384219
+   ],
+   [
+    9,
+    13,
+    -0.095405
+   ],
+   [
+    9,
+    14,
+    -0.418808
+   ],
+   [
+    9,
+    15,
+    -0.095405
+   ],
+   [
+    9,
+    16,
+    -0.384219
+   ],
+   [
+    9,
+    17,
+    -0.384219
+   ],
+   [
+    9,
+    18,
+    -0.418808
+   ],
+   [
+    9,
+    19,
+    -0.095405
+   ],
+   [
+    9,
+    20,
+    -0.497282
+   ],
+   [
+    9,
+    21,
+    -0.095405
+   ],
+   [
+    9,
+    22,
+    -0.20331
+   ],
+   [
+    9,
+    23,
+    -0.531624
+   ],
+   [
+    10,
+    0,
+    -0.246312
+   ],
+   [
+    10,
+    1,
+    -0.563936
+   ],
+   [
+    10,
+    2,
+    -0.204851
+   ],
+   [
+    10,
+    3,
+    -0.10669
+   ],
+   [
+    10,
+    4,
+    0.039719
+   ],
+   [
+    10,
+    5,
+    -0.353553
+   ],
+   [
+    10,
+    6,
+    -0.299325
+   ],
+   [
+    10,
+    7,
+    -0.289909
+   ],
+   [
+    10,
+    8,
+    0.014064
+   ],
+   [
+    10,
+    9,
+    -0.353553
+   ],
+   [
+    10,
+    11,
+    -0.357061
+   ],
+   [
+    10,
+    12,
+    -0.109573
+   ],
+   [
+    10,
+    13,
+    -0.183188
+   ],
+   [
+    10,
+    14,
+    -0.442266
+   ],
+   [
+    10,
+    15,
+    -0.246312
+   ],
+   [
+    10,
+    16,
+    -0.204851
+   ],
+   [
+    10,
+    17,
+    -0.204851
+   ],
+   [
+    10,
+    18,
+    -0.45112
+   ],
+   [
+    10,
+    19,
+    -0.246312
+   ],
+   [
+    10,
+    20,
+    -0.529594
+   ],
+   [
+    10,
+    21,
+    -0.246312
+   ],
+   [
+    10,
+    22,
+    -0.353553
+   ],
+   [
+    10,
+    23,
+    -0.563936
+   ],
+   [
+    11,
+    0,
+    -0.356226
+   ],
+   [
+    11,
+    1,
+    -0.592449
+   ],
+   [
+    11,
+    2,
+    -0.387467
+   ],
+   [
+    11,
+    3,
+    -0.007104
+   ],
+   [
+    11,
+    4,
+    0.0
+   ],
+   [
+    11,
+    5,
+    -0.324542
+   ],
+   [
+    11,
+    6,
+    -0.152507
+   ],
+   [
+    11,
+    7,
+    -0.324283
+   ],
+   [
+    11,
+    8,
+    -0.008761
+   ],
+   [
+    11,
+    9,
+    -0.13227
+   ],
+   [
+    11,
+    10,
+    -0.328817
+   ],
+   [
+    11,
+    12,
+    -0.389582
+   ],
+   [
+    11,
+    13,
+    -0.353799
+   ],
+   [
+    11,
+    14,
+    -0.45376
+   ],
+   [
+    11,
+    15,
+    -0.356226
+   ],
+   [
+    11,
+    16,
+    -0.387467
+   ],
+   [
+    11,
+    17,
+    -0.387467
+   ],
+   [
+    11,
+    18,
+    -0.479632
+   ],
+   [
+    11,
+    19,
+    -0.356226
+   ],
+   [
+    11,
+    20,
+    -0.558106
+   ],
+   [
+    11,
+    21,
+    -0.356226
+   ],
+   [
+    11,
+    22,
+    -0.324542
+   ],
+   [
+    11,
+    23,
+    -0.592449
+   ],
+   [
+    12,
+    0,
+    -0.412239
+   ],
+   [
+    12,
+    1,
+    -0.648703
+   ],
+   [
+    12,
+    2,
+    -0.132882
+   ],
+   [
+    12,
+    3,
+    -0.019549
+   ],
+   [
+    12,
+    4,
+    0.039304
+   ],
+   [
+    12,
+    5,
+    -0.364931
+   ],
+   [
+    12,
+    6,
+    -0.309277
+   ],
+   [
+    12,
+    7,
+    -0.123582
+   ],
+   [
+    12,
+    8,
+    -0.230688
+   ],
+   [
+    12,
+    9,
+    -0.368941
+   ],
+   [
+    12,
+    10,
+    -0.077603
+   ],
+   [
+    12,
+    11,
+    -0.376538
+   ],
+   [
+    12,
+    13,
+    -0.400535
+   ],
+   [
+    12,
+    14,
+    -0.435124
+   ],
+   [
+    12,
+    15,
+    -0.412239
+   ],
+   [
+    12,
+    16,
+    -0.132882
+   ],
+   [
+    12,
+    17,
+    -0.132882
+   ],
+   [
+    12,
+    18,
+    -0.535887
+   ],
+   [
+    12,
+    19,
+    -0.412239
+   ],
+   [
+    12,
+    20,
+    -0.614361
+   ],
+   [
+    12,
+    21,
+    -0.412239
+   ],
+   [
+    12,
+    22,
+    -0.364931
+   ],
+   [
+    12,
+    23,
+    -0.648703
+   ],
+   [
+    13,
+    0,
+    -0.159584
+   ],
+   [
+    13,
+    1,
+    -0.554168
+   ],
+   [
+    13,
+    2,
+    -0.417544
+   ],
+   [
+    13,
+    3,
+    -0.013878
+   ],
+   [
+    13,
+    4,
+    0.0
+   ],
+   [
+    13,
+    5,
+    -0.435275
+   ],
+   [
+    13,
+    6,
+    -0.203419
+   ],
+   [
+    13,
+    7,
+    -0.004304
+   ],
+   [
+    13,
+    8,
+    0.0
+   ],
+   [
+    13,
+    9,
+    -0.330504
+   ],
+   [
+    13,
+    10,
+    -0.042866
+   ],
+   [
+    13,
+    11,
+    -0.384219
+   ],
+   [
+    13,
+    12,
+    -0.291313
+   ],
+   [
+    13,
+    14,
+    -0.441351
+   ],
+   [
+    13,
+    15,
+    -0.159584
+   ],
+   [
+    13,
+    16,
+    -0.417544
+   ],
+   [
+    13,
+    17,
+    -0.417544
+   ],
+   [
+    13,
+    18,
+    -0.441351
+   ],
+   [
+    13,
+    19,
+    -0.159584
+   ],
+   [
+    13,
+    20,
+    -0.519826
+   ],
+   [
+    13,
+    21,
+    -0.159584
+   ],
+   [
+    13,
+    22,
+    -0.435275
+   ],
+   [
+    13,
+    23,
+    -0.554168
+   ],
+   [
+    14,
+    0,
+    -0.566442
+   ],
+   [
+    14,
+    1,
+    -0.116555
+   ],
+   [
+    14,
+    2,
+    -0.45376
+   ],
+   [
+    14,
+    3,
+    0.005703
+   ],
+   [
+    14,
+    4,
+    0.0
+   ],
+   [
+    14,
+    5,
+    -0.468005
+   ],
+   [
+    14,
+    6,
+    -0.136369
+   ],
+   [
+    14,
+    7,
+    -0.285543
+   ],
+   [
+    14,
+    8,
+    0.008614
+   ],
+   [
+    14,
+    9,
+    -0.094389
+   ],
+   [
+    14,
+    10,
+    -0.305396
+   ],
+   [
+    14,
+    11,
+    -0.342652
+   ],
+   [
+    14,
+    12,
+    -0.400535
+   ],
+   [
+    14,
+    13,
+    -0.38707
+   ],
+   [
+    14,
+    15,
+    -0.56943
+   ],
+   [
+    14,
+    16,
+    -0.45376
+   ],
+   [
+    14,
+    17,
+    -0.450357
+   ],
+   [
+    14,
+    18,
+    0.000113
+   ],
+   [
+    14,
+    19,
+    -0.566442
+   ],
+   [
+    14,
+    20,
+    -0.082212
+   ],
+   [
+    14,
+    21,
+    -0.566442
+   ],
+   [
+    14,
+    22,
+    -0.468005
+   ],
+   [
+    14,
+    23,
+    -0.116555
+   ],
+   [
+    15,
+    0,
+    -0.409957
+   ],
+   [
+    15,
+    1,
+    -0.678541
+   ],
+   [
+    15,
+    2,
+    -0.566442
+   ],
+   [
+    15,
+    3,
+    -0.15549
+   ],
+   [
+    15,
+    4,
+    0.147098
+   ],
+   [
+    15,
+    5,
+    -0.566442
+   ],
+   [
+    15,
+    6,
+    -0.216971
+   ],
+   [
+    15,
+    7,
+    0.01743
+   ],
+   [
+    15,
+    8,
+    -0.03963
+   ],
+   [
+    15,
+    9,
+    -0.330504
+   ],
+   [
+    15,
+    10,
+    -0.110865
+   ],
+   [
+    15,
+    11,
+    -0.200287
+   ],
+   [
+    15,
+    12,
+    -0.133119
+   ],
+   [
+    15,
+    13,
+    -0.129704
+   ],
+   [
+    15,
+    14,
+    -0.601488
+   ],
+   [
+    15,
+    16,
+    -0.566442
+   ],
+   [
+    15,
+    17,
+    -0.566442
+   ],
+   [
+    15,
+    18,
+    -0.565724
+   ],
+   [
+    15,
+    19,
+    -0.409957
+   ],
+   [
+    15,
+    20,
+    -0.644198
+   ],
+   [
+    15,
+    21,
+    -0.409957
+   ],
+   [
+    15,
+    22,
+    -0.566442
+   ],
+   [
+    15,
+    23,
+    -0.678541
+   ],
+   [
+    16,
+    0,
+    -0.659754
+   ],
+   [
+    16,
+    1,
+    -0.687166
+   ],
+   [
+    16,
+    2,
+    -0.226179
+   ],
+   [
+    16,
+    3,
+    -0.459383
+   ],
+   [
+    16,
+    4,
+    -0.005069
+   ],
+   [
+    16,
+    5,
+    -0.532468
+   ],
+   [
+    16,
+    6,
+    -0.315514
+   ],
+   [
+    16,
+    7,
+    -0.527206
+   ],
+   [
+    16,
+    8,
+    -0.574349
+   ],
+   [
+    16,
+    9,
+    -0.319844
+   ],
+   [
+    16,
+    10,
+    0.184894
+   ],
+   [
+    16,
+    11,
+    -0.327254
+   ],
+   [
+    16,
+    12,
+    -0.065324
+   ],
+   [
+    16,
+    13,
+    -0.443358
+   ],
+   [
+    16,
+    14,
+    -0.541988
+   ],
+   [
+    16,
+    15,
+    -0.543367
+   ],
+   [
+    16,
+    17,
+    -0.226179
+   ],
+   [
+    16,
+    18,
+    -0.574349
+   ],
+   [
+    16,
+    19,
+    -0.659754
+   ],
+   [
+    16,
+    20,
+    -0.652823
+   ],
+   [
+    16,
+    21,
+    -0.659754
+   ],
+   [
+    16,
+    22,
+    -0.532468
+   ],
+   [
+    16,
+    23,
+    -0.687166
+   ],
+   [
+    17,
+    0,
+    -0.686099
+   ],
+   [
+    17,
+    1,
+    -0.703313
+   ],
+   [
+    17,
+    2,
+    0.05145
+   ],
+   [
+    17,
+    3,
+    -0.298074
+   ],
+   [
+    17,
+    4,
+    -0.24411
+   ],
+   [
+    17,
+    5,
+    -0.494721
+   ],
+   [
+    17,
+    6,
+    -0.429856
+   ],
+   [
+    17,
+    7,
+    -0.672708
+   ],
+   [
+    17,
+    8,
+    -0.590496
+   ],
+   [
+    17,
+    9,
+    -0.528663
+   ],
+   [
+    17,
+    10,
+    0.220079
+   ],
+   [
+    17,
+    11,
+    -0.327254
+   ],
+   [
+    17,
+    12,
+    -0.14743
+   ],
+   [
+    17,
+    13,
+    -0.543458
+   ],
+   [
+    17,
+    14,
+    -0.541988
+   ],
+   [
+    17,
+    15,
+    -0.334721
+   ],
+   [
+    17,
+    16,
+    -0.229513
+   ],
+   [
+    17,
+    18,
+    -0.590496
+   ],
+   [
+    17,
+    19,
+    -0.907519
+   ],
+   [
+    17,
+    20,
+    -0.66897
+   ],
+   [
+    17,
+    21,
+    -0.919357
+   ],
+   [
+    17,
+    22,
+    -0.494721
+   ],
+   [
+    17,
+    23,
+    -0.703313
+   ],
+   [
+    18,
+    0,
+    -0.972655
+   ],
+   [
+    18,
+    1,
+    -0.275159
+   ],
+   [
+    18,
+    2,
+    -0.662239
+   ],
+   [
+    18,
+    3,
+    -0.041724
+   ],
+   [
+    18,
+    4,
+    -0.061585
+   ],
+   [
+    18,
+    5,
+    -0.442129
+   ],
+   [
+    18,
+    6,
+    -0.179403
+   ],
+   [
+    18,
+    7,
+    -0.146388
+   ],
+   [
+    18,
+    8,
+    0.377416
+   ],
+   [
+    18,
+    9,
+    0.00112
+   ],
+   [
+    18,
+    10,
+    0.038987
+   ],
+   [
+    18,
+    11,
+    -0.467915
+   ],
+   [
+    18,
+    12,
+    -0.451293
+   ],
+   [
+    18,
+    13,
+    0.080418
+   ],
+   [
+    18,
+    14,
+    -0.180275
+   ],
+   [
+    18,
+    15,
+    -0.566416
+   ],
+   [
+    18,
+    16,
+    -0.54995
+   ],
+   [
+    18,
+    17,
+    -0.648323
+   ],
+   [
+    18,
+    19,
+    -0.667508
+   ],
+   [
+    18,
+    20,
+    -0.257178
+   ],
+   [
+    18,
+    21,
+    -0.624165
+   ],
+   [
+    18,
+    22,
+    -0.442129
+   ],
+   [
+    18,
+    23,
+    -0.220072
+   ],
+   [
+    19,
+    0,
+    -0.056904
+   ],
+   [
+    19,
+    1,
+    -1.0
+   ],
+   [
+    19,
+    2,
+    -0.823591
+   ],
+   [
+    19,
+    3,
+    -0.527671
+   ],
+   [
+    19,
+    4,
+    0.179001
+   ],
+   [
+    19,
+    5,
+    -0.823591
+   ],
+   [
+    19,
+    6,
+    -0.376733
+   ],
+   [
+    19,
+    7,
+    -0.011114
+   ],
+   [
+    19,
+    8,
+    -0.350504
+   ],
+   [
+    19,
+    9,
+    -0.116696
+   ],
+   [
+    19,
+    10,
+    -0.317061
+   ],
+   [
+    19,
+    11,
+    -0.200287
+   ],
+   [
+    19,
+    12,
+    -0.120051
+   ],
+   [
+    19,
+    13,
+    -0.167001
+   ],
+   [
+    19,
+    14,
+    -0.630096
+   ],
+   [
+    19,
+    15,
+    -0.257768
+   ],
+   [
+    19,
+    16,
+    -0.607337
+   ],
+   [
+    19,
+    17,
+    -1.0
+   ],
+   [
+    19,
+    18,
+    -0.790967
+   ],
+   [
+    19,
+    20,
+    -0.846745
+   ],
+   [
+    19,
+    21,
+    -0.778524
+   ],
+   [
+    19,
+    22,
+    -0.823591
+   ],
+   [
+    19,
+    23,
+    -0.895025
+   ],
+   [
+    20,
+    0,
+    -0.942011
+   ],
+   [
+    20,
+    1,
+    -0.873971
+   ],
+   [
+    20,
+    2,
+    -0.846745
+   ],
+   [
+    20,
+    3,
+    1.1e-05
+   ],
+   [
+    20,
+    4,
+    0.098608
+   ],
+   [
+    20,
+    5,
+    -0.543367
+   ],
+   [
+    20,
+    6,
+    -0.152453
+   ],
+   [
+    20,
+    7,
+    0.017655
+   ],
+   [
+    20,
+    8,
+    0.0
+   ],
+   [
+    20,
+    9,
+    0.124123
+   ],
+   [
+    20,
+    10,
+    -0.050225
+   ],
+   [
+    20,
+    11,
+    -0.342429
+   ],
+   [
+    20,
+    12,
+    -0.519911
+   ],
+   [
+    20,
+    13,
+    -0.37799
+   ],
+   [
+    20,
+    14,
+    -0.077366
+   ],
+   [
+    20,
+    15,
+    -0.566416
+   ],
+   [
+    20,
+    16,
+    -0.54995
+   ],
+   [
+    20,
+    17,
+    -0.590496
+   ],
+   [
+    20,
+    18,
+    -0.422079
+   ],
+   [
+    20,
+    19,
+    -0.766237
+   ],
+   [
+    20,
+    21,
+    -0.855234
+   ],
+   [
+    20,
+    22,
+    -0.543367
+   ],
+   [
+    20,
+    23,
+    -0.530849
+   ],
+   [
+    21,
+    0,
+    -1.0
+   ],
+   [
+    21,
+    1,
+    -0.858565
+   ],
+   [
+    21,
+    2,
+    -0.858565
+   ],
+   [
+    21,
+    3,
+    -0.577224
+   ],
+   [
+    21,
+    4,
+    0.25542
+   ],
+   [
+    21,
+    5,
+    -0.858565
+   ],
+   [
+    21,
+    6,
+    -0.376733
+   ],
+   [
+    21,
+    7,
+    -0.011114
+   ],
+   [
+    21,
+    8,
+    -0.31324
+   ],
+   [
+    21,
+    9,
+    -0.330504
+   ],
+   [
+    21,
+    10,
+    -0.110865
+   ],
+   [
+    21,
+    11,
+    -0.200287
+   ],
+   [
+    21,
+    12,
+    0.128955
+   ],
+   [
+    21,
+    13,
+    -0.167001
+   ],
+   [
+    21,
+    14,
+    -0.418456
+   ],
+   [
+    21,
+    15,
+    -0.257768
+   ],
+   [
+    21,
+    16,
+    -0.715022
+   ],
+   [
+    21,
+    17,
+    -0.816148
+   ],
+   [
+    21,
+    18,
+    -0.624165
+   ],
+   [
+    21,
+    19,
+    -0.324391
+   ],
+   [
+    21,
+    20,
+    -0.922927
+   ],
+   [
+    21,
+    22,
+    -0.858565
+   ],
+   [
+    21,
+    23,
+    -0.858565
+   ],
+   [
+    22,
+    0,
+    -0.882703
+   ],
+   [
+    22,
+    1,
+    -0.711556
+   ],
+   [
+    22,
+    2,
+    -0.546565
+   ],
+   [
+    22,
+    3,
+    -0.183111
+   ],
+   [
+    22,
+    4,
+    -0.15186
+   ],
+   [
+    22,
+    5,
+    -0.352916
+   ],
+   [
+    22,
+    6,
+    -0.018277
+   ],
+   [
+    22,
+    7,
+    -0.343885
+   ],
+   [
+    22,
+    8,
+    -0.113513
+   ],
+   [
+    22,
+    9,
+    0.10559
+   ],
+   [
+    22,
+    10,
+    -0.353553
+   ],
+   [
+    22,
+    11,
+    -0.385726
+   ],
+   [
+    22,
+    12,
+    -0.119669
+   ],
+   [
+    22,
+    13,
+    -0.236835
+   ],
+   [
+    22,
+    14,
+    -0.475708
+   ],
+   [
+    22,
+    15,
+    -0.550953
+   ],
+   [
+    22,
+    16,
+    -0.574122
+   ],
+   [
+    22,
+    17,
+    -0.590037
+   ],
+   [
+    22,
+    18,
+    -0.605913
+   ],
+   [
+    22,
+    19,
+    -0.823591
+   ],
+   [
+    22,
+    20,
+    -0.677213
+   ],
+   [
+    22,
+    21,
+    -0.854231
+   ],
+   [
+    22,
+    23,
+    -0.711556
+   ],
+   [
+    23,
+    0,
+    -0.882703
+   ],
+   [
+    23,
+    1,
+    -0.35801
+   ],
+   [
+    23,
+    2,
+    -0.895025
+   ],
+   [
+    23,
+    3,
+    1.1e-05
+   ],
+   [
+    23,
+    4,
+    -0.019526
+   ],
+   [
+    23,
+    5,
+    -0.543367
+   ],
+   [
+    23,
+    6,
+    -0.152453
+   ],
+   [
+    23,
+    7,
+    0.05079
+   ],
+   [
+    23,
+    8,
+    0.0
+   ],
+   [
+    23,
+    9,
+    0.123029
+   ],
+   [
+    23,
+    10,
+    -0.022425
+   ],
+   [
+    23,
+    11,
+    -0.424524
+   ],
+   [
+    23,
+    12,
+    -0.50201
+   ],
+   [
+    23,
+    13,
+    -0.357478
+   ],
+   [
+    23,
+    14,
+    -0.152288
+   ],
+   [
+    23,
+    15,
+    -0.566416
+   ],
+   [
+    23,
+    16,
+    -0.54995
+   ],
+   [
+    23,
+    17,
+    -0.590496
+   ],
+   [
+    23,
+    18,
+    -0.422079
+   ],
+   [
+    23,
+    19,
+    -0.851439
+   ],
+   [
+    23,
+    20,
+    -0.357939
+   ],
+   [
+    23,
+    21,
+    -0.887742
+   ],
+   [
+    23,
+    22,
+    -0.543367
+   ]
+  ],
+  "words": [
+   [
+    0,
+    1,
+    0
+   ],
+   [
+    0,
+    2,
+    0
+   ],
+   [
+    0,
+    3,
+    2
+   ],
+   [
+    0,
+    4,
+    4
+   ],
+   [
+    0,
+    5,
+    0
+   ],
+   [
+    0,
+    6,
+    1
+   ],
+   [
+    0,
+    7,
+    2
+   ],
+   [
+    0,
+    8,
+    0
+   ],
+   [
+    0,
+    9,
+    0
+   ],
+   [
+    0,
+    10,
+    0
+   ],
+   [
+    0,
+    11,
+    0
+   ],
+   [
+    0,
+    12,
+    0
+   ],
+   [
+    0,
+    13,
+    1
+   ],
+   [
+    0,
+    14,
+    0
+   ],
+   [
+    0,
+    15,
+    0
+   ],
+   [
+    0,
+    16,
+    0
+   ],
+   [
+    0,
+    17,
+    0
+   ],
+   [
+    0,
+    18,
+    0
+   ],
+   [
+    0,
+    19,
+    1
+   ],
+   [
+    0,
+    20,
+    0
+   ],
+   [
+    0,
+    21,
+    0
+   ],
+   [
+    0,
+    22,
+    0
+   ],
+   [
+    0,
+    23,
+    0
+   ],
+   [
+    1,
+    0,
+    0
+   ],
+   [
+    1,
+    2,
+    0
+   ],
+   [
+    1,
+    3,
+    3
+   ],
+   [
+    1,
+    4,
+    3
+   ],
+   [
+    1,
+    5,
+    1
+   ],
+   [
+    1,
+    6,
+    2
+   ],
+   [
+    1,
+    7,
+    2
+   ],
+   [
+    1,
+    8,
+    0
+   ],
+   [
+    1,
+    9,
+    1
+   ],
+   [
+    1,
+    10,
+    0
+   ],
+   [
+    1,
+    11,
+    0
+   ],
+   [
+    1,
+    12,
+    0
+   ],
+   [
+    1,
+    13,
+    0
+   ],
+   [
+    1,
+    14,
+    1
+   ],
+   [
+    1,
+    15,
+    1
+   ],
+   [
+    1,
+    16,
+    0
+   ],
+   [
+    1,
+    17,
+    0
+   ],
+   [
+    1,
+    18,
+    0
+   ],
+   [
+    1,
+    19,
+    0
+   ],
+   [
+    1,
+    20,
+    3
+   ],
+   [
+    1,
+    21,
+    0
+   ],
+   [
+    1,
+    22,
+    1
+   ],
+   [
+    1,
+    23,
+    3
+   ],
+   [
+    2,
+    0,
+    0
+   ],
+   [
+    2,
+    1,
+    0
+   ],
+   [
+    2,
+    3,
+    0
+   ],
+   [
+    2,
+    4,
+    3
+   ],
+   [
+    2,
+    5,
+    2
+   ],
+   [
+    2,
+    6,
+    0
+   ],
+   [
+    2,
+    7,
+    0
+   ],
+   [
+    2,
+    8,
+    0
+   ],
+   [
+    2,
+    9,
+    0
+   ],
+   [
+    2,
+    10,
+    4
+   ],
+   [
+    2,
+    11,
+    0
+   ],
+   [
+    2,
+    12,
+    3
+   ],
+   [
+    2,
+    13,
+    0
+   ],
+   [
+    2,
+    14,
+    0
+   ],
+   [
+    2,
+    15,
+    0
+   ],
+   [
+    2,
+    16,
+    0
+   ],
+   [
+    2,
+    17,
+    3
+   ],
+   [
+    2,
+    18,
+    2
+   ],
+   [
+    2,
+    19,
+    0
+   ],
+   [
+    2,
+    20,
+    0
+   ],
+   [
+    2,
+    21,
+    0
+   ],
+   [
+    2,
+    22,
+    2
+   ],
+   [
+    2,
+    23,
+    0
+   ],
+   [
+    3,
+    0,
+    2
+   ],
+   [
+    3,
+    1,
+    2
+   ],
+   [
+    3,
+    2,
+    0
+   ],
+   [
+    3,
+    4,
+    3
+   ],
+   [
+    3,
+    5,
+    3
+   ],
+   [
+    3,
+    6,
+    2
+   ],
+   [
+    3,
+    7,
+    2
+   ],
+   [
+    3,
+    8,
+    3
+   ],
+   [
+    3,
+    9,
+    2
+   ],
+   [
+    3,
+    10,
+    1
+   ],
+   [
+    3,
+    11,
+    4
+   ],
+   [
+    3,
+    12,
+    1
+   ],
+   [
+    3,
+    13,
+    2
+   ],
+   [
+    3,
+    14,
+    2
+   ],
+   [
+    4,
+    0,
+    4
+   ],
+   [
+    4,
+    1,
+    1
+   ],
+   [
+    4,
+    2,
+    0
+   ],
+   [
+    4,
+    3,
+    2
+   ],
+   [
+    4,
+    5,
+    2
+   ],
+   [
+    4,
+    6,
+    2
+   ],
+   [
+    4,
+    7,
+    2
+   ],
+   [
+    4,
+    8,
+    1
+   ],
+   [
+    4,
+    9,
+    2
+   ],
+   [
+    5,
+    0,
+    0
+   ],
+   [
+    5,
+    1,
+    0
+   ],
+   [
+    5,
+    2,
+    1
+   ],
+   [
+    5,
+    3,
+    2
+   ],
+   [
+    5,
+    4,
+    3
+   ],
+   [
+    5,
+    6,
+    2
+   ],
+   [
+    5,
+    7,
+    1
+   ],
+   [
+    5,
+    8,
+    2
+   ],
+   [
+    5,
+    9,
+    1
+   ],
+   [
+    5,
+    10,
+    0
+   ],
+   [
+    5,
+    11,
+    0
+   ],
+   [
+    5,
+    12,
+    0
+   ],
+   [
+    5,
+    13,
+    2
+   ],
+   [
+    5,
+    14,
+    0
+   ],
+   [
+    5,
+    15,
+    0
+   ],
+   [
+    5,
+    16,
+    0
+   ],
+   [
+    5,
+    17,
+    0
+   ],
+   [
+    5,
+    18,
+    0
+   ],
+   [
+    5,
+    19,
+    0
+   ],
+   [
+    5,
+    20,
+    0
+   ],
+   [
+    5,
+    21,
+    0
+   ],
+   [
+    5,
+    22,
+    3
+   ],
+   [
+    5,
+    23,
+    0
+   ],
+   [
+    6,
+    0,
+    1
+   ],
+   [
+    6,
+    1,
+    0
+   ],
+   [
+    6,
+    2,
+    0
+   ],
+   [
+    6,
+    3,
+    3
+   ],
+   [
+    6,
+    4,
+    3
+   ],
+   [
+    6,
+    5,
+    2
+   ],
+   [
+    6,
+    7,
+    0
+   ],
+   [
+    6,
+    8,
+    3
+   ],
+   [
+    6,
+    16,
+    1
+   ],
+   [
+    6,
+    17,
+    0
+   ],
+   [
+    6,
+    18,
+    0
+   ],
+   [
+    7,
+    0,
+    2
+   ],
+   [
+    7,
+    1,
+    0
+   ],
+   [
+    7,
+    2,
+    0
+   ],
+   [
+    7,
+    3,
+    1
+   ],
+   [
+    7,
+    4,
+    3
+   ],
+   [
+    7,
+    5,
+    0
+   ],
+   [
+    7,
+    6,
+    0
+   ],
+   [
+    7,
+    8,
+    3
+   ],
+   [
+    7,
+    9,
+    0
+   ],
+   [
+    7,
+    10,
+    3
+   ],
+   [
+    7,
+    11,
+    0
+   ],
+   [
+    7,
+    12,
+    1
+   ],
+   [
+    7,
+    13,
+    1
+   ],
+   [
+    7,
+    14,
+    0
+   ],
+   [
+    7,
+    15,
+    1
+   ],
+   [
+    7,
+    16,
+    0
+   ],
+   [
+    7,
+    17,
+    1
+   ],
+   [
+    7,
+    18,
+    1
+   ],
+   [
+    8,
+    0,
+    3
+   ],
+   [
+    8,
+    1,
+    0
+   ],
+   [
+    8,
+    2,
+    0
+   ],
+   [
+    8,
+    3,
+    3
+   ],
+   [
+    8,
+    4,
+    3
+   ],
+   [
+    8,
+    5,
+    3
+   ],
+   [
+    8,
+    6,
+    1
+   ],
+   [
+    8,
+    7,
+    2
+   ],
+   [
+    8,
+    9,
+    2
+   ],
+   [
+    8,
+    10,
+    2
+   ],
+   [
+    8,
+    11,
+    2
+   ],
+   [
+    8,
+    12,
+    2
+   ],
+   [
+    8,
+    13,
+    2
+   ],
+   [
+    8,
+    14,
+    1
+   ],
+   [
+    8,
+    15,
+    1
+   ],
+   [
+    8,
+    16,
+    0
+   ],
+   [
+    8,
+    17,
+    1
+   ],
+   [
+    8,
+    18,
+    3
+   ],
+   [
+    8,
+    19,
+    3
+   ],
+   [
+    8,
+    20,
+    1
+   ],
+   [
+    8,
+    21,
+    2
+   ],
+   [
+    8,
+    22,
+    2
+   ],
+   [
+    8,
+    23,
+    0
+   ],
+   [
+    9,
+    0,
+    1
+   ],
+   [
+    9,
+    1,
+    0
+   ],
+   [
+    9,
+    2,
+    0
+   ],
+   [
+    9,
+    3,
+    2
+   ],
+   [
+    9,
+    4,
+    2
+   ],
+   [
+    9,
+    5,
+    2
+   ],
+   [
+    9,
+    7,
+    0
+   ],
+   [
+    9,
+    8,
+    2
+   ],
+   [
+    9,
+    10,
+    0
+   ],
+   [
+    10,
+    0,
+    1
+   ],
+   [
+    10,
+    1,
+    0
+   ],
+   [
+    10,
+    2,
+    3
+   ],
+   [
+    10,
+    3,
+    1
+   ],
+   [
+    10,
+    5,
+    0
+   ],
+   [
+    10,
+    7,
+    1
+   ],
+   [
+    10,
+    8,
+    3
+   ],
+   [
+    10,
+    9,
+    0
+   ],
+   [
+    10,
+    11,
+    0
+   ],
+   [
+    10,
+    12,
+    3
+   ],
+   [
+    10,
+    13,
+    1
+   ],
+   [
+    10,
+    14,
+    0
+   ],
+   [
+    11,
+    0,
+    0
+   ],
+   [
+    11,
+    1,
+    0
+   ],
+   [
+    11,
+    2,
+    0
+   ],
+   [
+    11,
+    3,
+    3
+   ],
+   [
+    11,
+    5,
+    0
+   ],
+   [
+    11,
+    7,
+    0
+   ],
+   [
+    11,
+    8,
+    2
+   ],
+   [
+    11,
+    10,
+    0
+   ],
+   [
+    11,
+    12,
+    0
+   ],
+   [
+    11,
+    14,
+    0
+   ],
+   [
+    12,
+    0,
+    0
+   ],
+   [
+    12,
+    1,
+    0
+   ],
+   [
+    12,
+    2,
+    3
+   ],
+   [
+    12,
+    3,
+    1
+   ],
+   [
+    12,
+    5,
+    0
+   ],
+   [
+    12,
+    7,
+    1
+   ],
+   [
+    12,
+    8,
+    2
+   ],
+   [
+    12,
+    10,
+    3
+   ],
+   [
+    12,
+    11,
+    0
+   ],
+   [
+    12,
+    13,
+    0
+   ],
+   [
+    12,
+    14,
+    0
+   ],
+   [
+    13,
+    0,
+    1
+   ],
+   [
+    13,
+    1,
+    0
+   ],
+   [
+    13,
+    2,
+    0
+   ],
+   [
+    13,
+    3,
+    2
+   ],
+   [
+    13,
+    5,
+    1
+   ],
+   [
+    13,
+    7,
+    2
+   ],
+   [
+    13,
+    8,
+    2
+   ],
+   [
+    13,
+    10,
+    2
+   ],
+   [
+    13,
+    12,
+    0
+   ],
+   [
+    14,
+    0,
+    0
+   ],
+   [
+    14,
+    1,
+    3
+   ],
+   [
+    14,
+    2,
+    0
+   ],
+   [
+    14,
+    3,
+    2
+   ],
+   [
+    14,
+    5,
+    0
+   ],
+   [
+    14,
+    7,
+    1
+   ],
+   [
+    14,
+    8,
+    2
+   ],
+   [
+    14,
+    10,
+    0
+   ],
+   [
+    14,
+    11,
+    0
+   ],
+   [
+    14,
+    12,
+    0
+   ],
+   [
+    15,
+    0,
+    1
+   ],
+   [
+    15,
+    1,
+    0
+   ],
+   [
+    15,
+    2,
+    0
+   ],
+   [
+    15,
+    5,
+    0
+   ],
+   [
+    15,
+    7,
+    2
+   ],
+   [
+    15,
+    8,
+    2
+   ],
+   [
+    15,
+    16,
+    0
+   ],
+   [
+    15,
+    17,
+    0
+   ],
+   [
+    16,
+    0,
+    0
+   ],
+   [
+    16,
+    1,
+    0
+   ],
+   [
+    16,
+    2,
+    0
+   ],
+   [
+    16,
+    5,
+    0
+   ],
+   [
+    16,
+    6,
+    0
+   ],
+   [
+    16,
+    7,
+    0
+   ],
+   [
+    16,
+    8,
+    0
+   ],
+   [
+    16,
+    15,
+    0
+   ],
+   [
+    16,
+    17,
+    0
+   ],
+   [
+    16,
+    18,
+    0
+   ],
+   [
+    17,
+    0,
+    0
+   ],
+   [
+    17,
+    1,
+    0
+   ],
+   [
+    17,
+    2,
+    3
+   ],
+   [
+    17,
+    5,
+    0
+   ],
+   [
+    17,
+    6,
+    0
+   ],
+   [
+    17,
+    7,
+    0
+   ],
+   [
+    17,
+    8,
+    1
+   ],
+   [
+    17,
+    15,
+    0
+   ],
+   [
+    17,
+    16,
+    0
+   ],
+   [
+    17,
+    18,
+    2
+   ],
+   [
+    17,
+    19,
+    0
+   ],
+   [
+    17,
+    20,
+    0
+   ],
+   [
+    17,
+    21,
+    0
+   ],
+   [
+    17,
+    22,
+    0
+   ],
+   [
+    17,
+    23,
+    0
+   ],
+   [
+    18,
+    0,
+    0
+   ],
+   [
+    18,
+    1,
+    0
+   ],
+   [
+    18,
+    2,
+    2
+   ],
+   [
+    18,
+    5,
+    0
+   ],
+   [
+    18,
+    6,
+    1
+   ],
+   [
+    18,
+    7,
+    1
+   ],
+   [
+    18,
+    8,
+    4
+   ],
+   [
+    18,
+    16,
+    0
+   ],
+   [
+    18,
+    17,
+    2
+   ],
+   [
+    18,
+    19,
+    0
+   ],
+   [
+    18,
+    20,
+    0
+   ],
+   [
+    18,
+    21,
+    0
+   ],
+   [
+    18,
+    22,
+    0
+   ],
+   [
+    18,
+    23,
+    0
+   ],
+   [
+    19,
+    0,
+    3
+   ],
+   [
+    19,
+    1,
+    0
+   ],
+   [
+    19,
+    2,
+    0
+   ],
+   [
+    19,
+    5,
+    0
+   ],
+   [
+    19,
+    8,
+    0
+   ],
+   [
+    19,
+    17,
+    0
+   ],
+   [
+    19,
+    18,
+    0
+   ],
+   [
+    19,
+    20,
+    0
+   ],
+   [
+    19,
+    21,
+    0
+   ],
+   [
+    19,
+    22,
+    0
+   ],
+   [
+    19,
+    23,
+    0
+   ],
+   [
+    20,
+    0,
+    0
+   ],
+   [
+    20,
+    1,
+    1
+   ],
+   [
+    20,
+    2,
+    0
+   ],
+   [
+    20,
+    5,
+    1
+   ],
+   [
+    20,
+    8,
+    0
+   ],
+   [
+    20,
+    17,
+    0
+   ],
+   [
+    20,
+    18,
+    0
+   ],
+   [
+    20,
+    19,
+    0
+   ],
+   [
+    20,
+    21,
+    0
+   ],
+   [
+    20,
+    22,
+    1
+   ],
+   [
+    20,
+    23,
+    2
+   ],
+   [
+    21,
+    0,
+    0
+   ],
+   [
+    21,
+    1,
+    0
+   ],
+   [
+    21,
+    2,
+    0
+   ],
+   [
+    21,
+    5,
+    0
+   ],
+   [
+    21,
+    8,
+    0
+   ],
+   [
+    21,
+    17,
+    0
+   ],
+   [
+    21,
+    18,
+    0
+   ],
+   [
+    21,
+    19,
+    0
+   ],
+   [
+    21,
+    20,
+    0
+   ],
+   [
+    21,
+    22,
+    0
+   ],
+   [
+    21,
+    23,
+    0
+   ],
+   [
+    22,
+    0,
+    0
+   ],
+   [
+    22,
+    1,
+    0
+   ],
+   [
+    22,
+    2,
+    1
+   ],
+   [
+    22,
+    5,
+    3
+   ],
+   [
+    22,
+    8,
+    2
+   ],
+   [
+    22,
+    17,
+    0
+   ],
+   [
+    22,
+    18,
+    0
+   ],
+   [
+    22,
+    19,
+    0
+   ],
+   [
+    22,
+    20,
+    0
+   ],
+   [
+    22,
+    21,
+    0
+   ],
+   [
+    22,
+    23,
+    0
+   ],
+   [
+    23,
+    0,
+    0
+   ],
+   [
+    23,
+    1,
+    3
+   ],
+   [
+    23,
+    2,
+    0
+   ],
+   [
+    23,
+    5,
+    1
+   ],
+   [
+    23,
+    8,
+    0
+   ],
+   [
+    23,
+    17,
+    0
+   ],
+   [
+    23,
+    18,
+    0
+   ],
+   [
+    23,
+    19,
+    0
+   ],
+   [
+    23,
+    20,
+    3
+   ],
+   [
+    23,
+    21,
+    0
+   ],
+   [
+    23,
+    22,
+    1
+   ]
+  ]
+ },
  "pictures": {
   "terrain": "terrain.png",
   "sprites": "sprites",

@@ -38,8 +38,21 @@ public partial class SettingsPanel : Control
         };
         column.AddChild(borders);
 
+        var speedLabel = new Label { Text = SpeedText() };
+        column.AddChild(speedLabel);
+        var speed = new HSlider { MinValue = 0.5, MaxValue = 20, Step = 0.5, Value = Settings.YearsPerSecond,
+                                  CustomMinimumSize = new Vector2(260, 24) };
+        speed.ValueChanged += value =>
+        {
+            Settings.YearsPerSecond = value;
+            speedLabel.Text = SpeedText();
+        };
+        column.AddChild(speed);
+
         column.AddChild(Ui.Button("Close", Close));
     }
+
+    static string SpeedText() => "Years a second while playing: " + Settings.YearsPerSecond.ToString("0.#");
 
     void Close()
     {

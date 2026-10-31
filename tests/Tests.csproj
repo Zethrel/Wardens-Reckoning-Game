@@ -17,6 +17,7 @@
   <ItemGroup>
     <Using Include="Xunit" />
     <ProjectReference Include="../src/World/World.csproj" />
+    <ProjectReference Include="../src/Sim/Sim.csproj" />
     <!-- The test world goes beside the tests when they are built, so they find it wherever they run. -->
     <None Include="fixtures/**" Exclude="fixtures/*.py" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
