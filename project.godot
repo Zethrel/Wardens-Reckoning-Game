@@ -1,0 +1,19 @@
+; Copyright (c) 2026 Zethrel. All rights reserved. See LICENSE.
+; Godot's settings for the game. Godot rewrites this file when settings change in its editor.
+
+config_version=5
+
+[application]
+
+config/name="Wardens' Reckoning"
+run/main_scene="res://src/UI/Main.tscn"
+config/features=PackedStringArray("4.7", "C#", "Forward Plus")
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+
+[dotnet]
+
+project/assembly_name="WardensReckoning"

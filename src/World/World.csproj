@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Copyright (c) 2026 Zethrel. All rights reserved. See LICENSE. -->
+  <!-- Reads an exported world. Plain .NET, no Godot: the tests run it without the engine. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>WardensReckoning.World</AssemblyName>
+    <RootNamespace>WardensReckoning.World</RootNamespace>
+  </PropertyGroup>
+</Project>

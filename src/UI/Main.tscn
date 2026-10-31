@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3]
+
+; Copyright (c) 2026 Zethrel. All rights reserved. See LICENSE.
+; The game's first scene: one node, Main (src/UI/Main.cs), which builds every screen in code.
+
+[ext_resource type="Script" path="res://src/UI/Main.cs" id="1"]
+
+[node name="Main" type="Node"]
+script = ExtResource("1")

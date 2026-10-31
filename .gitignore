@@ -1,0 +1,6 @@
+# Made by Godot and by dotnet; made again when the project is opened or built.
+.godot/
+bin/
+obj/
+*.user
+# The game's own saves and settings live in Godot's user:// folder, not here.

@@ -1,0 +1,4921 @@
+{
+ "grids": {
+  "height": {
+   "width": 128,
+   "height": 128,
+   "sha256": "f45be4d8646fe6f2164c7f48fb1e51172615ba166acb242df42fb52016b6ea29"
+  },
+  "water": {
+   "width": 128,
+   "height": 128,
+   "sha256": "c189d9d9e89e68557de17cbe7c043be14c81bb086639cc6d2da0d9372a2dbf19"
+  },
+  "biomes": {
+   "width": 128,
+   "height": 128,
+   "sha256": "dc18806ff144ceb51b0da0a9e9a03911da2b54814905c547cee4234f00ce00e8"
+  },
+  "factions": {
+   "width": 128,
+   "height": 128,
+   "sha256": "fdc848dd993ed10b28d88dc52c5fca66f95faac63afd07cca408d18fc24b3f54"
+  },
+  "farms": {
+   "width": 128,
+   "height": 128,
+   "sha256": "d5be737c13167bc175aeb52a5f42f9e604d29aa32b75771ca2252467f277a1b7"
+  },
+  "lakes": {
+   "width": 128,
+   "height": 128,
+   "sha256": "a32399e5e15d1e6112c6bec0357f5259066549d56d84689a22802b5d0712b828"
+  },
+  "coasts": {
+   "width": 128,
+   "height": 128,
+   "sha256": "310744c15ac3da1adef44431949b1ab5565ae239613036e618ee6e7852af2d8d"
+  },
+  "landforms": {
+   "width": 128,
+   "height": 128,
+   "sha256": "602eb5eea2f8a49fefbf458d648be9bcad944cb6aef2d9276465b7f2340d6e21"
+  }
+ },
+ "years": {
+  "0": {
+   "towns": [
+    {
+     "holder": 1,
+     "people": 1937,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 3872,
+     "ruined": false
+    },
+    {
+     "holder": 5,
+     "people": 4153,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 2191,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 5305,
+     "ruined": false
+    },
+    {
+     "holder": 5,
+     "people": 2192,
+     "ruined": false
+    },
+    {
+     "holder": 5,
+     "people": 2904,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 2632,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 1350,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 1798,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 4876,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 2772,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 827,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 2928,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 3453,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 5491,
+     "ruined": false
+    },
+    {
+     "holder": 5,
+     "people": 3452,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 2082,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 3373,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 6249,
+     "ruined": false
+    },
+    {
+     "holder": 4,
+     "people": 1754,
+     "ruined": false
+    },
+    {
+     "holder": 3,
+     "people": 2039,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 4834,
+     "ruined": false
+    },
+    {
+     "holder": 5,
+     "people": 3408,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 2396,
+     "ruined": false
+    },
+    {
+     "holder": 4,
+     "people": 2150,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 3339,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 5276,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1566,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 2815,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 3273,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 4265,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1330,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1513,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1325,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1308,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 897,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 765,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1174,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 2777,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 1195,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 2056,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 4907,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 5005,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 1219,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 435,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 50,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 16,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 1331,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 2276,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 797,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 818,
+     "ruined": false
+    },
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ],
+   "factions": [
+    {
+     "path": "handcraft",
+     "ruler": "Nakari",
+     "belief": "deny",
+     "government": "balanced heritage",
+     "capital": 4
+    },
+    {
+     "path": "attunement",
+     "ruler": "Omyara",
+     "belief": "unknowing",
+     "government": "autocratic might",
+     "capital": 7
+    },
+    {
+     "path": "mechanism",
+     "ruler": "Kntstkssk",
+     "belief": "worship",
+     "government": "feudal bloodline",
+     "capital": 24
+    },
+    {
+     "path": "wilding",
+     "ruler": "Drokethphol",
+     "belief": "unknowing",
+     "government": "balanced heritage",
+     "capital": 21
+    },
+    {
+     "path": "handcraft",
+     "ruler": "Thrabalur",
+     "belief": "unknowing",
+     "government": "balanced heritage",
+     "capital": 25
+    },
+    {
+     "path": "reclamation",
+     "ruler": "Nixkrik",
+     "belief": "unknowing",
+     "government": "balanced heritage",
+     "capital": 23
+    },
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ],
+   "borders_sha256": "fe4f859e3b907331360f105ccb65336884139d0c29ebd43b6d1f356549c135ac",
+   "drawn": [
+    [
+     19,
+     39,
+     45,
+     1,
+     "city",
+     false,
+     false
+    ],
+    [
+     15,
+     27,
+     43,
+     1,
+     "city",
+     false,
+     false
+    ],
+    [
+     4,
+     83,
+     61,
+     0,
+     "city",
+     false,
+     true
+    ],
+    [
+     27,
+     49,
+     49,
+     1,
+     "city",
+     false,
+     false
+    ],
+    [
+     43,
+     33,
+     60,
+     2,
+     "city",
+     false,
+     false
+    ],
+    [
+     42,
+     37,
+     68,
+     2,
+     "town",
+     false,
+     false
+    ],
+    [
+     10,
+     67,
+     33,
+     1,
+     "town",
+     false,
+     false
+    ],
+    [
+     22,
+     77,
+     58,
+     0,
+     "town",
+     false,
+     false
+    ],
+    [
+     31,
+     89,
+     15,
+     0,
+     "town",
+     false,
+     false
+    ],
+    [
+     2,
+     73,
+     17,
+     5,
+     "town",
+     false,
+     false
+    ],
+    [
+     1,
+     44,
+     38,
+     1,
+     "town",
+     false,
+     false
+    ],
+    [
+     14,
+     48,
+     69,
+     2,
+     "town",
+     false,
+     false
+    ],
+    [
+     16,
+     72,
+     23,
+     5,
+     "town",
+     false,
+     false
+    ],
+    [
+     23,
+     52,
+     25,
+     5,
+     "town",
+     false,
+     true
+    ],
+    [
+     18,
+     73,
+     53,
+     0,
+     "town",
+     false,
+     false
+    ],
+    [
+     26,
+     57,
+     38,
+     1,
+     "town",
+     false,
+     false
+    ],
+    [
+     30,
+     60,
+     66,
+     0,
+     "town",
+     false,
+     false
+    ],
+    [
+     13,
+     47,
+     76,
+     2,
+     "village",
+     false,
+     false
+    ],
+    [
+     6,
+     46,
+     24,
+     5,
+     "village",
+     false,
+     false
+    ],
+    [
+     29,
+     33,
+     36,
+     1,
+     "village",
+     false,
+     false
+    ],
+    [
+     39,
+     93,
+     53,
+     0,
+     "village",
+     false,
+     false
+    ],
+    [
+     11,
+     63,
+     60,
+     0,
+     "village",
+     false,
+     false
+    ],
+    [
+     7,
+     51,
+     31,
+     1,
+     "village",
+     false,
+     true
+    ],
+    [
+     24,
+     23,
+     65,
+     2,
+     "village",
+     false,
+     true
+    ],
+    [
+     49,
+     28,
+     53,
+     2,
+     "village",
+     false,
+     false
+    ],
+    [
+     5,
+     55,
+     16,
+     5,
+     "village",
+     false,
+     false
+    ],
+    [
+     3,
+     52,
+     55,
+     1,
+     "village",
+     false,
+     false
+    ],
+    [
+     25,
+     18,
+     71,
+     4,
+     "village",
+     false,
+     true
+    ],
+    [
+     17,
+     16,
+     40,
+     2,
+     "village",
+     false,
+     false
+    ],
+    [
+     41,
+     58,
+     29,
+     1,
+     "village",
+     false,
+     false
+    ],
+    [
+     21,
+     80,
+     105,
+     3,
+     "village",
+     false,
+     true
+    ],
+    [
+     0,
+     27,
+     37,
+     1,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     9,
+     16,
+     54,
+     2,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     20,
+     12,
+     69,
+     4,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     28,
+     100,
+     16,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     33,
+     71,
+     59,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     8,
+     15,
+     63,
+     2,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     48,
+     39,
+     61,
+     2,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     32,
+     67,
+     54,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     34,
+     68,
+     43,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     35,
+     100,
+     24,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     44,
+     22,
+     55,
+     2,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     40,
+     52,
+     42,
+     1,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     38,
+     91,
+     45,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     36,
+     97,
+     30,
+     0,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     12,
+     16,
+     48,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     51,
+     34,
+     54,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     50,
+     45,
+     63,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     37,
+     98,
+     41,
+     0,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     45,
+     31,
+     66,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     46,
+     32,
+     72,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     47,
+     27,
+     59,
+     2,
+     "hamlet",
+     false,
+     false
+    ]
+   ]
+  },
+  "1": {
+   "towns": [
+    {
+     "holder": 1,
+     "people": 1949,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 3880,
+     "ruined": false
+    },
+    {
+     "holder": 5,
+     "people": 4167,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 2200,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 5316,
+     "ruined": false
+    },
+    {
+     "holder": 5,
+     "people": 2197,
+     "ruined": false
+    },
+    {
+     "holder": 5,
+     "people": 2914,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 2639,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 1357,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 1729,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 4894,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 2786,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 829,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 2933,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 3457,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 5509,
+     "ruined": false
+    },
+    {
+     "holder": 5,
+     "people": 3469,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 2089,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 3390,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 6270,
+     "ruined": false
+    },
+    {
+     "holder": 4,
+     "people": 1760,
+     "ruined": false
+    },
+    {
+     "holder": 3,
+     "people": 2050,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 4855,
+     "ruined": false
+    },
+    {
+     "holder": 5,
+     "people": 3418,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 2407,
+     "ruined": false
+    },
+    {
+     "holder": 4,
+     "people": 2163,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 3686,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 5284,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1573,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 2824,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 3287,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 4278,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1335,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1520,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1333,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1310,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 902,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 769,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1180,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 2787,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 1199,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 2062,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 4918,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 5018,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 1224,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 438,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 50,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 16,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 1337,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 2284,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 799,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 823,
+     "ruined": false
+    },
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ],
+   "factions": [
+    {
+     "path": "handcraft",
+     "ruler": "Nakari",
+     "belief": "deny",
+     "government": "balanced heritage",
+     "capital": 4
+    },
+    {
+     "path": "attunement",
+     "ruler": "Omyara",
+     "belief": "unknowing",
+     "government": "autocratic might",
+     "capital": 7
+    },
+    {
+     "path": "mechanism",
+     "ruler": "Kntstkssk",
+     "belief": "worship",
+     "government": "feudal bloodline",
+     "capital": 24
+    },
+    {
+     "path": "wilding",
+     "ruler": "Drokethphol",
+     "belief": "unknowing",
+     "government": "balanced heritage",
+     "capital": 21
+    },
+    {
+     "path": "handcraft",
+     "ruler": "Thrabalur",
+     "belief": "unknowing",
+     "government": "balanced heritage",
+     "capital": 25
+    },
+    {
+     "path": "reclamation",
+     "ruler": "Nixkrik",
+     "belief": "unknowing",
+     "government": "balanced heritage",
+     "capital": 23
+    },
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ],
+   "borders_sha256": "fe4f859e3b907331360f105ccb65336884139d0c29ebd43b6d1f356549c135ac",
+   "drawn": [
+    [
+     19,
+     39,
+     45,
+     1,
+     "city",
+     false,
+     false
+    ],
+    [
+     15,
+     27,
+     43,
+     1,
+     "city",
+     false,
+     false
+    ],
+    [
+     4,
+     83,
+     61,
+     0,
+     "city",
+     false,
+     true
+    ],
+    [
+     27,
+     49,
+     49,
+     1,
+     "city",
+     false,
+     false
+    ],
+    [
+     43,
+     33,
+     60,
+     2,
+     "city",
+     false,
+     false
+    ],
+    [
+     42,
+     37,
+     68,
+     2,
+     "town",
+     false,
+     false
+    ],
+    [
+     10,
+     67,
+     33,
+     1,
+     "town",
+     false,
+     false
+    ],
+    [
+     22,
+     77,
+     58,
+     0,
+     "town",
+     false,
+     false
+    ],
+    [
+     31,
+     89,
+     15,
+     0,
+     "town",
+     false,
+     false
+    ],
+    [
+     2,
+     73,
+     17,
+     5,
+     "town",
+     false,
+     false
+    ],
+    [
+     1,
+     44,
+     38,
+     1,
+     "town",
+     false,
+     false
+    ],
+    [
+     26,
+     57,
+     38,
+     1,
+     "town",
+     false,
+     false
+    ],
+    [
+     16,
+     72,
+     23,
+     5,
+     "town",
+     false,
+     false
+    ],
+    [
+     14,
+     48,
+     69,
+     2,
+     "town",
+     false,
+     false
+    ],
+    [
+     23,
+     52,
+     25,
+     5,
+     "town",
+     false,
+     true
+    ],
+    [
+     18,
+     73,
+     53,
+     0,
+     "town",
+     false,
+     false
+    ],
+    [
+     30,
+     60,
+     66,
+     0,
+     "town",
+     false,
+     false
+    ],
+    [
+     13,
+     47,
+     76,
+     2,
+     "village",
+     false,
+     false
+    ],
+    [
+     6,
+     46,
+     24,
+     5,
+     "village",
+     false,
+     false
+    ],
+    [
+     29,
+     33,
+     36,
+     1,
+     "village",
+     false,
+     false
+    ],
+    [
+     39,
+     93,
+     53,
+     0,
+     "village",
+     false,
+     false
+    ],
+    [
+     11,
+     63,
+     60,
+     0,
+     "village",
+     false,
+     false
+    ],
+    [
+     7,
+     51,
+     31,
+     1,
+     "village",
+     false,
+     true
+    ],
+    [
+     24,
+     23,
+     65,
+     2,
+     "village",
+     false,
+     true
+    ],
+    [
+     49,
+     28,
+     53,
+     2,
+     "village",
+     false,
+     false
+    ],
+    [
+     3,
+     52,
+     55,
+     1,
+     "village",
+     false,
+     false
+    ],
+    [
+     5,
+     55,
+     16,
+     5,
+     "village",
+     false,
+     false
+    ],
+    [
+     25,
+     18,
+     71,
+     4,
+     "village",
+     false,
+     true
+    ],
+    [
+     17,
+     16,
+     40,
+     2,
+     "village",
+     false,
+     false
+    ],
+    [
+     41,
+     58,
+     29,
+     1,
+     "village",
+     false,
+     false
+    ],
+    [
+     21,
+     80,
+     105,
+     3,
+     "village",
+     false,
+     true
+    ],
+    [
+     0,
+     27,
+     37,
+     1,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     9,
+     16,
+     54,
+     2,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     20,
+     12,
+     69,
+     4,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     28,
+     100,
+     16,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     33,
+     71,
+     59,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     8,
+     15,
+     63,
+     2,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     48,
+     39,
+     61,
+     2,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     32,
+     67,
+     54,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     34,
+     68,
+     43,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     35,
+     100,
+     24,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     44,
+     22,
+     55,
+     2,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     40,
+     52,
+     42,
+     1,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     38,
+     91,
+     45,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     36,
+     97,
+     30,
+     0,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     12,
+     16,
+     48,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     51,
+     34,
+     54,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     50,
+     45,
+     63,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     37,
+     98,
+     41,
+     0,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     45,
+     31,
+     66,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     46,
+     32,
+     72,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     47,
+     27,
+     59,
+     2,
+     "hamlet",
+     false,
+     false
+    ]
+   ]
+  },
+  "37": {
+   "towns": [
+    {
+     "holder": 1,
+     "people": 1325,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 3392,
+     "ruined": false
+    },
+    {
+     "holder": 5,
+     "people": 4222,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 277,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 4569,
+     "ruined": false
+    },
+    {
+     "holder": 5,
+     "people": 1459,
+     "ruined": false
+    },
+    {
+     "holder": 5,
+     "people": 380,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 2054,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 1576,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 1586,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1330,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 3251,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 818,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 2541,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1514,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 4616,
+     "ruined": false
+    },
+    {
+     "holder": 5,
+     "people": 3063,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 935,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 3397,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 5867,
+     "ruined": false
+    },
+    {
+     "holder": 8,
+     "people": 1943,
+     "ruined": false
+    },
+    {
+     "holder": 3,
+     "people": 2458,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 5642,
+     "ruined": false
+    },
+    {
+     "holder": 5,
+     "people": 1089,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 2100,
+     "ruined": false
+    },
+    {
+     "holder": 8,
+     "people": 2296,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 1955,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 1213,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1903,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 2902,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 3070,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 3800,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 984,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1766,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 925,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1655,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1157,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 757,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1094,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 3302,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 723,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 800,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 4063,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 3678,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 1360,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 407,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 54,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 86,
+     "ruined": false
+    },
+    {
+     "holder": 12,
+     "people": 1418,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 2299,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 519,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 753,
+     "ruined": false
+    },
+    {
+     "holder": 5,
+     "people": 170,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 214,
+     "ruined": false
+    },
+    {
+     "holder": 3,
+     "people": 514,
+     "ruined": false
+    },
+    {
+     "holder": 13,
+     "people": 97,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 748,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 473,
+     "ruined": false
+    },
+    {
+     "holder": 7,
+     "people": 483,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 896,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 943,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 128,
+     "ruined": false
+    },
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ],
+   "factions": [
+    {
+     "path": "handcraft",
+     "ruler": "Talos",
+     "belief": "deny",
+     "government": "balanced heritage",
+     "capital": 4
+    },
+    {
+     "path": "attunement",
+     "ruler": "Drazegah",
+     "belief": "unknowing",
+     "government": "autocratic might",
+     "capital": 7
+    },
+    {
+     "path": "mechanism",
+     "ruler": "Sttscrstrn",
+     "belief": "worship",
+     "government": "feudal bloodline",
+     "capital": 24
+    },
+    {
+     "path": "wilding",
+     "ruler": "Astketheur",
+     "belief": "unknowing",
+     "government": "balanced heritage",
+     "capital": 21
+    },
+    {
+     "path": "handcraft",
+     "ruler": null,
+     "belief": "unknowing",
+     "government": "balanced heritage",
+     "capital": 25
+    },
+    {
+     "path": "reclamation",
+     "ruler": "Ratnobskab",
+     "belief": "unknowing",
+     "government": "balanced heritage",
+     "capital": 16
+    },
+    {
+     "path": "whispercraft",
+     "ruler": null,
+     "belief": "unknowing",
+     "government": "autocratic might",
+     "capital": 10
+    },
+    {
+     "path": "transmutation",
+     "ruler": "Scrdrst",
+     "belief": "worship",
+     "government": "feudal bloodline",
+     "capital": 58
+    },
+    {
+     "path": "forgecraft",
+     "ruler": "Durgimin",
+     "belief": "unknowing",
+     "government": "balanced heritage",
+     "capital": 20
+    },
+    {
+     "path": "gravecraft",
+     "ruler": null,
+     "belief": "unknowing",
+     "government": "balanced heritage",
+     "capital": 6
+    },
+    {
+     "path": "mechanism",
+     "ruler": null,
+     "belief": "worship",
+     "government": "feudal bloodline",
+     "capital": 54
+    },
+    {
+     "path": "wilding",
+     "ruler": "Lyxeththragah",
+     "belief": "unknowing",
+     "government": "autocratic might",
+     "capital": 3
+    },
+    {
+     "path": "mechanism",
+     "ruler": "Rspsvr",
+     "belief": "worship",
+     "government": "feudal bloodline",
+     "capital": 48
+    },
+    {
+     "path": "reclamation",
+     "ruler": "Krikpoglug",
+     "belief": "unknowing",
+     "government": "balanced heritage",
+     "capital": 55
+    },
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ],
+   "borders_sha256": "e2837c551b5f1c4286a5b8dbfefd6a14b7227d01424101e10d945d8123782c74",
+   "drawn": [
+    [
+     19,
+     39,
+     45,
+     1,
+     "city",
+     false,
+     false
+    ],
+    [
+     15,
+     27,
+     43,
+     1,
+     "town",
+     false,
+     false
+    ],
+    [
+     22,
+     77,
+     58,
+     0,
+     "city",
+     false,
+     false
+    ],
+    [
+     4,
+     83,
+     61,
+     0,
+     "town",
+     false,
+     true
+    ],
+    [
+     27,
+     49,
+     49,
+     1,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     43,
+     33,
+     60,
+     2,
+     "town",
+     false,
+     false
+    ],
+    [
+     42,
+     37,
+     68,
+     2,
+     "town",
+     false,
+     false
+    ],
+    [
+     10,
+     67,
+     33,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     31,
+     89,
+     15,
+     0,
+     "town",
+     false,
+     false
+    ],
+    [
+     2,
+     73,
+     17,
+     5,
+     "town",
+     false,
+     false
+    ],
+    [
+     26,
+     57,
+     38,
+     1,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     1,
+     44,
+     38,
+     1,
+     "town",
+     false,
+     false
+    ],
+    [
+     16,
+     72,
+     23,
+     5,
+     "town",
+     false,
+     true
+    ],
+    [
+     18,
+     73,
+     53,
+     0,
+     "town",
+     false,
+     false
+    ],
+    [
+     30,
+     60,
+     66,
+     0,
+     "town",
+     false,
+     false
+    ],
+    [
+     14,
+     48,
+     69,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     23,
+     52,
+     25,
+     5,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     39,
+     93,
+     53,
+     0,
+     "town",
+     false,
+     false
+    ],
+    [
+     11,
+     63,
+     60,
+     0,
+     "town",
+     false,
+     false
+    ],
+    [
+     13,
+     47,
+     76,
+     2,
+     "village",
+     false,
+     false
+    ],
+    [
+     6,
+     46,
+     24,
+     5,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     29,
+     33,
+     36,
+     1,
+     "village",
+     false,
+     false
+    ],
+    [
+     7,
+     51,
+     31,
+     1,
+     "village",
+     false,
+     true
+    ],
+    [
+     24,
+     23,
+     65,
+     2,
+     "village",
+     false,
+     true
+    ],
+    [
+     25,
+     18,
+     71,
+     8,
+     "village",
+     false,
+     false
+    ],
+    [
+     21,
+     80,
+     105,
+     3,
+     "village",
+     false,
+     true
+    ],
+    [
+     5,
+     55,
+     16,
+     5,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     49,
+     28,
+     53,
+     2,
+     "village",
+     false,
+     false
+    ],
+    [
+     3,
+     52,
+     55,
+     1,
+     "hamlet",
+     false,
+     true
+    ],
+    [
+     17,
+     16,
+     40,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     41,
+     58,
+     29,
+     1,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     0,
+     27,
+     37,
+     1,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     20,
+     12,
+     69,
+     8,
+     "settlement",
+     false,
+     true
+    ],
+    [
+     28,
+     100,
+     16,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     9,
+     16,
+     54,
+     2,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     33,
+     71,
+     59,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     35,
+     100,
+     24,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     8,
+     15,
+     63,
+     2,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     48,
+     39,
+     61,
+     12,
+     "settlement",
+     false,
+     true
+    ],
+    [
+     44,
+     22,
+     55,
+     2,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     34,
+     68,
+     43,
+     0,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     32,
+     67,
+     54,
+     0,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     38,
+     91,
+     45,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     40,
+     52,
+     42,
+     1,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     36,
+     97,
+     30,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     57,
+     25,
+     71,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     60,
+     43,
+     86,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     59,
+     83,
+     13,
+     0,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     37,
+     98,
+     41,
+     0,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     12,
+     16,
+     48,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     51,
+     34,
+     54,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     50,
+     45,
+     63,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     56,
+     39,
+     81,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     54,
+     60,
+     80,
+     3,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     58,
+     52,
+     81,
+     7,
+     "hamlet",
+     false,
+     true
+    ],
+    [
+     52,
+     49,
+     18,
+     5,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     45,
+     31,
+     66,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     53,
+     63,
+     24,
+     1,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     47,
+     27,
+     59,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     61,
+     27,
+     86,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     55,
+     64,
+     13,
+     13,
+     "hamlet",
+     false,
+     true
+    ],
+    [
+     46,
+     32,
+     72,
+     2,
+     "hamlet",
+     false,
+     false
+    ]
+   ]
+  },
+  "64": {
+   "towns": [
+    {
+     "holder": 1,
+     "people": 1512,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 2536,
+     "ruined": false
+    },
+    {
+     "holder": 5,
+     "people": 3245,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 82,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 4397,
+     "ruined": false
+    },
+    {
+     "holder": 5,
+     "people": 274,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 0,
+     "ruined": true
+    },
+    {
+     "holder": 15,
+     "people": 318,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 1608,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 1426,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 380,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 3480,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 689,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 2192,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 1234,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 3032,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1872,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 373,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 3846,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 5423,
+     "ruined": false
+    },
+    {
+     "holder": 8,
+     "people": 1749,
+     "ruined": false
+    },
+    {
+     "holder": 16,
+     "people": 1906,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 6198,
+     "ruined": false
+    },
+    {
+     "holder": 5,
+     "people": 0,
+     "ruined": true
+    },
+    {
+     "holder": 2,
+     "people": 2029,
+     "ruined": false
+    },
+    {
+     "holder": 8,
+     "people": 1811,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 715,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 353,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1683,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 3011,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 2957,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 3861,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1143,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1583,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1194,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1487,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1278,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 920,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 836,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 2806,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 544,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 277,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 4396,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 3970,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 1422,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 452,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 70,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 53,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 1136,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 1832,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 480,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 516,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 0,
+     "ruined": true
+    },
+    {
+     "holder": 0,
+     "people": 52,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 325,
+     "ruined": false
+    },
+    {
+     "holder": 5,
+     "people": 52,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 770,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 312,
+     "ruined": false
+    },
+    {
+     "holder": 7,
+     "people": 605,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 867,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 647,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 142,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 116,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 715,
+     "ruined": false
+    },
+    {
+     "holder": 5,
+     "people": 0,
+     "ruined": true
+    },
+    {
+     "holder": 0,
+     "people": 425,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 429,
+     "ruined": false
+    },
+    {
+     "holder": 17,
+     "people": 436,
+     "ruined": false
+    },
+    null,
+    null
+   ],
+   "factions": [
+    {
+     "path": "handcraft",
+     "ruler": "Vemori",
+     "belief": "deny",
+     "government": "balanced heritage",
+     "capital": 4
+    },
+    {
+     "path": "attunement",
+     "ruler": "Wyndralyn",
+     "belief": "unknowing",
+     "government": "autocratic might",
+     "capital": 15
+    },
+    {
+     "path": "mechanism",
+     "ruler": "Trstprtdr",
+     "belief": "worship",
+     "government": "feudal bloodline",
+     "capital": 24
+    },
+    {
+     "path": "wilding",
+     "ruler": null,
+     "belief": "unknowing",
+     "government": "balanced heritage",
+     "capital": 21
+    },
+    {
+     "path": "handcraft",
+     "ruler": null,
+     "belief": "unknowing",
+     "government": "balanced heritage",
+     "capital": 25
+    },
+    {
+     "path": "reclamation",
+     "ruler": "Ratpognix",
+     "belief": "fear",
+     "government": "balanced heritage",
+     "capital": 2
+    },
+    {
+     "path": "whispercraft",
+     "ruler": null,
+     "belief": "unknowing",
+     "government": "autocratic might",
+     "capital": 10
+    },
+    {
+     "path": "transmutation",
+     "ruler": "Spstldrsgrn",
+     "belief": "worship",
+     "government": "feudal bloodline",
+     "capital": 58
+    },
+    {
+     "path": "forgecraft",
+     "ruler": "Gimmori",
+     "belief": "unknowing",
+     "government": "balanced heritage",
+     "capital": 20
+    },
+    {
+     "path": "gravecraft",
+     "ruler": null,
+     "belief": "unknowing",
+     "government": "balanced heritage",
+     "capital": 6
+    },
+    {
+     "path": "mechanism",
+     "ruler": null,
+     "belief": "worship",
+     "government": "feudal bloodline",
+     "capital": 54
+    },
+    {
+     "path": "wilding",
+     "ruler": null,
+     "belief": "unknowing",
+     "government": "autocratic might",
+     "capital": 3
+    },
+    {
+     "path": "mechanism",
+     "ruler": null,
+     "belief": "worship",
+     "government": "feudal bloodline",
+     "capital": 48
+    },
+    {
+     "path": "reclamation",
+     "ruler": null,
+     "belief": "unknowing",
+     "government": "balanced heritage",
+     "capital": 55
+    },
+    {
+     "path": "resonance",
+     "ruler": null,
+     "belief": "unknowing",
+     "government": "autocratic might",
+     "capital": 53
+    },
+    {
+     "path": "attunement",
+     "ruler": "Draorythra",
+     "belief": "fear",
+     "government": "autocratic might",
+     "capital": 7
+    },
+    {
+     "path": "wilding",
+     "ruler": "Hipdro",
+     "belief": "unknowing",
+     "government": "balanced heritage",
+     "capital": 21
+    },
+    {
+     "path": "mechanism",
+     "ruler": "Mprn",
+     "belief": "worship",
+     "government": "feudal bloodline",
+     "capital": 67
+    },
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+   ],
+   "borders_sha256": "804c6277f1e9ff68605a69625cdad4f121e51439671b8bdc97363a2aa8123219",
+   "drawn": [
+    [
+     19,
+     39,
+     45,
+     1,
+     "city",
+     false,
+     false
+    ],
+    [
+     22,
+     77,
+     58,
+     0,
+     "city",
+     false,
+     false
+    ],
+    [
+     15,
+     27,
+     43,
+     1,
+     "town",
+     false,
+     true
+    ],
+    [
+     4,
+     83,
+     61,
+     0,
+     "town",
+     false,
+     true
+    ],
+    [
+     27,
+     49,
+     49,
+     1,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     43,
+     33,
+     60,
+     2,
+     "town",
+     false,
+     false
+    ],
+    [
+     42,
+     37,
+     68,
+     2,
+     "town",
+     false,
+     false
+    ],
+    [
+     10,
+     67,
+     33,
+     0,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     31,
+     89,
+     15,
+     0,
+     "town",
+     false,
+     false
+    ],
+    [
+     2,
+     73,
+     17,
+     5,
+     "town",
+     false,
+     true
+    ],
+    [
+     26,
+     57,
+     38,
+     1,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     1,
+     44,
+     38,
+     0,
+     "village",
+     false,
+     false
+    ],
+    [
+     18,
+     73,
+     53,
+     0,
+     "town",
+     false,
+     false
+    ],
+    [
+     16,
+     72,
+     23,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     30,
+     60,
+     66,
+     0,
+     "village",
+     false,
+     false
+    ],
+    [
+     11,
+     63,
+     60,
+     0,
+     "town",
+     false,
+     false
+    ],
+    [
+     14,
+     48,
+     69,
+     2,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     23,
+     52,
+     25,
+     5,
+     "town",
+     true,
+     false
+    ],
+    [
+     39,
+     93,
+     53,
+     0,
+     "village",
+     false,
+     false
+    ],
+    [
+     29,
+     33,
+     36,
+     1,
+     "town",
+     false,
+     false
+    ],
+    [
+     13,
+     47,
+     76,
+     2,
+     "village",
+     false,
+     false
+    ],
+    [
+     6,
+     46,
+     24,
+     2,
+     "village",
+     true,
+     false
+    ],
+    [
+     7,
+     51,
+     31,
+     15,
+     "hamlet",
+     false,
+     true
+    ],
+    [
+     24,
+     23,
+     65,
+     2,
+     "village",
+     false,
+     true
+    ],
+    [
+     25,
+     18,
+     71,
+     8,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     21,
+     80,
+     105,
+     16,
+     "settlement",
+     false,
+     true
+    ],
+    [
+     5,
+     55,
+     16,
+     5,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     49,
+     28,
+     53,
+     2,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     3,
+     52,
+     55,
+     1,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     17,
+     16,
+     40,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     41,
+     58,
+     29,
+     1,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     28,
+     100,
+     16,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     33,
+     71,
+     59,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     20,
+     12,
+     69,
+     8,
+     "settlement",
+     false,
+     true
+    ],
+    [
+     0,
+     27,
+     37,
+     1,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     35,
+     100,
+     24,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     9,
+     16,
+     54,
+     2,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     8,
+     15,
+     63,
+     2,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     44,
+     22,
+     55,
+     2,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     48,
+     39,
+     61,
+     1,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     34,
+     68,
+     43,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     32,
+     67,
+     54,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     38,
+     91,
+     45,
+     0,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     36,
+     97,
+     30,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     40,
+     52,
+     42,
+     0,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     57,
+     25,
+     71,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     60,
+     43,
+     86,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     59,
+     83,
+     13,
+     0,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     37,
+     98,
+     41,
+     0,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     12,
+     16,
+     48,
+     1,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     51,
+     34,
+     54,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     50,
+     45,
+     63,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     56,
+     39,
+     81,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     63,
+     86,
+     55,
+     0,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     54,
+     60,
+     80,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     58,
+     52,
+     81,
+     7,
+     "hamlet",
+     false,
+     true
+    ],
+    [
+     67,
+     64,
+     85,
+     17,
+     "hamlet",
+     false,
+     true
+    ],
+    [
+     52,
+     49,
+     18,
+     1,
+     "hamlet",
+     true,
+     false
+    ],
+    [
+     45,
+     31,
+     66,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     53,
+     63,
+     24,
+     0,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     66,
+     72,
+     65,
+     0,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     65,
+     83,
+     20,
+     0,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     47,
+     27,
+     59,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     61,
+     27,
+     86,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     62,
+     15,
+     88,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     55,
+     64,
+     13,
+     5,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     46,
+     32,
+     72,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     64,
+     42,
+     29,
+     5,
+     "hamlet",
+     true,
+     false
+    ]
+   ]
+  },
+  "100": {
+   "towns": [
+    {
+     "holder": 1,
+     "people": 1841,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 2035,
+     "ruined": false
+    },
+    {
+     "holder": 22,
+     "people": 2345,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 0,
+     "ruined": true
+    },
+    {
+     "holder": 21,
+     "people": 3519,
+     "ruined": false
+    },
+    {
+     "holder": 5,
+     "people": 30,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 0,
+     "ruined": true
+    },
+    {
+     "holder": 0,
+     "people": 0,
+     "ruined": true
+    },
+    {
+     "holder": 2,
+     "people": 1457,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 309,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 109,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 3475,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 199,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 2177,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 452,
+     "ruined": false
+    },
+    {
+     "holder": 23,
+     "people": 2445,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1449,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 105,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 4544,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 4014,
+     "ruined": false
+    },
+    {
+     "holder": 8,
+     "people": 1337,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 2286,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 5397,
+     "ruined": false
+    },
+    {
+     "holder": 5,
+     "people": 0,
+     "ruined": true
+    },
+    {
+     "holder": 2,
+     "people": 2235,
+     "ruined": false
+    },
+    {
+     "holder": 8,
+     "people": 1356,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 203,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 84,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1861,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 2321,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 2740,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 3830,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1382,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1617,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 978,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 1564,
+     "ruined": false
+    },
+    {
+     "holder": 19,
+     "people": 1498,
+     "ruined": false
+    },
+    {
+     "holder": 19,
+     "people": 1023,
+     "ruined": false
+    },
+    {
+     "holder": 19,
+     "people": 995,
+     "ruined": false
+    },
+    {
+     "holder": 19,
+     "people": 3060,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 548,
+     "ruined": false
+    },
+    {
+     "holder": 20,
+     "people": 61,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 1558,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 1535,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 1410,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 545,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 65,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 47,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 264,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 1974,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 76,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 237,
+     "ruined": false
+    },
+    {
+     "holder": 1,
+     "people": 0,
+     "ruined": true
+    },
+    {
+     "holder": 14,
+     "people": 0,
+     "ruined": true
+    },
+    {
+     "holder": 2,
+     "people": 272,
+     "ruined": false
+    },
+    {
+     "holder": 5,
+     "people": 0,
+     "ruined": true
+    },
+    {
+     "holder": 2,
+     "people": 747,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 200,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 511,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 972,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 745,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 149,
+     "ruined": false
+    },
+    {
+     "holder": 2,
+     "people": 96,
+     "ruined": false
+    },
+    {
+     "holder": 21,
+     "people": 712,
+     "ruined": false
+    },
+    {
+     "holder": 5,
+     "people": 0,
+     "ruined": true
+    },
+    {
+     "holder": 0,
+     "people": 531,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 538,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 152,
+     "ruined": false
+    },
+    {
+     "holder": 19,
+     "people": 66,
+     "ruined": false
+    },
+    {
+     "holder": 0,
+     "people": 73,
+     "ruined": false
+    }
+   ],
+   "factions": [
+    {
+     "path": "handcraft",
+     "ruler": "Vekat",
+     "belief": "deny",
+     "government": "balanced heritage",
+     "capital": 1
+    },
+    {
+     "path": "attunement",
+     "ruler": "Lyxlynethurk",
+     "belief": "deny",
+     "government": "autocratic might",
+     "capital": 19
+    },
+    {
+     "path": "mechanism",
+     "ruler": "Mnprkrskstr",
+     "belief": "worship",
+     "government": "feudal bloodline",
+     "capital": 24
+    },
+    {
+     "path": "wilding",
+     "ruler": null,
+     "belief": "unknowing",
+     "government": "balanced heritage",
+     "capital": 21
+    },
+    {
+     "path": "handcraft",
+     "ruler": null,
+     "belief": "unknowing",
+     "government": "balanced heritage",
+     "capital": 25
+    },
+    {
+     "path": "reclamation",
+     "ruler": "Nixgobsniko",
+     "belief": "fear",
+     "government": "balanced heritage",
+     "capital": 5
+    },
+    {
+     "path": "whispercraft",
+     "ruler": null,
+     "belief": "unknowing",
+     "government": "autocratic might",
+     "capital": 10
+    },
+    {
+     "path": "transmutation",
+     "ruler": null,
+     "belief": "worship",
+     "government": "feudal bloodline",
+     "capital": 58
+    },
+    {
+     "path": "mechanism",
+     "ruler": "Dumborak",
+     "belief": "unknowing",
+     "government": "balanced heritage",
+     "capital": 20
+    },
+    {
+     "path": "gravecraft",
+     "ruler": null,
+     "belief": "unknowing",
+     "government": "balanced heritage",
+     "capital": 6
+    },
+    {
+     "path": "mechanism",
+     "ruler": null,
+     "belief": "worship",
+     "government": "feudal bloodline",
+     "capital": 54
+    },
+    {
+     "path": "wilding",
+     "ruler": null,
+     "belief": "unknowing",
+     "government": "autocratic might",
+     "capital": 3
+    },
+    {
+     "path": "mechanism",
+     "ruler": null,
+     "belief": "worship",
+     "government": "feudal bloodline",
+     "capital": 48
+    },
+    {
+     "path": "reclamation",
+     "ruler": null,
+     "belief": "unknowing",
+     "government": "balanced heritage",
+     "capital": 55
+    },
+    {
+     "path": "resonance",
+     "ruler": null,
+     "belief": "unknowing",
+     "government": "autocratic might",
+     "capital": 53
+    },
+    {
+     "path": "attunement",
+     "ruler": null,
+     "belief": "fear",
+     "government": "autocratic might",
+     "capital": 7
+    },
+    {
+     "path": "wilding",
+     "ruler": null,
+     "belief": "unknowing",
+     "government": "balanced heritage",
+     "capital": 21
+    },
+    {
+     "path": "mechanism",
+     "ruler": null,
+     "belief": "worship",
+     "government": "feudal bloodline",
+     "capital": 67
+    },
+    {
+     "path": "mechanism",
+     "ruler": null,
+     "belief": "worship",
+     "government": "feudal bloodline",
+     "capital": 48
+    },
+    {
+     "path": "tidecraft",
+     "ruler": "Namos",
+     "belief": "deny",
+     "government": "balanced heritage",
+     "capital": 37
+    },
+    {
+     "path": "attunement",
+     "ruler": "Lynze",
+     "belief": "deny",
+     "government": "autocratic might",
+     "capital": 41
+    },
+    {
+     "path": "ledgercraft",
+     "ruler": "Risa",
+     "belief": "deny",
+     "government": "balanced heritage",
+     "capital": 4
+    },
+    {
+     "path": "reclamation",
+     "ruler": "Fizzit",
+     "belief": "fear",
+     "government": "balanced heritage",
+     "capital": 2
+    },
+    {
+     "path": "attunement",
+     "ruler": "Orythra",
+     "belief": "deny",
+     "government": "autocratic might",
+     "capital": 15
+    }
+   ],
+   "borders_sha256": "4b688619d246576e38aea0f52b8606aab8cb0f892c59dae47978eb506bca1e62",
+   "drawn": [
+    [
+     22,
+     77,
+     58,
+     0,
+     "city",
+     false,
+     false
+    ],
+    [
+     19,
+     39,
+     45,
+     1,
+     "town",
+     false,
+     true
+    ],
+    [
+     15,
+     27,
+     43,
+     23,
+     "village",
+     false,
+     true
+    ],
+    [
+     4,
+     83,
+     61,
+     21,
+     "town",
+     false,
+     true
+    ],
+    [
+     27,
+     49,
+     49,
+     1,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     43,
+     33,
+     60,
+     2,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     42,
+     37,
+     68,
+     2,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     10,
+     67,
+     33,
+     0,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     18,
+     73,
+     53,
+     0,
+     "town",
+     false,
+     false
+    ],
+    [
+     31,
+     89,
+     15,
+     0,
+     "town",
+     false,
+     false
+    ],
+    [
+     2,
+     73,
+     17,
+     22,
+     "village",
+     false,
+     true
+    ],
+    [
+     26,
+     57,
+     38,
+     0,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     1,
+     44,
+     38,
+     0,
+     "village",
+     false,
+     true
+    ],
+    [
+     16,
+     72,
+     23,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     11,
+     63,
+     60,
+     0,
+     "town",
+     false,
+     false
+    ],
+    [
+     30,
+     60,
+     66,
+     0,
+     "village",
+     false,
+     false
+    ],
+    [
+     14,
+     48,
+     69,
+     0,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     23,
+     52,
+     25,
+     5,
+     "town",
+     true,
+     false
+    ],
+    [
+     39,
+     93,
+     53,
+     19,
+     "town",
+     false,
+     false
+    ],
+    [
+     29,
+     33,
+     36,
+     1,
+     "village",
+     false,
+     false
+    ],
+    [
+     13,
+     47,
+     76,
+     2,
+     "village",
+     false,
+     false
+    ],
+    [
+     6,
+     46,
+     24,
+     2,
+     "village",
+     true,
+     false
+    ],
+    [
+     7,
+     51,
+     31,
+     0,
+     "village",
+     true,
+     false
+    ],
+    [
+     24,
+     23,
+     65,
+     2,
+     "village",
+     false,
+     true
+    ],
+    [
+     25,
+     18,
+     71,
+     8,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     21,
+     80,
+     105,
+     0,
+     "village",
+     false,
+     false
+    ],
+    [
+     5,
+     55,
+     16,
+     5,
+     "hamlet",
+     false,
+     true
+    ],
+    [
+     49,
+     28,
+     53,
+     2,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     3,
+     52,
+     55,
+     0,
+     "village",
+     true,
+     false
+    ],
+    [
+     17,
+     16,
+     40,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     41,
+     58,
+     29,
+     20,
+     "hamlet",
+     false,
+     true
+    ],
+    [
+     28,
+     100,
+     16,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     33,
+     71,
+     59,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     20,
+     12,
+     69,
+     8,
+     "settlement",
+     false,
+     true
+    ],
+    [
+     0,
+     27,
+     37,
+     1,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     35,
+     100,
+     24,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     9,
+     16,
+     54,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     8,
+     15,
+     63,
+     2,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     36,
+     97,
+     30,
+     19,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     44,
+     22,
+     55,
+     2,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     48,
+     39,
+     61,
+     0,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     34,
+     68,
+     43,
+     0,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     32,
+     67,
+     54,
+     0,
+     "settlement",
+     false,
+     false
+    ],
+    [
+     38,
+     91,
+     45,
+     19,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     40,
+     52,
+     42,
+     0,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     57,
+     25,
+     71,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     37,
+     98,
+     41,
+     19,
+     "settlement",
+     false,
+     true
+    ],
+    [
+     60,
+     43,
+     86,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     59,
+     83,
+     13,
+     0,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     12,
+     16,
+     48,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     51,
+     34,
+     54,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     63,
+     86,
+     55,
+     21,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     50,
+     45,
+     63,
+     0,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     56,
+     39,
+     81,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     54,
+     60,
+     80,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     58,
+     52,
+     81,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     45,
+     31,
+     66,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     66,
+     72,
+     65,
+     0,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     67,
+     64,
+     85,
+     0,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     65,
+     83,
+     20,
+     0,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     52,
+     49,
+     18,
+     1,
+     "hamlet",
+     true,
+     false
+    ],
+    [
+     53,
+     63,
+     24,
+     14,
+     "hamlet",
+     true,
+     false
+    ],
+    [
+     47,
+     27,
+     59,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     61,
+     27,
+     86,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     62,
+     15,
+     88,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     55,
+     64,
+     13,
+     5,
+     "hamlet",
+     true,
+     false
+    ],
+    [
+     68,
+     81,
+     87,
+     19,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     69,
+     67,
+     69,
+     0,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     46,
+     32,
+     72,
+     2,
+     "hamlet",
+     false,
+     false
+    ],
+    [
+     64,
+     42,
+     29,
+     5,
+     "hamlet",
+     true,
+     false
+    ]
+   ]
+  }
+ }
+}

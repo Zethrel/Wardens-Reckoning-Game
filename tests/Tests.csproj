@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Copyright (c) 2026 Zethrel. All rights reserved. See LICENSE. -->
+  <!-- The tests of src/World (and later src/Sim): plain .NET, run with `dotnet test`, no Godot needed. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <AssemblyName>WardensReckoning.Tests</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="xunit" Version="2.5.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <ProjectReference Include="../src/World/World.csproj" />
+    <!-- The test world goes beside the tests when they are built, so they find it wherever they run. -->
+    <None Include="fixtures/**" Exclude="fixtures/*.py" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
