@@ -40,6 +40,10 @@ public partial class Main : Node
         int pick = Array.IndexOf(arguments, "--year");
         if (pick >= 0 && pick + 1 < arguments.Length && screen is MapScreen map && int.TryParse(arguments[pick + 1], out int year))
             map.CallDeferred(MapScreen.MethodName.PickYear, year);
+        // `-- --book <faction>` opens the book at that faction's history (-1: the whole book).
+        int opened = Array.IndexOf(arguments, "--book");
+        if (opened >= 0 && opened + 1 < arguments.Length && screen is MapScreen reading && int.TryParse(arguments[opened + 1], out int which))
+            reading.CallDeferred(MapScreen.MethodName.OpenBook, which);
         // `-- --screenshot <file.png>` saves what is on screen after a few frames and quits (for testing).
         int shot = Array.IndexOf(arguments, "--screenshot");
         if (shot >= 0 && shot + 1 < arguments.Length)

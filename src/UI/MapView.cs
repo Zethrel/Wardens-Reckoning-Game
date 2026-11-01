@@ -51,6 +51,9 @@ public partial class MapView : Node2D
         ShowYear(world.Years);
     }
 
+    /// <summary>The town drawn at map point `point` in the year shown (the topmost, as drawn last), or null.</summary>
+    public TownDrawing? TownAt(Vector2 point) => MapYear.TownAt(towns, point.X, point.Y, side);
+
     /// <summary>Shows `year`: the borders and towns as they were then.</summary>
     public void ShowYear(int year)
     {

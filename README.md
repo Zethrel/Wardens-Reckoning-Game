@@ -15,7 +15,9 @@ its first 300 years are made by the generator (Zethrel/Wardens-Reckoning):
 On the map: the mouse wheel zooms, the right or middle mouse button (or
 W, A, S, D and the arrow keys) moves, **Next year** (N) runs a year, **Play**
 (Space) runs them one after another, the slider at the bottom picks the year
-shown, and Esc opens the menu (save, load, settings).
+shown, **Book** (B) opens everything that happened, and a click on a faction
+in the list or on one of its towns opens that faction's own history. Esc
+closes the book, or opens the menu (save, load, settings).
 
 ## The tests
 

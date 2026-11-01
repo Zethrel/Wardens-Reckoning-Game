@@ -25,6 +25,8 @@ public partial class MapScreen : Node
     VBoxContainer? legend;
     int wanted = -1;
     bool playing;
+    BookPanel? book;
+    IReadOnlyList<BookEntry>? exportBook;   // the book of a world that can only be looked at (no game to add to it)
     double untilNextYear;
 
     public MapScreen() : this(null!, null!, null, "") { }
@@ -84,6 +86,15 @@ public partial class MapScreen : Node
         side.AddChild(scroll);
         legend = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         scroll.AddChild(legend);
+
+        // The book, on the left: the whole book or one faction's history (BookPanel.cs).
+        book = new BookPanel(world, () => game?.BookEntries ?? (exportBook ??= Book.FromExport(world)));
+        hud.AddChild(book);
+        var bookButton = new Button { Text = "Book", FocusMode = Control.FocusModeEnum.None,
+                                      TooltipText = "Everything that happened (B); click a faction or a town for its own history" };
+        bookButton.Pressed += () => { book.ShowYear(map.Year); book.Toggle(); };
+        row.AddChild(bookButton);
+        row.MoveChild(bookButton, 2);
 
         var menuLayer = new CanvasLayer { Layer = 10 };
         AddChild(menuLayer);
@@ -154,13 +165,23 @@ public partial class MapScreen : Node
         {
             map.ShowYear(wanted);
             ShowLegend();
+            book?.ShowYear(map.Year);
         }
         wanted = -1;
     }
 
     public override void _UnhandledKeyInput(InputEvent @event)
     {
-        if (game == null || @event is not InputEventKey { Pressed: true, Echo: false } key)
+        if (@event is not InputEventKey { Pressed: true, Echo: false } key)
+            return;
+        if (key.Keycode == Key.B)
+        {
+            book!.ShowYear(map!.Year);
+            book.Toggle();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+        if (game == null)
             return;
         if (key.Keycode == Key.Space)
             TogglePlay();
@@ -169,6 +190,36 @@ public partial class MapScreen : Node
         else
             return;
         GetViewport().SetInputAsHandled();
+    }
+
+    /// <summary>Opens the book: at `faction`'s history, or the whole book for -1 (for testing: `-- --book <faction>`).</summary>
+    public void OpenBook(int faction)
+    {
+        if (faction < 0)
+        {
+            book!.ShowYear(map!.Year);
+            book.Open(null);
+        }
+        else
+            OpenFaction(faction);
+    }
+
+    /// <summary>Opens the book at `faction`'s history, in the year shown.</summary>
+    public void OpenFaction(int faction)
+    {
+        book!.ShowYear(map!.Year);
+        book.Open(faction);
+    }
+
+    public override void _UnhandledInput(InputEvent @event)
+    {
+        // A left click on a town (not on the bar or a panel, which take their own clicks) opens its faction's history.
+        if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true }
+            && map!.TownAt(map.GetGlobalMousePosition()) is { Faction: int faction })
+        {
+            OpenFaction(faction);
+            GetViewport().SetInputAsHandled();
+        }
     }
 
     // The year shown, and the factions alive in it, the most people first, each with its colour and path.
@@ -188,16 +239,27 @@ public partial class MapScreen : Node
         foreach (var (faction, people) in MapYear.Alive(world, map.Year))
         {
             var info = world.Factions[faction];
-            var line = new HBoxContainer();
+            // A row is clickable: it opens the book at that faction's history.
+            var line = new HBoxContainer { MouseFilter = Control.MouseFilterEnum.Stop,
+                                           MouseDefaultCursorShape = Control.CursorShape.PointingHand,
+                                           TooltipText = "Open the " + info.Name + "'s history" };
+            int chosen = faction;
+            line.GuiInput += input =>
+            {
+                if (input is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true })
+                    OpenFaction(chosen);
+            };
             line.AddChild(new ColorRect { Color = Color.Color8(info.Red, info.Green, info.Blue),
                                           CustomMinimumSize = new Vector2(12, 12),
-                                          SizeFlagsVertical = Control.SizeFlags.ShrinkCenter });
+                                          SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+                                          MouseFilter = Control.MouseFilterEnum.Pass });
             string path = (string?)world.Faction(faction, map.Year)?["path"] ?? "";
             var name = new Label { Text = info.Name + (path != "" ? " (" + path + ")" : ""),
-                                   SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, ClipText = true };
+                                   SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, ClipText = true,
+                                   MouseFilter = Control.MouseFilterEnum.Pass };
             name.AddThemeFontSizeOverride("font_size", 13);
             line.AddChild(name);
-            var count = new Label { Text = people.ToString("N0") };
+            var count = new Label { Text = people.ToString("N0"), MouseFilter = Control.MouseFilterEnum.Pass };
             count.AddThemeFontSizeOverride("font_size", 13);
             line.AddChild(count);
             legend.AddChild(line);

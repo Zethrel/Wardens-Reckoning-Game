@@ -133,7 +133,7 @@ public static class SaveFile
         foreach (var node in save["events"]!.AsArray())
         {
             var e = node!.AsObject();
-            game.Events.Add(new GameEvent((int)e["year"]!, (string)e["kind"]!, (string)e["what"]!, (string)e["text"]!,
+            game.Record(new GameEvent((int)e["year"]!, (string)e["kind"]!, (string)e["what"]!, (string)e["text"]!,
                                           e["factions"]!.AsArray().Select(f => (int)f!).ToList(),
                                           e["facts"]!.AsObject().ToDictionary(p => p.Key, p => (string?)p.Value ?? "")));
         }

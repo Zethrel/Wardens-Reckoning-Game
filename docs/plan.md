@@ -8,7 +8,7 @@ October 2026"). Each step has its own tests and a lesson in `docs/lessons/`.
 | --- | --- | --- |
 | 1 | Open an export; the map with the sprites; move and zoom; the main menu and the in-game menu | 31 Oct |
 | 2 | The years run on: harvest, food, growth, ruin; Next year and Play; saving and loading | 31 Oct |
-| 2b | The book of events, and a faction's own history (below) | |
+| 2b | The book of events, and a faction's own history (below) | 1 Nov |
 | 3 | Trade | |
 | 4 | Rulers and grievance | |
 | 5 | War and alliance | |
@@ -29,5 +29,6 @@ of its towns on the map) opens the same book with only the entries that name
 it, under a card with its path, ruler, belief, government, capital, people
 over time and where it came from. One list of events, two ways to read it; the
 game's own years add to the same list. Events carry the factions they concern
-by number (the game's do already; the generator will add them to the
-export's events).
+by number, and the export's events the chronicle's sentence where it tells
+them; until the chronicle comes to the game (step 10), the game's own events
+show their plain text.

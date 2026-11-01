@@ -71,4 +71,18 @@ public class MapYearTests
         Assert.Equal(16, MapYear.SpriteSide(512));
         Assert.Equal(64, MapYear.SpriteSide(2048));
     }
+
+    [Fact]
+    public void A_click_finds_the_town_on_top()
+    {
+        var towns = new List<TownDrawing>
+        {
+            new(0, 10, 10, 1, "city", false, false), new(1, 14, 10, 2, "hamlet", false, false),
+        };
+        Assert.Equal(0, MapYear.TownAt(towns, 6, 10.5, 10)!.Index);          // only the city covers it
+        Assert.Equal(1, MapYear.TownAt(towns, 12.5, 10.5, 10)!.Index);     // both cover it: the one drawn last
+        Assert.Equal(1, MapYear.TownAt(towns, 19.4, 10.5, 10)!.Index);
+        Assert.Null(MapYear.TownAt(towns, 19.6, 10.5, 10));
+        Assert.Null(MapYear.TownAt(towns, 10.5, 30, 10));
+    }
 }

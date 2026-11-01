@@ -61,12 +61,23 @@ public sealed class Game
     public List<FactionNow> Factions { get; }
     public List<GameEvent> Events { get; } = new();
 
+    /// <summary>The book: the export's events, then the game's, in the order they happened (World/Book.cs).</summary>
+    public List<BookEntry> BookEntries { get; }
+
+    /// <summary>Writes down something that happened in the game's years: in Events (which a save keeps) and in the book.</summary>
+    public void Record(GameEvent happened)
+    {
+        Events.Add(happened);
+        BookEntries.Add(new BookEntry(happened.Year, happened.What, happened.Text, null, happened.Factions));
+    }
+
     public Game(ExportedWorld world, long seed)
     {
         World = world;
         Seed = seed;
         Settings = GameSettings.Of(world);
         Year = world.Years;
+        BookEntries = Book.FromExport(world);
         var going = GameSettings.Continuation(world);
         var places = world.Data["settlements"]!.AsArray();
         var kept = going["towns"]!.AsArray();

@@ -80,6 +80,19 @@ public static class MapYear
         return files;
     }
 
+    /// <summary>The town whose picture covers map point (x, y), or null: `towns` as drawn (Towns), each picture
+    /// `side` map cells wide around its cell's middle; where pictures overlap, the one drawn last (on top).</summary>
+    public static TownDrawing? TownAt(IReadOnlyList<TownDrawing> towns, double x, double y, double side)
+    {
+        for (int i = towns.Count - 1; i >= 0; i--)
+        {
+            var town = towns[i];
+            if (Math.Abs(x - (town.X + 0.5)) <= side / 2 && Math.Abs(y - (town.Y + 0.5)) <= side / 2)
+                return town;
+        }
+        return null;
+    }
+
     /// <summary>How many map cells wide a settlement's picture is drawn: the pictures are drawn for a map
     /// 1024 cells wide, and never smaller than 10 cells (as the atlas draws them).</summary>
     public static double SpriteSide(int mapSize) => Math.Max(10, Math.Round(32.0 * mapSize / 1024));

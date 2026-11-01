@@ -49,7 +49,7 @@ public static class YearCore
             if (size != town.Size)
             {
                 bool grew = size > town.Size;
-                game.Events.Add(new GameEvent(year, "size", grew ? "grew" : "shrank",
+                game.Record(new GameEvent(year, "size", grew ? "grew" : "shrank",
                     string.Format("{0} {1} {2} ({3} people)", record.Name, grew ? "grew into" : "shrank to",
                                   Article(settings.SizeNames[size]), population),
                     Of(town.Holder), new Dictionary<string, string>
@@ -65,7 +65,7 @@ public static class YearCore
             {
                 town.Ruined = true;
                 town.People = 0;
-                game.Events.Add(new GameEvent(year, "ruin", "ruin", record.Name + " was abandoned and fell into ruin",
+                game.Record(new GameEvent(year, "ruin", "ruin", record.Name + " was abandoned and fell into ruin",
                                               Of(town.Holder), new Dictionary<string, string> { ["place"] = record.Name }));
             }
         }
@@ -78,7 +78,7 @@ public static class YearCore
         for (int f = 0; f < game.Factions.Count; f++)
         {
             if (game.Factions[f].People > 0 && people[f] == 0)
-                game.Events.Add(new GameEvent(year, "faction", "faction_fell",
+                game.Record(new GameEvent(year, "faction", "faction_fell",
                     "the last settlement of the " + game.Factions[f].Name + " fell", new[] { f },
                     new Dictionary<string, string> { ["faction"] = game.Factions[f].Name }));
             game.Factions[f].People = people[f];
