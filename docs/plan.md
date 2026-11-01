@@ -13,7 +13,8 @@ October 2026"). Each step has its own tests and a lesson in `docs/lessons/`.
 | 4 | Rulers, grievance and opinions (with your rules from history_rules.py) | 1 Nov |
 | 5 | War and alliance | 1 Nov |
 | 6a | Splits, merging and empires (and a rising town founding a faction) | 1 Nov |
-| 6b | Migration and drift | |
+| 6b | Feeding by tastes (a town fed by whoever holds it now), and drift | 1 Nov |
+| 6c | Migration: colonies founded and ruins resettled | |
 | 7 | Paths, learning and capitals | |
 | 8 | Attunement and rituals | |
 | 9 | Happenings, threats, signs and chokepoints | |

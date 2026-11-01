@@ -29,6 +29,14 @@ public sealed class TownNow
     /// <summary>Its place on the map (map cells), for the nearest town to a mine.</summary>
     public int X { get; set; }
     public int Y { get; set; }
+    /// <summary>What its land grows of food, and the people that can feed (both follow who holds it: Feeding.cs).</summary>
+    public double Food { get; set; }
+    public double Capacity { get; set; }
+    /// <summary>The (people, path) its food and harvest were last worked out for, or null if not yet (Feeding.cs).</summary>
+    public (int? People, string? Path)? FedAs { get; set; }
+    /// <summary>The regions of the history's grid it farms (not sea or lake), row after row.</summary>
+    public List<int> Cells { get; set; } = new();
+
     /// <summary>How much of its food need was met last year, 0 to 1 (for the map and the book; not carried by the rules).</summary>
     public double Fed { get; set; } = 1.0;
 
@@ -161,6 +169,19 @@ public sealed class Game
     public sealed record LandGrid(int Columns, int Rows, int[] Owner, bool[] Ocean);
     public LandGrid Grid { get; }
 
+    /// <summary>The history's land, region by region (the export's "continue" → "land"): each region's biome (by its
+    /// place in BiomeNames, -1 for none), whether it is a lake, and its kind of land (1 land, + 2 coast, + 4 river,
+    /// + 8 highland; 0 sea).</summary>
+    public int[] LandBiome { get; }
+    public bool[] Lake { get; }
+    public int[] LandKinds { get; }
+    public IReadOnlyList<string> BiomeNames { get; }
+    /// <summary>Each people's name (the export's "peoples"), which their tastes are found under.</summary>
+    public IReadOnlyList<string> PeopleNamesOf { get; }
+
+    /// <summary>What each faction's land encourages, as last looked at (Drift.cs).</summary>
+    public Dictionary<int, Dictionary<string, double>> DriftTargets { get; } = new();
+
     /// <summary>Who holds each region of the history's grid now (-1: no one), as the borders show it.</summary>
     public int[] Regions { get; }
 
@@ -279,6 +300,9 @@ public sealed class Game
                 Origin = (int?)place["origin"],
                 ConqueredIn = (int?)place["conquered_in"],
                 FoundedFrom = (int?)place["founded_from"],
+                Food = (double?)place["food"] ?? 0.0,
+                Capacity = (double?)place["capacity"] ?? 0.0,
+                FedAs = town["fed_as"] is JsonArray fed ? ((int?)fed[0], (string?)fed[1]) : null,
                 X = (int)place["x"]!,
                 Y = (int)place["y"]!,
             });
@@ -308,6 +332,17 @@ public sealed class Game
         Grid = new LandGrid((int)land["columns"]!, (int)land["rows"]!, Unrun(land["owner"]!.AsArray()),
                             Unrun(land["ocean"]!.AsArray()).Select(v => v == 1).ToArray());
         Regions = world.Borders(world.Years) ?? Enumerable.Repeat(-1, Grid.Columns * Grid.Rows).ToArray();
+        var ground = going["land"] as JsonObject ?? throw Older("\"land\"");
+        LandBiome = Unrun(ground["biome"]!.AsArray());
+        Lake = Unrun(ground["lake"]!.AsArray()).Select(v => v == 1).ToArray();
+        LandKinds = Unrun(ground["kinds"]!.AsArray());
+        BiomeNames = world.Data["biomes"]!.AsArray().Select(b => (string)b!).ToList();
+        PeopleNamesOf = world.Data["peoples"]!.AsArray().Select(p => (string)p!["name"]!).ToList();
+        for (int cell = 0; cell < Grid.Owner.Length; cell++)
+            if (Grid.Owner[cell] is int owner and >= 0 && owner < Towns.Count && !Grid.Ocean[cell] && !Lake[cell])
+                Towns[owner].Cells.Add(cell);
+        foreach (var (faction, traits) in going["drift_targets"] as JsonObject ?? throw Older("\"drift_targets\""))
+            DriftTargets[int.Parse(faction)] = Numbers(traits);
         foreach (var node in world.Data["wars"]?.AsArray() ?? new JsonArray())
         {
             var w = node!.AsObject();

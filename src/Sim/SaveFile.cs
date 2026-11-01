@@ -20,7 +20,8 @@ public static class SaveFile
     // 4: war (the wars and alliances, the towns' origins and conquests, the mines' owners, the regions' holders,
     // the factions' borders, and each year's borders when they changed). 5: splits (the factions the game founded,
     // every faction's capital, nature, parent, hold and the rest, the factions still waiting to rise, the names given).
-    public const int Version = 5;
+    // 6: feeding and drift (each town's food, capacity, harvest and who it was fed as; what each faction's land encourages).
+    public const int Version = 6;
 
     public static void Write(string path, Game game)
     {
@@ -67,7 +68,12 @@ public static class SaveFile
                 ["people"] = t.People, ["size"] = t.Size, ["low_years"] = t.LowYears, ["hungry"] = t.Hungry,
                 ["ruined"] = t.Ruined, ["holder"] = t.Holder, ["fed"] = t.Fed,
                 ["origin"] = t.Origin, ["conquered_in"] = t.ConqueredIn, ["founded_from"] = t.FoundedFrom,
+                ["food"] = t.Food, ["capacity"] = t.Capacity,
+                ["fed_as"] = t.FedAs is { } fed ? new JsonArray(fed.People, fed.Path) : null,
+                ["yields"] = new JsonArray(t.Yields.Select(y => (JsonNode)new JsonArray(y.Key, y.Value)).ToArray()),
             }).ToArray()),
+            ["drift_targets"] = new JsonObject(game.DriftTargets.OrderBy(p => p.Key)
+                .Select(p => KeyValuePair.Create(p.Key.ToString(), (JsonNode?)Table(p.Value)))),
             ["factions"] = new JsonArray(game.Factions.Select(f => (JsonNode)new JsonObject
             {
                 ["name"] = f.Name, ["folk"] = f.Folk, ["lineage"] = f.Lineage, ["capital"] = f.Capital,
@@ -246,6 +252,11 @@ public static class SaveFile
             town.Origin = (int?)t["origin"];
             town.ConqueredIn = (int?)t["conquered_in"];
             town.FoundedFrom = (int?)t["founded_from"];
+            town.Food = (double)t["food"]!;
+            town.Capacity = (double)t["capacity"]!;
+            town.FedAs = t["fed_as"] is JsonArray fed ? ((int?)fed[0], (string?)fed[1]) : null;
+            // In the order they were added: the market goes through them in that order, as the generator's does.
+            town.Yields = t["yields"]!.AsArray().ToDictionary(y => (string)y![0]!, y => (double)y![1]!);
             town.Fed = (double)t["fed"]!;
         }
         var factions = save["factions"]!.AsArray();
@@ -331,6 +342,9 @@ public static class SaveFile
                 LastBattle = (int)w["last_battle"]!, Ended = (int?)w["ended"], Endurance = (double?)w["endurance"],
             });
         }
+        game.DriftTargets.Clear();
+        foreach (var (faction, traits) in save["drift_targets"]!.AsObject())
+            game.DriftTargets[int.Parse(faction)] = ReadTable(traits);
         game.Memory.Clear();
         foreach (var pair in save["memory"]!.AsArray())
             game.Memory[((int)pair![0]!, (int)pair[1]!)] = (double)pair[2]!;

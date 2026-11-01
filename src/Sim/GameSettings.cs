@@ -143,6 +143,26 @@ public sealed class GameSettings
                                IReadOnlyDictionary<string, double> Traits);
     public IReadOnlyDictionary<string, Start> Starts { get; }
 
+    /// <summary>Feeding by tastes (tastes.py): settlement_settings.py BIOME_FOOD, DEFAULT_FOOD, PEOPLE_PER_FOOD and
+    /// PEOPLE_FOOD (a people's own food by biome); trade_settings.py GOODS' "biomes" (what a biome yields of each good,
+    /// in the order of GOODS) and PEOPLE_GOODS; faction_settings.py PATH_LAND (the biome a path farms another as).</summary>
+    public IReadOnlyDictionary<string, double> BiomeFood { get; }
+    public double DefaultFood { get; }
+    public double PeoplePerFood { get; }
+    public IReadOnlyDictionary<string, IReadOnlyDictionary<string, double>> PeopleFood { get; }
+    public IReadOnlyList<(string Good, IReadOnlyDictionary<string, double> Biomes)> GoodBiomes { get; }
+    public IReadOnlyDictionary<string, IReadOnlyDictionary<string, IReadOnlyDictionary<string, double>>> PeopleGoods { get; }
+    public IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> PathLand { get; }
+
+    /// <summary>Whether any people or path grows food or goods its own way: then every town is fed by the people
+    /// holding it now (tastes.Tastes.feeds_its_own).</summary>
+    public bool FeedsItsOwn => PeopleFood.Count > 0 || PeopleGoods.Count > 0 || PathLand.Values.Any(v => v.Count > 0);
+
+    /// <summary>migration_settings.py DRIFT_HALF_LIFE, and faction_settings.py LAND_INFLUENCES as (kind of land, trait,
+    /// change): how the land a faction holds slowly changes its ways.</summary>
+    public double DriftHalfLife { get; }
+    public IReadOnlyList<(string Kind, string Trait, double Change)> LandInfluences { get; }
+
     static (double, double) Range(JsonNode? value) => value switch
     {
         JsonArray pair => ((double)pair[0]!, (double)pair[1]!),
@@ -258,7 +278,28 @@ public sealed class GameSettings
             })
             : new Dictionary<string, Start>();
 
-        var sizes = settings["settlement"]!["SETTLEMENT_SIZES"]!.AsArray();
+        var settlement = settings["settlement"]!.AsObject();
+        BiomeFood = Numbers(settlement["BIOME_FOOD"]);
+        DefaultFood = (double?)settlement["DEFAULT_FOOD"] ?? 0.0;
+        PeoplePerFood = (double?)settlement["PEOPLE_PER_FOOD"] ?? 0.0;
+        PeopleFood = Tables(settlement["PEOPLE_FOOD"]);
+        GoodBiomes = trading["GOODS"]!.AsObject()
+            .Select(g => (g.Key, (IReadOnlyDictionary<string, double>)Numbers(g.Value!["biomes"]))).ToList();
+        PeopleGoods = trading["PEOPLE_GOODS"] is JsonObject peopleGoods
+            ? peopleGoods.ToDictionary(p => p.Key, p => (IReadOnlyDictionary<string, IReadOnlyDictionary<string, double>>)
+                p.Value!.AsObject().ToDictionary(g => g.Key, g => (IReadOnlyDictionary<string, double>)Numbers(g.Value)))
+            : new Dictionary<string, IReadOnlyDictionary<string, IReadOnlyDictionary<string, double>>>();
+        PathLand = factions["PATH_LAND"] is JsonObject pathLand
+            ? pathLand.ToDictionary(p => p.Key, p => (IReadOnlyDictionary<string, string>)
+                p.Value!.AsObject().ToDictionary(b => b.Key, b => (string)b.Value!))
+            : new Dictionary<string, IReadOnlyDictionary<string, string>>();
+        var moving = settings["migration"] as JsonObject ?? new JsonObject();
+        DriftHalfLife = (double?)moving["DRIFT_HALF_LIFE"] ?? double.PositiveInfinity;
+        LandInfluences = factions["LAND_INFLUENCES"] is JsonArray influences
+            ? influences.Select(i => ((string)i![0]!, (string)i[1]!, (double)i[2]!)).ToList()
+            : new List<(string, string, double)>();
+
+        var sizes = settlement["SETTLEMENT_SIZES"]!.AsArray();
         SizeLows = sizes.Select(s => (int)s![0]!).ToList();
         SizeNames = sizes.Select(s => (string)s![1]!).ToList();
     }

@@ -323,6 +323,101 @@ def splits_without_dice(data):
     }
 
 
+def feeding_and_drift(data):
+    """Feeding by tastes and drift (the game's step 6b), by the generator's own functions on the export: each town's
+    food, capacity and harvest worked out for its holder's people and path, and for another people and path
+    (tastes.Tastes.capacity and yields, on the cells it farms); and one year of drift from the export's end
+    (migration.year_of_drift)."""
+    from types import SimpleNamespace
+    from north import migration, splits, tastes
+    going = data["continue"]
+    settings = going["settings"]
+    grid, land = going["grid"], going["land"]
+    columns, rows = grid["columns"], grid["rows"]
+
+    def unrun(runs):
+        flat = []
+        for i in range(0, len(runs), 2):
+            flat += [runs[i]] * runs[i + 1]
+        return flat
+    owner, ocean, lake = unrun(grid["owner"]), unrun(grid["ocean"]), unrun(land["lake"])
+    names = data["biomes"]
+    biomes = [[None if b < 0 else {"name": names[b]} for b in unrun(land["biome"])[y * columns:(y + 1) * columns]]
+              for y in range(rows)]
+    likes = tastes.Tastes([{"name": p["name"]} for p in data["peoples"]], SimpleNamespace(**settings["settlement"]),
+                          SimpleNamespace(**settings["trade"]), biomes, [[0.0] * columns for _ in range(rows)], None,
+                          0.0, None, SimpleNamespace(**settings["factions"]))
+    cells = [[] for _ in data["settlements"]]
+    for cell, town in enumerate(owner):
+        if 0 <= town < len(cells) and not ocean[cell] and not lake[cell]:
+            cells[town].append((cell % columns, cell // columns))
+    paths = sorted(settings["factions"]["PATHS"])
+    fed = []
+    for index, place in enumerate(data["settlements"]):
+        holder = place["culture"]
+        mine = (None, None) if holder is None else (data["factions"][holder]["people"], data["factions"][holder]["path"])
+        other = (index % len(data["peoples"]), paths[index % len(paths)])
+        fed.append({"cells": [y * columns + x for x, y in cells[index]],
+                    "mine": [list(mine), *likes.capacity(cells[index], *mine), likes.yields(cells[index], *mine)],
+                    "other": [list(other), *likes.capacity(cells[index], *other), likes.yields(cells[index], *other)]})
+
+    culture = unrun(going_borders(data))
+    culture_of = [[None if v < 0 else v for v in culture[y * columns:(y + 1) * columns]] for y in range(rows)]
+    kinds = []
+    for cell, code in enumerate(unrun(land["kinds"])):
+        if code:
+            kinds.append((cell % columns, cell // columns, bool(code & 2), bool(code & 4), bool(code & 8)))
+    factions = [SimpleNamespace(index=i, nature=dict(f["nature"]), values=dict(f["values"]))
+                for i, f in enumerate(data["factions"])]
+    places = [SimpleNamespace(culture=p["culture"], ruined=p["ruined"]) for p in data["settlements"]]
+    moves = migration.Movements()
+    moves.targets = {int(k): dict(v) for k, v in going["drift_targets"].items()}
+    powers = SimpleNamespace(factions=factions, movements=moves)
+    year = data["years"] + 1
+    from north.factions import shares_of
+    shares = shares_of(kinds, culture_of, len(factions))
+    migration.year_of_drift(powers, places, SimpleNamespace(kinds=kinds, culture_of=culture_of),
+                            SimpleNamespace(**settings["factions"]), SimpleNamespace(**settings["migration"]), year)
+    looked = migration.Movements()
+    looked.targets = {}
+    again = [SimpleNamespace(index=i, nature=dict(f["nature"]), values=dict(f["values"]))
+             for i, f in enumerate(data["factions"])]
+    migration.year_of_drift(SimpleNamespace(factions=again, movements=looked), places,
+                            SimpleNamespace(kinds=kinds, culture_of=culture_of),
+                            SimpleNamespace(**settings["factions"]), SimpleNamespace(**settings["migration"]), 11)
+    return {
+        "towns": fed,
+        "paths": paths,
+        "shares": shares,
+        "values_next_year": [f.values for f in factions],
+        "targets_looked_at": {str(k): v for k, v in looked.targets.items()},
+        "values_looked_at": [f.values for f in again],
+        "living": [i for i in range(len(factions)) if splits.holdings(places, i)],
+    }
+
+
+def going_borders(data):
+    """The borders at the end of the history, as runs."""
+    culture = data["history"]["borders"]
+    flat = None
+    for _since, shot in culture["snapshots"]:
+        if "full" in shot:
+            flat = []
+            for i in range(0, len(shot["full"]), 2):
+                flat += [shot["full"][i]] * shot["full"][i + 1]
+        else:
+            for i in range(0, len(shot["changes"]), 3):
+                start, count, holder = shot["changes"][i:i + 3]
+                flat[start:start + count] = [holder] * count
+    runs = []
+    for value in flat:
+        if runs and runs[-2] == value:
+            runs[-1] += 1
+        else:
+            runs += [value, 1]
+    return runs
+
+
 def main(generator):
     sys.path.insert(0, str(generator))
     from north import world_file
@@ -359,6 +454,7 @@ def main(generator):
     expected["one_year"] = one_year(world.data)
     expected["trade"] = one_year_of_trade(world.data)
     expected["splits"] = splits_without_dice(world.data)
+    expected["feeding"] = feeding_and_drift(world.data)
     (HERE / "expected.json").write_text(json.dumps(expected, indent=1), encoding="utf-8")
 
     grid = [[(x * x * 7 + y * 31 + (x ^ y) * 13) % 256 for x in range(24)] for y in range(20)]

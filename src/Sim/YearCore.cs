@@ -33,6 +33,9 @@ public static class YearCore
         var settings = game.Settings;
         var world = game.World;
 
+        // Every town fed by the people holding it now (tastes): worked out again where its holder changed.
+        Feeding.Refresh(game);
+
         // The harvest (harvests, path_harvests, ruled_harvests), what every town makes and needs, the trade between
         // towns, and the metal dug (make_markets, trade_goods, dig).
         var harvests = Enumerable.Range(0, game.Towns.Count)
@@ -111,6 +114,7 @@ public static class YearCore
         War.Year(game, markets, hardship, year);
         Rulers.Year(game, hardship.Select(h => h.Felt()).ToList(), year);
         Splits.Year(game, hardship, year);
+        Drift.Year(game, year);
 
         world.AddYear(game.Towns.Select(t => t.Ruined ? 0 : t.Population).ToList(),
                       game.Towns.Select(t => t.Holder).ToList(),
@@ -310,9 +314,8 @@ public static class YearCore
         return Math.Max(0.0, people * (1.0 + change));
     }
 
-    /// <summary>How many people a town's land can feed (the export's settlement "capacity").</summary>
-    public static double Capacity(int town, Game game) =>
-        (double?)game.World.Data["settlements"]![town]!["capacity"] ?? 0.0;
+    /// <summary>How many people a town's land can feed (the export's settlement "capacity", then as Feeding.cs works it out).</summary>
+    public static double Capacity(int town, Game game) => game.Towns[town].Capacity;
 
     /// <summary>The last band whose lowest value `value` reaches. history.py band_of.</summary>
     public static int BandOf(double value, IReadOnlyList<int> lows)
