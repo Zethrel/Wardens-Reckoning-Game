@@ -35,19 +35,27 @@ Rituals against threats come with the threats, in step 9.
 ## 1. Run it
 
 1. Great rituals are rare (two in 300 years on seed 1, none on seeds 3, 5, 7
-   and 42). To see one, make them likelier: in the generator's
-   `attunement_settings.py` set `RITUAL_CHANCE` to 0.5 and
-   `RITUAL_DESPERATION` to 0.01, then export seed 7:
+   and 42): a ritual needs an attunement faction losing a war, and on seed 7
+   the one large attunement faction, the Glowgrave Conclave, almost never
+   loses. To see them, let any faction at war work one: in the generator's
+   `attunement_settings.py` set `RITUAL_DESPERATION` to 0.0 (and, for more,
+   `RITUAL_CHANCE` to 1.0), then export seed 7:
    `python worldgen.py --seed 7 --history 7 --size 256 --export`
-   (put the settings back afterwards).
+   Put the settings back afterwards (`git checkout -- north/attunement_settings.py`).
 2. In Godot, F5, open it, play 100 years, and search the Book for `great
    ritual`.
 
-With those settings the generator's own history of seed 7 has 7 great
-rituals, 4 of them in its last century; three game centuries had 0, 1 and 0.
-The game's wars are fewer (they have no chokepoints and happenings yet, step
-9), and a faction that already worked one in a war of the generator's cannot
-work another in it.
+**`RITUAL_DESPERATION` works the other way from a chance.** It is the share
+of its people a side must already have lost before it grows desperate: 0.0
+lets a faction at war work a ritual even when it is winning, 1.0 means never
+(every one of its people would have to be dead). With `RITUAL_DESPERATION`
+0.0 and `RITUAL_CHANCE` 1.0, four game centuries of seed 7 had 15 to 25
+great rituals each.
+
+At the usual settings the game works fewer great rituals than the generator:
+its wars are fewer until the chokepoints and happenings come (step 9), and a
+faction that already worked one in a war of the generator's cannot work
+another in it.
 
 Saves are still version 8. A save of lesson 8a loads: its wars count as
 having had no great ritual.
