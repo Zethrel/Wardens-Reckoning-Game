@@ -14,10 +14,10 @@ October 2026"). Each step has its own tests and a lesson in `docs/lessons/`.
 | 5 | War and alliance | 1 Nov |
 | 6a | Splits, merging and empires (and a rising town founding a faction) | 1 Nov |
 | 6b | Feeding by tastes (a town fed by whoever holds it now), and drift | 1 Nov |
-| 6c | Migration: colonies founded and ruins resettled | |
+| 6c | Migration: colonies founded and ruins resettled | 1 Nov |
 | 7 | Paths, learning and capitals | |
 | 8 | Attunement and rituals | |
-| 9 | Happenings, threats, signs and chokepoints | |
+| 9 | Happenings, threats, signs and chokepoints (until then, the game's trade feeds towns the generator's chokepoints cut off, so it has fewer famines) | |
 | 10 | The chronicle as it happens | |
 | | Then the Wardens: the player's decisions, the legacy number, losing when the Wardens fall | |
 

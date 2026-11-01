@@ -114,6 +114,7 @@ public static class YearCore
         War.Year(game, markets, hardship, year);
         Rulers.Year(game, hardship.Select(h => h.Felt()).ToList(), year);
         Splits.Year(game, hardship, year);
+        Migration.Year(game, year);
         Drift.Year(game, year);
 
         world.AddYear(game.Towns.Select(t => t.Ruined ? 0 : t.Population).ToList(),

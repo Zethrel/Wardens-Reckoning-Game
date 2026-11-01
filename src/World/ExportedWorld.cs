@@ -253,6 +253,10 @@ public sealed class ExportedWorld
         factionChanges.Add(new List<(int, JsonObject)>());
     }
 
+    /// <summary>A town the game's migrants founded, from the year its record says: its people, holders and ruins are
+    /// written down by AddYear from then on, as for every other town.</summary>
+    public void AddTown(TownRecord town) => ((List<TownRecord>)Towns).Add(town);
+
     /// <summary>Faction `index`'s capital in `year`, or null (none, or not yet come to be).</summary>
     public int? CapitalOf(int index, int year)
     {

@@ -26,9 +26,12 @@ public sealed class TownNow
     public int? ConqueredIn { get; set; }
     /// <summary>The town whose migrants founded or resettled it, or null: a colony far from the capital leaves in peace.</summary>
     public int? FoundedFrom { get; set; }
-    /// <summary>Its place on the map (map cells), for the nearest town to a mine.</summary>
+    /// <summary>Its place on the map (map cells), for the nearest town to a mine; and its region of the history's
+    /// grid, where migrants measure from.</summary>
     public int X { get; set; }
     public int Y { get; set; }
+    public int HX { get; set; }
+    public int HY { get; set; }
     /// <summary>What its land grows of food, and the people that can feed (both follow who holds it: Feeding.cs).</summary>
     public double Food { get; set; }
     public double Capacity { get; set; }
@@ -109,8 +112,10 @@ public sealed class Mine
     public double First { get; set; }
     /// <summary>The faction holding its land, or null.</summary>
     public int? Owner { get; set; }
-    /// <summary>The settlement whose land it is on, or null.</summary>
+    /// <summary>The settlement whose land it is on, or null; and its place on the history's grid.</summary>
     public int? LandTown { get; set; }
+    public int HX { get; set; }
+    public int HY { get; set; }
 }
 
 /// <summary>A route between two neighbouring settlements: what the journey costs, and how much passed along it this year.</summary>
@@ -191,6 +196,13 @@ public sealed class Game
     /// <summary>Names for the rulers the game crowns, per people (the export's "names"), and how many of each are used.</summary>
     public List<List<string>> Names { get; }
     public int[] NamesUsed { get; set; }
+    /// <summary>Names for the towns the game's migrants found, per people, and how many of each are used.</summary>
+    public List<List<string>> SettlementNames { get; }
+    public int[] SettlementNamesUsed { get; set; }
+
+    /// <summary>What migration reads and remembers (Migration.cs).</summary>
+    public Movements Moving { get; }
+
     /// <summary>Names for the factions the game founds, per people, and how many of each are used.</summary>
     public List<List<string>> PeopleNames { get; }
     public int[] PeopleNamesUsed { get; set; }
@@ -250,6 +262,27 @@ public sealed class Game
         return used < listed.Count ? name : name + " " + (used / listed.Count + 1);
     }
 
+    /// <summary>The next name for a new town of people `folk`: the export's names in turn, then numbered.</summary>
+    public string NextSettlementName(int folk)
+    {
+        var listed = folk < SettlementNames.Count ? SettlementNames[folk] : new List<string>();
+        if (listed.Count == 0)
+            return "Town " + (Towns.Count + 1);
+        int used = folk < SettlementNamesUsed.Length ? SettlementNamesUsed[folk]++ : 0;
+        string name = listed[used % listed.Count];
+        return used < listed.Count ? name : name + " " + (used / listed.Count + 1);
+    }
+
+    /// <summary>A town the game's migrants founded: added to Towns and to the world's records from the year in
+    /// `record`, with its site score.</summary>
+    public void AddTown(TownNow town, TownRecord record, double score)
+    {
+        Towns.Add(town);
+        World.AddTown(record);
+        Moving.TownScores.Add(score);
+        UsedNames.Add(record.Name);
+    }
+
     /// <summary>A faction the game founded: added to Factions and to the world's records from `year`, with the
     /// colour and sprite sets in `info`.</summary>
     public void AddFaction(FactionNow faction, FactionInfo info, int year)
@@ -305,6 +338,8 @@ public sealed class Game
                 FedAs = town["fed_as"] is JsonArray fed ? ((int?)fed[0], (string?)fed[1]) : null,
                 X = (int)place["x"]!,
                 Y = (int)place["y"]!,
+                HX = (int)place["x"]! / world.HistoryFactor,
+                HY = (int)place["y"]! / world.HistoryFactor,
             });
         }
         HistoryColumns = (int?)going["history_columns"] ?? throw Older("\"history_columns\"");
@@ -317,6 +352,8 @@ public sealed class Game
                 Name = (string?)m["name"] ?? "", X = (int)m["x"]!, Y = (int)m["y"]!,
                 Metal = (double)m["metal"]!, First = (double)m["first"]!, Owner = (int?)m["owner"],
                 LandTown = (int?)keptMines[k]!["land_town"],
+                HX = (int?)keptMines[k]!["x"] ?? throw Older("the mines' places on the history's grid"),
+                HY = (int)keptMines[k]!["y"]!,
             };
         }).ToList();
         Routes = world.Data["routes"]!.AsArray()
@@ -364,6 +401,10 @@ public sealed class Game
         var peopleNames = going["names"]?["people"] as JsonArray ?? throw Older("names for new factions");
         PeopleNames = peopleNames.Select(list => list!.AsArray().Select(n => (string)n!).ToList()).ToList();
         PeopleNamesUsed = new int[PeopleNames.Count];
+        var settlementNames = going["names"]?["settlement"] as JsonArray ?? throw Older("names for new towns");
+        SettlementNames = settlementNames.Select(list => list!.AsArray().Select(n => (string)n!).ToList()).ToList();
+        SettlementNamesUsed = new int[SettlementNames.Count];
+        Moving = Movements.Read(going["migration"] as JsonObject ?? throw Older("\"migration\""));
         foreach (var entry in going["waiting"] as JsonArray ?? throw Older("\"waiting\""))
             Waiting.Add(((string)entry![0]!, (int)entry[1]!));
         foreach (var (path, given) in (going["newcomers"]?["given"] as JsonObject) ?? throw Older("\"newcomers\""))

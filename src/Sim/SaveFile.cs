@@ -21,7 +21,9 @@ public static class SaveFile
     // the factions' borders, and each year's borders when they changed). 5: splits (the factions the game founded,
     // every faction's capital, nature, parent, hold and the rest, the factions still waiting to rise, the names given).
     // 6: feeding and drift (each town's food, capacity, harvest and who it was fed as; what each faction's land encourages).
-    public const int Version = 6;
+    // 7: migration (the towns the game founded, who farms each region, the new routes, the free land left, the own
+    // site scores worked out, the names given).
+    public const int Version = 7;
 
     public static void Write(string path, Game game)
     {
@@ -29,9 +31,14 @@ public static class SaveFile
         var years = new JsonArray();
         var lastBorders = world.Borders(world.ExportYears);
         int exported = world.Data["factions"]!.AsArray().Count;
+        int exportedTowns = world.Data["settlements"]!.AsArray().Count;
+        int exportedRoutes = world.Data["routes"]!.AsArray().Count;
         for (int year = world.ExportYears + 1; year <= world.Years; year++)
         {
-            var states = Enumerable.Range(0, world.Towns.Count).Select(i => world.Town(i, year)).ToList();
+            // The towns there were that year: the export's, and those the game's migrants had founded by then.
+            int towns = exportedTowns + Enumerable.Range(exportedTowns, world.Towns.Count - exportedTowns)
+                                                  .Count(t => world.Towns[t].From <= year);
+            var states = Enumerable.Range(0, towns).Select(i => world.Town(i, year)).ToList();
             // The factions there were that year: the export's, and those the game had founded by then (in order).
             int there = exported + Enumerable.Range(exported, world.Factions.Count - exported).Count(f => world.FromOf(f) <= year);
             var borders = world.Borders(year);
@@ -42,6 +49,10 @@ public static class SaveFile
             years.Add(new JsonObject
             {
                 // The factions the game founded this year, as the world's records list them.
+                ["new_towns"] = new JsonArray(Enumerable.Range(exportedTowns, world.Towns.Count - exportedTowns)
+                    .Where(t => world.Towns[t].From == year)
+                    .Select(t => (JsonNode?)new JsonObject { ["name"] = world.Towns[t].Name, ["x"] = world.Towns[t].X,
+                                                            ["y"] = world.Towns[t].Y }).ToArray()),
                 ["new_factions"] = new JsonArray(Enumerable.Range(exported, world.Factions.Count - exported)
                     .Where(f => world.FromOf(f) == year).Select(f => (JsonNode?)Info(world.Factions[f])).ToArray()),
                 ["borders"] = changed,
@@ -71,7 +82,23 @@ public static class SaveFile
                 ["food"] = t.Food, ["capacity"] = t.Capacity,
                 ["fed_as"] = t.FedAs is { } fed ? new JsonArray(fed.People, fed.Path) : null,
                 ["yields"] = new JsonArray(t.Yields.Select(y => (JsonNode)new JsonArray(y.Key, y.Value)).ToArray()),
+                ["x"] = t.X, ["y"] = t.Y, ["hx"] = t.HX, ["hy"] = t.HY, ["cells"] = Numbers(t.Cells),
+                ["near"] = new JsonArray(t.Near.OrderBy(k => k, StringComparer.Ordinal).Select(k => (JsonNode?)k).ToArray()),
             }).ToArray()),
+            ["owner"] = Runs(game.Grid.Owner),
+            ["new_routes"] = new JsonArray(game.Routes.Skip(exportedRoutes)
+                .Select(r => (JsonNode)new JsonArray(r.A, r.B, r.Cost)).ToArray()),
+            ["mine_land_towns"] = new JsonArray(game.Mines.Select(m => (JsonNode?)(m.LandTown is int t ? JsonValue.Create(t) : null)).ToArray()),
+            ["settlement_names_used"] = Numbers(game.SettlementNamesUsed),
+            ["moving"] = new JsonObject
+            {
+                ["sites"] = game.Moving.Sites == null ? null : Movements.WriteSites(game.Moving.Sites),
+                ["own_sites"] = new JsonArray(game.Moving.OwnSites.OrderBy(p => p.Key.People).ThenBy(p => p.Key.Path, StringComparer.Ordinal)
+                    .Select(p => (JsonNode)new JsonArray(p.Key.People, p.Key.Path, Movements.WriteSites(p.Value))).ToArray()),
+                ["tastes"] = new JsonArray(game.Moving.Tastes.OrderBy(p => p.Key.People).ThenBy(p => p.Key.Path, StringComparer.Ordinal)
+                    .Select(p => (JsonNode)new JsonArray(p.Key.People, p.Key.Path, Movements.Exact(p.Value))).ToArray()),
+                ["town_scores"] = Movements.Exact(game.Moving.TownScores),
+            },
             ["drift_targets"] = new JsonObject(game.DriftTargets.OrderBy(p => p.Key)
                 .Select(p => KeyValuePair.Create(p.Key.ToString(), (JsonNode?)Table(p.Value)))),
             ["factions"] = new JsonArray(game.Factions.Select(f => (JsonNode)new JsonObject
@@ -223,6 +250,9 @@ public static class SaveFile
             var year = node!.AsObject();
             if (year["borders"] is JsonArray runs)
                 regions = Unruns(runs);
+            foreach (var founded in year["new_towns"]!.AsArray())
+                world.AddTown(new TownRecord(world.Years + 1, (string)founded!["name"]!, (int)founded["x"]!, (int)founded["y"]!,
+                                             new List<int>(), new List<(int, int?)>(), new List<(int, int?)>()));
             foreach (var founded in year["new_factions"]!.AsArray())
             {
                 var info = ReadInfo(founded!.AsObject());
@@ -239,10 +269,20 @@ public static class SaveFile
             throw new WorldFileException(path + " is damaged: its year and its years do not agree");
 
         var towns = save["towns"]!.AsArray();
-        for (int i = 0; i < game.Towns.Count; i++)
+        if (towns.Count != world.Towns.Count)
+            throw new WorldFileException(path + " is damaged: its towns and its years do not agree");
+        for (int i = 0; i < towns.Count; i++)
         {
             var t = towns[i]!.AsObject();
+            if (i == game.Towns.Count)            // one the game's migrants founded
+                game.Towns.Add(new TownNow());
             var town = game.Towns[i];
+            town.X = (int)t["x"]!;
+            town.Y = (int)t["y"]!;
+            town.HX = (int)t["hx"]!;
+            town.HY = (int)t["hy"]!;
+            town.Cells = t["cells"]!.AsArray().Select(c => (int)c!).ToList();
+            town.Near = t["near"]!.AsArray().Select(k => (string)k!).ToHashSet();
             town.People = (double)t["people"]!;
             town.Size = (int)t["size"]!;
             town.LowYears = (int)t["low_years"]!;
@@ -307,6 +347,28 @@ public static class SaveFile
         foreach (var pair in save["words"]!.AsArray())
             game.Words[((int)pair![0]!, (int)pair[1]!)] = (int)pair[2]!;
         game.NamesUsed = save["names_used"]!.AsArray().Select(n => (int)n!).ToArray();
+        game.SettlementNamesUsed = save["settlement_names_used"]!.AsArray().Select(n => (int)n!).ToArray();
+        Array.Copy(Unruns(save["owner"]!.AsArray()), game.Grid.Owner, game.Grid.Owner.Length);
+        foreach (var r in save["new_routes"]!.AsArray())
+            game.Routes.Add(new Route { A = (int)r![0]!, B = (int)r[1]!, Cost = (double)r[2]! });
+        game.RoutesChanged();
+        var landTowns = save["mine_land_towns"]!.AsArray();
+        for (int k = 0; k < game.Mines.Count; k++)
+            game.Mines[k].LandTown = (int?)landTowns[k];
+        var moving = save["moving"]!.AsObject();
+        game.Moving.Sites = moving["sites"] is JsonArray sites
+            ? sites.Select(p => ((double)p![0]!, (int)p[1]!, (int)p[2]!)).ToList() : null;
+        game.Moving.OwnSites.Clear();
+        foreach (var entry in moving["own_sites"]!.AsArray())
+            game.Moving.OwnSites[((int)entry![0]!, (string?)entry[1])] =
+                entry[2]!.AsArray().Select(p => ((double)p![0]!, (int)p[1]!, (int)p[2]!)).ToList();
+        game.Moving.Tastes.Clear();
+        foreach (var entry in moving["tastes"]!.AsArray())
+            game.Moving.Tastes[((int)entry![0]!, (string?)entry[1])] = Movements.Exact((string)entry[2]!);
+        game.Moving.TownScores.Clear();
+        game.Moving.TownScores.AddRange(Movements.Exact((string)moving["town_scores"]!));
+        foreach (var name in world.Towns.Skip(world.Data["settlements"]!.AsArray().Count).Select(t => t.Name))
+            game.UsedNames.Add(name);
         game.PeopleNamesUsed = save["people_names_used"]!.AsArray().Select(n => (int)n!).ToArray();
         game.Waiting.Clear();
         foreach (var w in save["waiting"]!.AsArray())

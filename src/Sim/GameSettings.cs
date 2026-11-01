@@ -163,6 +163,26 @@ public sealed class GameSettings
     public double DriftHalfLife { get; }
     public IReadOnlyList<(string Kind, string Trait, double Change)> LandInfluences { get; }
 
+    /// <summary>migration_settings.py: when a town is crowded (CROWDED of its capacity) or hungry (HUNGRY_YEARS in a
+    /// row), the chance a year it sends migrants (MIGRATION), the share who go (MIGRANTS, a number or a range), how
+    /// far they go (REACH, cells of a 256 map) and the most towns the world holds (MOST_SETTLEMENTS).</summary>
+    public double Crowded { get; }
+    public int HungryYears { get; }
+    public double MigrationChance { get; }
+    public (double Low, double High) Migrants { get; }
+    /// <summary>Whether MIGRANTS is a range (each migration then draws its own share) or one number.</summary>
+    public bool MigrantsDrawn { get; }
+    public double Reach { get; }
+    public int MostSettlements { get; }
+
+    /// <summary>settlement_settings.py: how far apart towns must be (MIN_DISTANCE, cells of a 256 map), the lowest site
+    /// score worth settling (MIN_SITE_SCORE), the usual site weights (SITE_WEIGHTS) and each people's own
+    /// (PEOPLE_SITES), in the order they are listed.</summary>
+    public double MinDistance { get; }
+    public double MinSiteScore { get; }
+    public IReadOnlyList<(string Part, double Weight)> SiteWeights { get; }
+    public IReadOnlyDictionary<string, IReadOnlyList<(string Part, double Weight)>> PeopleSites { get; }
+
     static (double, double) Range(JsonNode? value) => value switch
     {
         JsonArray pair => ((double)pair[0]!, (double)pair[1]!),
@@ -294,6 +314,22 @@ public sealed class GameSettings
                 p.Value!.AsObject().ToDictionary(b => b.Key, b => (string)b.Value!))
             : new Dictionary<string, IReadOnlyDictionary<string, string>>();
         var moving = settings["migration"] as JsonObject ?? new JsonObject();
+        Crowded = (double?)moving["CROWDED"] ?? double.PositiveInfinity;
+        HungryYears = (int?)moving["HUNGRY_YEARS"] ?? int.MaxValue;
+        MigrationChance = (double?)moving["MIGRATION"] ?? 0.0;
+        Migrants = Range(moving["MIGRANTS"]);
+        MigrantsDrawn = moving["MIGRANTS"] is JsonArray;
+        Reach = (double?)moving["REACH"] ?? 0.0;
+        MostSettlements = (int?)moving["MOST_SETTLEMENTS"] ?? 0;
+        MinDistance = (double)settlement["MIN_DISTANCE"]!;
+        MinSiteScore = (double)settlement["MIN_SITE_SCORE"]!;
+        static IReadOnlyList<(string, double)> Weights(JsonNode? node) =>
+            node is JsonObject o ? o.Select(p => (p.Key, (double)p.Value!)).ToList() : new List<(string, double)>();
+        SiteWeights = Weights(settlement["SITE_WEIGHTS"]);
+        PeopleSites = settlement["PEOPLE_SITES"] is JsonObject sites
+            ? sites.Where(p => p.Value?["weights"] is JsonObject)
+                   .ToDictionary(p => p.Key, p => Weights(p.Value!["weights"]))
+            : new Dictionary<string, IReadOnlyList<(string, double)>>();
         DriftHalfLife = (double?)moving["DRIFT_HALF_LIFE"] ?? double.PositiveInfinity;
         LandInfluences = factions["LAND_INFLUENCES"] is JsonArray influences
             ? influences.Select(i => ((string)i![0]!, (string)i[1]!, (double)i[2]!)).ToList()

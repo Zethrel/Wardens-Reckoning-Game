@@ -396,6 +396,138 @@ def feeding_and_drift(data):
     }
 
 
+def migration_year(data):
+    """A year of migration (the game's step 6c) by the generator's own migration.year_of_migration, with MIGRATION
+    at 1 so it rolls no dice: every crowded or hungry town with somewhere to go sends MIGRANTS of its people. Also
+    the usual free sites worked out again, own site scores for every people on every path, the nearness of the
+    mines, and what a new town at the first free site would claim and its route home would cost. Whole grids are
+    kept as the SHA-256 of their exact 8-byte numbers, to keep this file small."""
+    import base64
+    from types import SimpleNamespace
+    import numpy as np
+    from north import migration, settlements, tastes, trade
+    from north.factions import Deposit
+    going = data["continue"]
+    settings = going["settings"]
+    moving = going["migration"]
+    grid, land = going["grid"], going["land"]
+    columns, rows = grid["columns"], grid["rows"]
+    factor = data["history_factor"]
+
+    def unrun(runs):
+        flat = []
+        for i in range(0, len(runs), 2):
+            flat += [runs[i]] * runs[i + 1]
+        return flat
+
+    def exact(text):
+        return np.frombuffer(base64.b64decode(text), dtype="<f8").reshape(rows, columns).tolist()
+
+    def rows_of(flat, cast=lambda v: v):
+        return [[cast(v) for v in flat[y * columns:(y + 1) * columns]] for y in range(rows)]
+    owner = rows_of(unrun(grid["owner"]), lambda v: None if v < 0 else v)
+    ocean = rows_of(unrun(grid["ocean"]), bool)
+    lake_flat = unrun(land["lake"])
+    lakes = {(c % columns, c // columns) for c, v in enumerate(lake_flat) if v}
+    names = data["biomes"]
+    biomes = rows_of(unrun(land["biome"]), lambda b: None if b < 0 else {"name": names[b]})
+    town_scores = np.frombuffer(base64.b64decode(moving["town_scores"]), dtype="<f8").tolist()
+    places = [settlements.Settlement(p["x"] // factor, p["y"] // factor, town_scores[i], land=p["land"], food=p["food"],
+                                     capacity=p["capacity"], population=p["population"], ruined=p["ruined"],
+                                     peak=p["peak"], name=p["name"], culture=p["culture"], origin=p["origin"],
+                                     conquered_in=p["conquered_in"], founded_from=p["founded_from"])
+              for i, p in enumerate(data["settlements"])]
+    parts = {name: exact(text) for name, text in moving["parts"].items()}
+    settled = SimpleNamespace(scores=exact(moving["scores"]), parts=parts, settlements=places, owner=owner)
+    water = SimpleNamespace(ocean=ocean, lake_cells=lambda: set(lakes))
+    likes = tastes.Tastes([{"name": p["name"]} for p in data["peoples"]], SimpleNamespace(**settings["settlement"]),
+                          SimpleNamespace(**settings["trade"]), biomes, exact(moving["heights"]), water,
+                          moving["sea_level"], settled, SimpleNamespace(**settings["factions"]))
+    for people, path, text in moving["tastes"]:
+        likes.scores[(people, path)] = exact(text)
+    factions = [SimpleNamespace(index=i, people=f["people"], path=f["path"], name=f["name"],
+                                ruler=None if f["ruler"] is None else SimpleNamespace(name=f["ruler"]["name"]))
+                for i, f in enumerate(data["factions"])]
+    deposits = [Deposit(m["x"], m["y"], 1.0, owner=d["owner"]) for m, d in zip(going["mines"], data["mines"])]
+    marks = None if moving["rifts"] is None else SimpleNamespace(size=moving["rifts"]["size"],
+                                                                  severe={tuple(p) for p in moving["rifts"]["severe"]})
+    moves = migration.Movements()
+    moves.sites = None if moving["sites"] is None else [tuple(s) for s in moving["sites"]]
+    moves.own_sites = {(people, path): [tuple(s) for s in listed] for people, path, listed in moving["own_sites"]}
+    moves.cost = exact(moving["costs"])
+    moves.lakes = set(lakes)
+    powers = SimpleNamespace(factions=factions, deposits=deposits, marks=marks, movements=moves, fighting=None)
+    culture_of = rows_of(unrun(going_borders(data)), lambda v: None if v < 0 else v)
+    routes = [trade.Route(r["a"], r["b"], [], r["cost"]) for r in data["routes"]]
+    traded = SimpleNamespace(routes=routes, kind=None)
+    pool = going["names"]["settlement"]
+    given = [0] * len(pool)
+
+    def name(people, kind):
+        given[people] += 1
+        return pool[people][given[people] - 1]
+    namer = SimpleNamespace(name=name, used=set())
+    people = [t["people"] for t in going["towns"]]
+    hungry = [t["hungry"] for t in going["towns"]]
+    moving_settings = SimpleNamespace(**dict(settings["migration"], MIGRATION=1.0, CROWDED=0.2))
+    events = []
+
+    def event(year, kind, text, what, facts):
+        return {"year": year, "kind": kind, "text": text, "what": what, "facts": facts}
+    year = data["years"] + 1
+    usual = migration.free_sites(places, settled, SimpleNamespace(**settings["settlement"]))
+    paths = sorted(settings["factions"]["PATHS"])
+    fresh = tastes.Tastes([{"name": p["name"]} for p in data["peoples"]], SimpleNamespace(**settings["settlement"]),
+                          SimpleNamespace(**settings["trade"]), biomes, exact(moving["heights"]), water,
+                          moving["sea_level"], settled, SimpleNamespace(**settings["factions"]))
+
+    def people_of(place):
+        return factions[place.culture].people if place.culture is not None else None
+    own = []
+    for folk in range(len(data["peoples"])):
+        for path in paths[:3]:
+            if fresh.has_own_score(folk, path):
+                grid_scores = fresh.score_grid(folk, places, deposits, people_of, path)
+                own.append([folk, path, hashlib.sha256(np.asarray(grid_scores, dtype="<f8").tobytes()).hexdigest()])
+    near_metal = settlements.nearness([(d.x, d.y) for d in deposits], columns, rows, tastes.METAL_REACH)
+    spacing = migration.apart(settled, SimpleNamespace(**settings["settlement"]))
+    first = usual[0]
+    claimed = migration.claim(first[1], first[2], owner, ocean, lakes, spacing)
+    trial = places + [settlements.Settlement(first[1], first[2], first[0])]
+    home = min(range(len(places)), key=lambda i: (abs(places[i].x - first[1]) + abs(places[i].y - first[2]), i))
+    route = trade.new_route(trial, moves.cost, home, len(places))
+
+    done = migration.year_of_migration(powers, places, settled, traded, people, hungry, moving_settings,
+                                       SimpleNamespace(**settings["settlement"]), __import__("random").Random(0), namer,
+                                       year, events, event,
+                                       SimpleNamespace(culture_of=culture_of, water=water, tastes=likes, owner=owner),
+                                       settings["history"]["RUIN_POPULATION"])
+    return {
+        "usual_sites": [list(s) for s in usual],
+        "own_scores": own,
+        "near_metal": hashlib.sha256(np.asarray(near_metal, dtype="<f8").tobytes()).hexdigest(),
+        "spacing": spacing,
+        "claim": {"site": list(first), "cells": [y * columns + x for x, y in claimed]},
+        "route": {"from": home, "cost": None if route is None else route.cost},
+        "year": {
+            "events": [[e["what"], e["text"]] for e in events],
+            "moved": [[source, target, None if cells is None else [y * columns + x for x, y in cells]]
+                      for source, target, cells in done],
+            "towns": [{"x": p.x, "y": p.y, "name": p.name, "food": p.food, "capacity": p.capacity, "ruined": p.ruined,
+                       "culture": p.culture, "origin": p.origin, "founded_from": p.founded_from,
+                       "population": p.population} for p in places],
+            "people": people,
+            "owner": [-1 if v is None else v for row in owner for v in row],
+            "regions": [-1 if v is None else v for row in culture_of for v in row],
+            "routes": [[r.a, r.b, r.cost] for r in routes[len(data["routes"]):]],
+            "sites": [list(s) for s in moves.sites],
+            "own_sites": [[people_key, path, [list(s) for s in listed]]
+                          for (people_key, path), listed in sorted(moves.own_sites.items(), key=lambda p: (p[0][0], str(p[0][1])))],
+            "mine_owners": [d.owner for d in deposits],
+        },
+    }
+
+
 def going_borders(data):
     """The borders at the end of the history, as runs."""
     culture = data["history"]["borders"]
@@ -455,7 +587,8 @@ def main(generator):
     expected["trade"] = one_year_of_trade(world.data)
     expected["splits"] = splits_without_dice(world.data)
     expected["feeding"] = feeding_and_drift(world.data)
-    (HERE / "expected.json").write_text(json.dumps(expected, indent=1), encoding="utf-8")
+    expected["migration"] = migration_year(world.data)
+    (HERE / "expected.json").write_text(json.dumps(expected, separators=(",", ":")), encoding="utf-8")
 
     grid = [[(x * x * 7 + y * 31 + (x ^ y) * 13) % 256 for x in range(24)] for y in range(20)]
     grid[0][:5], grid[1][:5] = [10, 20, 30, 40, 50], [10, 20, 30, 40, 50]    # equal neighbours: the filters' ties
