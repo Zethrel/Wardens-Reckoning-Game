@@ -15,7 +15,9 @@ public static class SaveFile
     public const string Format = "wardens-reckoning-save";
 
     /// <summary>The save's version: raised when a part changes its meaning, so an older game refuses a newer save.</summary>
-    public const int Version = 2;     // 2: trade (the mines' metal, the memories, the factions' metal)
+    // 2: trade (the mines' metal, the memories, the factions' metal). 3: rulers (every faction's ruler, ways,
+    // grievance, prejudices and opinions; the words between factions; the dice; the names used).
+    public const int Version = 3;
 
     public static void Write(string path, Game game)
     {
@@ -30,6 +32,8 @@ public static class SaveFile
                 ["holders"] = new JsonArray(states.Select(s => (JsonNode?)(s?.Holder is int h ? JsonValue.Create(h) : null)).ToArray()),
                 ["ruined"] = new JsonArray(states.Select(s => (JsonNode?)JsonValue.Create(s?.Ruined ?? false)).ToArray()),
                 ["factions"] = Numbers(Enumerable.Range(0, world.Factions.Count).Select(f => world.PeopleOf(f, year))),
+                ["states"] = new JsonArray(Enumerable.Range(0, world.Factions.Count)
+                    .Select(f => (JsonNode?)world.Faction(f, year)?.DeepClone()).ToArray()),
             });
         }
         var save = new JsonObject
@@ -49,9 +53,28 @@ public static class SaveFile
             }).ToArray()),
             ["factions"] = new JsonArray(game.Factions.Select(f => (JsonNode)new JsonObject
             {
-                ["people"] = f.People, ["path"] = f.Path, ["government"] = f.Government, ["competence"] = f.Competence,
+                ["people"] = f.People, ["path"] = f.Path, ["government"] = f.Government,
                 ["metal_supply"] = f.MetalSupply, ["metal_need"] = f.MetalNeed,
+                ["ruler"] = Game.WriteRuler(f.Ruler), ["traits"] = Table(f.Traits), ["values"] = Table(f.Values),
+                ["grievance"] = f.Grievance, ["rulers"] = f.RulerCount, ["revolutions"] = f.Revolutions,
+                ["path_changes"] = f.PathChanges, ["prejudice"] = Table(f.Prejudice),
+                ["cult"] = f.Cult == null ? null : new JsonObject
+                {
+                    ["traits"] = Table(f.Cult.Traits), ["until"] = f.Cult.Until, ["strength"] = f.Cult.Strength,
+                    ["name"] = f.Cult.Name,
+                },
+                ["split_pending"] = f.SplitPending,
+                ["held"] = f.Held == null ? null : new JsonArray(f.Held.OrderBy(p => p, StringComparer.Ordinal)
+                                                               .Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()),
+                ["opinions"] = new JsonArray(f.Opinions.OrderBy(o => o.Key)
+                    .Select(o => (JsonNode)new JsonArray(o.Key, o.Value)).ToArray()),
             }).ToArray()),
+            ["words"] = new JsonArray(game.Words.OrderBy(p => p.Key)
+                .Select(p => (JsonNode)new JsonArray(p.Key.Item1, p.Key.Item2, p.Value)).ToArray()),
+            ["names_used"] = Numbers(game.NamesUsed),
+            // The dice's state is four 64-bit numbers each, written as text: JSON numbers cannot hold them exactly.
+            ["dice"] = new JsonObject(game.AllDice.OrderBy(d => d.Key, StringComparer.Ordinal).Select(d =>
+                KeyValuePair.Create(d.Key, (JsonNode?)new JsonArray(d.Value.State.Select(n => (JsonNode?)JsonValue.Create(n.ToString())).ToArray())))),
             ["mines"] = new JsonArray(game.Mines.Select(m => (JsonNode?)JsonValue.Create(m.Metal)).ToArray()),
             ["memory"] = new JsonArray(game.Memory.OrderBy(p => p.Key)
                 .Select(p => (JsonNode)new JsonArray(p.Key.Item1, p.Key.Item2, p.Value)).ToArray()),
@@ -69,6 +92,13 @@ public static class SaveFile
         File.WriteAllText(fresh, save.ToJsonString(new JsonSerializerOptions { WriteIndented = false }));
         File.Move(fresh, path, overwrite: true);
     }
+
+    // A table of named numbers (traits, prejudices) as JSON, and back.
+    static JsonObject Table(Dictionary<string, double> table) =>
+        new(table.Select(t => KeyValuePair.Create(t.Key, (JsonNode?)JsonValue.Create(t.Value))));
+
+    static Dictionary<string, double> ReadTable(JsonNode? node) =>
+        node!.AsObject().ToDictionary(p => p.Key, p => (double)p.Value!);
 
     static JsonArray Numbers(IEnumerable<int> values) => new(values.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray());
 
@@ -90,8 +120,8 @@ public static class SaveFile
         if (save["version"] is not JsonValue v || !v.TryGetValue(out int version) || version > Version)
             throw new WorldFileException(path + " is save version " + save["version"] + "; this game reads up to " + Version);
         if (version < Version)
-            throw new WorldFileException(path + " was saved before trade came to the game (save version " + version +
-                                         "): it cannot go on with trade. Start a new game on the world.");
+            throw new WorldFileException(path + " was saved by an older game (save version " + version +
+                                         "), before the rulers came to it: it cannot go on. Start a new game on the world.");
 
         string worldPath = (string)save["world"]!;
         if (!File.Exists(worldPath))
@@ -109,7 +139,8 @@ public static class SaveFile
             world.AddYear(year["people"]!.AsArray().Select(p => (int)p!).ToList(),
                           year["holders"]!.AsArray().Select(h => (int?)h).ToList(),
                           year["ruined"]!.AsArray().Select(r => (bool)r!).ToList(),
-                          year["factions"]!.AsArray().Select(p => (int)p!).ToList());
+                          year["factions"]!.AsArray().Select(p => (int)p!).ToList(),
+                          year["states"]!.AsArray().Select(o => o as JsonObject).ToList());
         }
         game.Year = (int)save["year"]!;
         if (game.Year != world.Years)
@@ -135,10 +166,32 @@ public static class SaveFile
             game.Factions[f].People = (int)o["people"]!;
             game.Factions[f].Path = (string?)o["path"];
             game.Factions[f].Government = (string?)o["government"] ?? "";
-            game.Factions[f].Competence = (double?)o["competence"];
-            game.Factions[f].MetalSupply = (double)o["metal_supply"]!;
-            game.Factions[f].MetalNeed = (double)o["metal_need"]!;
+            var faction = game.Factions[f];
+            faction.MetalSupply = (double)o["metal_supply"]!;
+            faction.MetalNeed = (double)o["metal_need"]!;
+            faction.Ruler = Game.ReadRuler(o["ruler"] as JsonObject);
+            faction.Traits = ReadTable(o["traits"]);
+            faction.Values = ReadTable(o["values"]);
+            faction.Grievance = (double)o["grievance"]!;
+            faction.RulerCount = (int)o["rulers"]!;
+            faction.Revolutions = (int)o["revolutions"]!;
+            faction.PathChanges = (int)o["path_changes"]!;
+            faction.Prejudice = ReadTable(o["prejudice"]);
+            faction.Cult = o["cult"] is JsonObject cult ? new Cult
+            {
+                Traits = ReadTable(cult["traits"]), Until = (int)cult["until"]!, Strength = (double)cult["strength"]!,
+                Name = (string)cult["name"]!,
+            } : null;
+            faction.SplitPending = (bool)o["split_pending"]!;
+            faction.Held = o["held"] is JsonArray held ? held.Select(p => (string)p!).ToHashSet() : null;
+            faction.Opinions = o["opinions"]!.AsArray().ToDictionary(p => (int)p![0]!, p => (double)p![1]!);
         }
+        game.Words.Clear();
+        foreach (var pair in save["words"]!.AsArray())
+            game.Words[((int)pair![0]!, (int)pair[1]!)] = (int)pair[2]!;
+        game.NamesUsed = save["names_used"]!.AsArray().Select(n => (int)n!).ToArray();
+        foreach (var (system, state) in save["dice"]!.AsObject())
+            game.SetDice(system, new Dice(state!.AsArray().Select(n => ulong.Parse((string)n!)).ToList()));
         var mines = save["mines"]!.AsArray();
         for (int k = 0; k < game.Mines.Count; k++)
             game.Mines[k].Metal = (double)mines[k]!;

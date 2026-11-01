@@ -10,7 +10,7 @@ October 2026"). Each step has its own tests and a lesson in `docs/lessons/`.
 | 2 | The years run on: harvest, food, growth, ruin; Next year and Play; saving and loading | 31 Oct |
 | 2b | The book of events, and a faction's own history (below) | 1 Nov |
 | 3 | Trade | 1 Nov |
-| 4 | Rulers and grievance | |
+| 4 | Rulers, grievance and opinions (with your rules from history_rules.py) | 1 Nov |
 | 5 | War and alliance | |
 | 6 | Splits and migration | |
 | 7 | Paths, learning and capitals | |

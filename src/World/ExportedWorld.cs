@@ -322,7 +322,7 @@ public sealed class ExportedWorld
     /// comes to the game (step 5), every year keeps the borders of the last.
     /// </summary>
     public void AddYear(IReadOnlyList<int> townPeople, IReadOnlyList<int?> holders, IReadOnlyList<bool> ruined,
-                        IReadOnlyList<int> factionPeople)
+                        IReadOnlyList<int> factionPeople, IReadOnlyList<JsonObject?>? factionStates = null)
     {
         if (townPeople.Count != Towns.Count || holders.Count != Towns.Count || ruined.Count != Towns.Count)
             throw new ArgumentException("one entry for every settlement");
@@ -353,8 +353,27 @@ public sealed class ExportedWorld
                 row.Add(row.Count > 0 ? row[^1] : 0);
             row.Add(factionPeople[f]);
         }
+        // Each faction's path, ruler, belief, government and capital: written down only where they changed, as the
+        // export writes them, so Faction(index, year) and the book's card show the game's years as the export's.
+        if (factionStates != null)
+            for (int f = 0; f < Factions.Count && f < factionStates.Count; f++)
+            {
+                if (factionStates[f] is not JsonObject now)
+                    continue;
+                var was = Faction(f, year - 1) ?? new JsonObject();
+                var changed = new JsonObject();
+                foreach (var (key, value) in now)
+                    if (!JsonNode.DeepEquals(was[key], value))
+                        changed[key] = value?.DeepClone();
+                if (changed.Count > 0)
+                    factionChanges[f].Add((year, changed));
+            }
         Years = year;
     }
+
+    /// <summary>The fields of a faction a year's record keeps (as the export's "history" → "factions" → "changes").</summary>
+    public static JsonObject FactionState(string? path, string? ruler, string? belief, string? government, int? capital) =>
+        new() { ["path"] = path, ["ruler"] = ruler, ["belief"] = belief, ["government"] = government, ["capital"] = capital };
 
     /// <summary>The name of the size a town of `people` has: the largest whose people it has reached.</summary>
     public string SizeOf(int people)

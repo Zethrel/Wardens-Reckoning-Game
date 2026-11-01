@@ -30,6 +30,9 @@ public sealed record Good(string Name, JsonNode? Need, string? Food, IReadOnlyDi
     public bool IsCrafted => MadeBy.Count > 0 || Learned != null;
 }
 
+/// <summary>One government of leader_settings.py GOVERNMENTS.</summary>
+public sealed record Government(string Succession, double Tolerance, double RulerPower, IReadOnlyList<string> AfterRevolution);
+
 /// <summary>
 /// The settings the history ran with, from the export's "continue" → "settings": the game uses the same values
 /// as the generator, so a value changed in a Python settings file reaches the game with the next export.
@@ -76,6 +79,27 @@ public sealed class GameSettings
 
     /// <summary>leader_settings.py GOVERNMENTS: each government's "ruler_power".</summary>
     public IReadOnlyDictionary<string, double> RulerPower { get; }
+
+    /// <summary>leader_settings.py GOVERNMENTS in full: how the next ruler is chosen, how much grievance the people
+    /// bear before they may rise, how much a ruler matters, and what a revolution may turn it into.</summary>
+    public IReadOnlyDictionary<string, Government> Governments { get; }
+    /// <summary>leader_settings.py GRIEVANCE_HALF_LIFE and GRIEVANCE_WEIGHTS.</summary>
+    public double GrievanceHalfLife { get; }
+    public IReadOnlyDictionary<string, double> GrievanceWeights { get; }
+
+    /// <summary>faction_settings.py PATHS, in their order: what each path suits ("planning": "high"...).</summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<(string Trait, string Want)>> PathSuits { get; }
+    /// <summary>faction_settings.py PATH_OPINIONS and PATH_OPINION_DEFAULT: what one path thinks of another.</summary>
+    public IReadOnlyDictionary<string, IReadOnlyDictionary<string, double>> PathOpinions { get; }
+    public double PathOpinionDefault { get; }
+    /// <summary>faction_settings.py BELIEF_OPINIONS and RELATIONS (lowest opinion, word), low to high.</summary>
+    public IReadOnlyDictionary<string, IReadOnlyDictionary<string, double>> BeliefOpinions { get; }
+    public IReadOnlyList<(double Low, string Name)> Relations { get; }
+
+    /// <summary>What path `mine` thinks of path `theirs`: PATH_OPINIONS, or PATH_OPINION_DEFAULT. factions.path_opinion.</summary>
+    public double PathOpinion(string? mine, string? theirs) =>
+        mine != null && theirs != null && PathOpinions.TryGetValue(mine, out var row) && row.TryGetValue(theirs, out double value)
+            ? value : PathOpinionDefault;
 
     /// <summary>settlement_settings.py SETTLEMENT_SIZES: the people each size starts at, smallest first.</summary>
     public IReadOnlyList<int> SizeLows { get; }
@@ -127,10 +151,30 @@ public sealed class GameSettings
         RulerPower = settings["leaders"]!["GOVERNMENTS"]!.AsObject()
             .ToDictionary(g => g.Key, g => (double?)g.Value!["ruler_power"] ?? 0.0);
 
+        var leaders = settings["leaders"]!.AsObject();
+        Governments = leaders["GOVERNMENTS"]!.AsObject().ToDictionary(g => g.Key, g => new Government(
+            (string?)g.Value!["succession"] ?? "chosen", (double?)g.Value["tolerance"] ?? 1.0,
+            (double?)g.Value["ruler_power"] ?? 0.0,
+            g.Value["after_revolution"] is JsonArray after ? after.Select(a => (string)a!).ToList() : new List<string>()));
+        GrievanceHalfLife = (double)leaders["GRIEVANCE_HALF_LIFE"]!;
+        GrievanceWeights = Numbers(leaders["GRIEVANCE_WEIGHTS"]);
+        // A Dictionary keeps the order things were added in (while nothing is removed): the order of PATHS.
+        PathSuits = factions["PATHS"]!.AsObject().ToDictionary(p => p.Key, p => (IReadOnlyList<(string, string)>)(
+            p.Value!["suits"] is JsonObject suits ? suits.Select(t => (t.Key, (string)t.Value!)).ToList() : new List<(string, string)>()));
+        PathOpinions = Tables(factions["PATH_OPINIONS"]);
+        PathOpinionDefault = (double?)factions["PATH_OPINION_DEFAULT"] ?? 0.0;
+        BeliefOpinions = Tables(factions["BELIEF_OPINIONS"]);
+        Relations = factions["RELATIONS"]!.AsArray().Select(r => ((double)r![0]!, (string)r[1]!)).ToList();
+
         var sizes = settings["settlement"]!["SETTLEMENT_SIZES"]!.AsArray();
         SizeLows = sizes.Select(s => (int)s![0]!).ToList();
         SizeNames = sizes.Select(s => (string)s![1]!).ToList();
     }
+
+    static IReadOnlyDictionary<string, IReadOnlyDictionary<string, double>> Tables(JsonNode? table) =>
+        table is JsonObject o
+            ? o.ToDictionary(p => p.Key, p => (IReadOnlyDictionary<string, double>)Numbers(p.Value))
+            : new Dictionary<string, IReadOnlyDictionary<string, double>>();
 
     static Dictionary<string, double> Numbers(JsonNode? table) =>
         table is JsonObject o ? o.ToDictionary(p => p.Key, p => (double)p.Value!) : new Dictionary<string, double>();

@@ -36,12 +36,36 @@ public sealed class FactionNow
     public string Name { get; set; } = "";
     public string? Path { get; set; }
     public string Government { get; set; } = "";
-    /// <summary>Its ruler's competence, 0 to 1, or null with no ruler. Rulers do not change until step 4.</summary>
-    public double? Competence { get; set; }
+    /// <summary>Its ruler, or null when it has none (no people left).</summary>
+    public Ruler? Ruler { get; set; }
+    /// <summary>Its ruler's competence, 0 to 1, or null with no ruler.</summary>
+    public double? Competence => Ruler?.Traits.GetValueOrDefault("competence");
     public int People { get; set; }
+    /// <summary>The people it belongs to (by its place in the export's "peoples"): its rulers' names are theirs.</summary>
+    public int Folk { get; set; }
+    /// <summary>Its ways now (planning, risk, greed, 0 to 1), which rulers pull; and its people's own, which they
+    /// pull back toward.</summary>
+    public Dictionary<string, double> Traits { get; set; } = new();
+    public Dictionary<string, double> Values { get; set; } = new();
+    /// <summary>How much its people hold against their rulers; how many rulers, revolutions and changes of path it has had.</summary>
+    public double Grievance { get; set; }
+    public int RulerCount { get; set; }
+    public int Revolutions { get; set; }
+    public int PathChanges { get; set; }
+    /// <summary>What it thinks of each path (it changes slowly after a change of path).</summary>
+    public Dictionary<string, double> Prejudice { get; set; } = new();
+    /// <summary>A dead ruler's lingering pull, or null; whether a strong ruler's death left it on the edge of splitting.</summary>
+    public Cult? Cult { get; set; }
+    public bool SplitPending { get; set; }
+    /// <summary>Other faction → how many cells of border they share.</summary>
+    public Dictionary<int, double> Border { get; set; } = new();
+    /// <summary>What it believes of the god of death.</summary>
+    public string Belief { get; set; } = "unknowing";
+    /// <summary>The paths it holds besides its main one (paths as skills), or null when paths are not skills.</summary>
+    public HashSet<string>? Held { get; set; }
     /// <summary>The faction it comes from in the settings' FACTIONS (its goods), and its traits (greed digs more).</summary>
     public string? Lineage { get; set; }
-    public double Greed { get; set; }
+    public double Greed { get => Traits.GetValueOrDefault("greed"); set => Traits["greed"] = value; }
     /// <summary>Goods it has learned to make (chokepoints), and the paths and hybrids it has learned and how well.</summary>
     public HashSet<string> Learned { get; set; } = new();
     public Dictionary<string, double> Skills { get; set; } = new();
@@ -110,6 +134,41 @@ public sealed class Game
     /// <summary>How many regions wide the history's grid is: a route's cost is counted on it.</summary>
     public int HistoryColumns { get; }
 
+    /// <summary>The band of RELATIONS each faction last spoke of each other in: [faction, other].</summary>
+    public Dictionary<(int, int), int> Words { get; } = new();
+
+    /// <summary>Names for the rulers the game crowns, per people (the export's "names"), and how many of each are used.</summary>
+    public List<List<string>> Names { get; }
+    public int[] NamesUsed { get; set; }
+
+    readonly Dictionary<string, Dice> dice = new();
+
+    /// <summary>The dice of one system ("rulers", "rules"...): made from the game's seed and the system's name the
+    /// first time, kept after, and kept in a save.</summary>
+    public Dice DiceFor(string system)
+    {
+        if (!dice.TryGetValue(system, out var found))
+            dice[system] = found = new Dice(Seed, system);
+        return found;
+    }
+
+    /// <summary>Every system's dice made so far, by name (for a save).</summary>
+    public IReadOnlyDictionary<string, Dice> AllDice => dice;
+
+    /// <summary>Puts back the dice a save kept.</summary>
+    public void SetDice(string system, Dice saved) => dice[system] = saved;
+
+    /// <summary>The next new name among people `folk`: the export's names in turn, then the same again numbered.</summary>
+    public string NextName(int folk)
+    {
+        var listed = folk < Names.Count ? Names[folk] : new List<string>();
+        if (listed.Count == 0)
+            return "Ruler " + (NamesUsed.Sum() + 1);
+        int used = folk < NamesUsed.Length ? NamesUsed[folk]++ : 0;
+        string name = listed[used % listed.Count];
+        return used < listed.Count ? name : name + " " + (used / listed.Count + 1);
+    }
+
     /// <summary>The book: the export's events, then the game's, in the order they happened (World/Book.cs).</summary>
     public List<BookEntry> BookEntries { get; }
 
@@ -170,6 +229,11 @@ public sealed class Game
         foreach (var pair in going["memory"]!.AsArray())
             Memory[((int)pair![0]!, (int)pair[1]!)] = (double)pair[2]!;
         var keptFactions = going["factions"] as JsonArray ?? throw Older("\"factions\"");
+        foreach (var pair in going["words"]!.AsArray())
+            Words[((int)pair![0]!, (int)pair[1]!)] = (int)pair[2]!;
+        var names = going["names"]?["person"] as JsonArray ?? throw Older("\"names\"");
+        Names = names.Select(list => list!.AsArray().Select(n => (string)n!).ToList()).ToList();
+        NamesUsed = new int[Names.Count];
         Factions = world.Data["factions"]!.AsArray().Select((node, k) =>
         {
             var f = node!.AsObject();
@@ -178,10 +242,26 @@ public sealed class Game
                 Name = (string)f["name"]!,
                 Path = (string?)f["path"],
                 Government = (string?)f["government"] ?? "",
-                Competence = (double?)f["ruler"]?["traits"]?["competence"],
+                Ruler = ReadRuler(f["ruler"] as JsonObject),
                 People = (int?)f["population"] ?? 0,
+                Folk = (int?)f["people"] ?? k,
+                Traits = Numbers(f["traits"]),
+                Values = Numbers(f["values"]),
+                Grievance = (double?)f["grievance"] ?? 0.0,
+                RulerCount = (int?)f["rulers"] ?? 0,
+                Revolutions = (int?)f["revolutions"] ?? 0,
+                PathChanges = (int?)f["path_changes"] ?? 0,
+                Prejudice = Numbers(f["prejudice"]),
+                Cult = f["cult"] is JsonObject cult ? new Cult
+                {
+                    Traits = Numbers(cult["traits"]), Until = (int)cult["until"]!, Strength = (double)cult["strength"]!,
+                    Name = (string?)cult["name"] ?? "",
+                } : null,
+                SplitPending = (bool?)f["split_pending"] ?? false,
+                Border = f["border"] is JsonObject border ? border.ToDictionary(p => int.Parse(p.Key), p => (double)p.Value!) : new(),
+                Belief = (string?)f["belief"] ?? "unknowing",
+                Held = keptFactions[k]!["held"] is JsonArray held ? held.Select(p => (string)p!).ToHashSet() : null,
                 Lineage = (string?)f["lineage"],
-                Greed = (double?)f["traits"]?["greed"] ?? 0.0,
                 Learned = f["learned"] is JsonArray learned ? learned.Select(g => (string)g!).ToHashSet() : new HashSet<string>(),
                 Skills = keptFactions[k]!["skills"]!.AsObject().ToDictionary(p => p.Key, p => (double)p.Value!),
                 Opinions = f["opinions"]!.AsObject().ToDictionary(p => int.Parse(p.Key), p => (double)p.Value!),
@@ -190,6 +270,25 @@ public sealed class Game
             };
         }).ToList();
     }
+
+    static Dictionary<string, double> Numbers(JsonNode? table) =>
+        table is JsonObject o ? o.ToDictionary(p => p.Key, p => (double)p.Value!) : new Dictionary<string, double>();
+
+    /// <summary>A ruler as the export (or a save) writes one, or null.</summary>
+    public static Ruler? ReadRuler(JsonObject? r) => r == null ? null : new Ruler
+    {
+        Name = (string)r["name"]!, Age = (int)r["age"]!, Traits = Numbers(r["traits"]), Since = (int)r["since"]!,
+        Path = (string?)r["path"] ?? "", Effort = (double?)r["effort"] ?? 0.0,
+        Stances = r["stances"] is JsonObject s ? s.ToDictionary(p => int.Parse(p.Key), p => (double)p.Value!) : new(),
+    };
+
+    /// <summary>A ruler as a save writes it (as the export does).</summary>
+    public static JsonObject? WriteRuler(Ruler? r) => r == null ? null : new JsonObject
+    {
+        ["name"] = r.Name, ["age"] = r.Age, ["since"] = r.Since, ["path"] = r.Path, ["effort"] = r.Effort,
+        ["traits"] = new JsonObject(r.Traits.Select(t => KeyValuePair.Create(t.Key, (JsonNode?)JsonValue.Create(t.Value)))),
+        ["stances"] = new JsonObject(r.Stances.Select(t => KeyValuePair.Create(t.Key.ToString(), (JsonNode?)JsonValue.Create(t.Value)))),
+    };
 
     // The export lacks a part of "continue" this game needs: it came from an older generator.
     static WorldFileException Older(string part) =>

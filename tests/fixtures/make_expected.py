@@ -141,7 +141,29 @@ def one_year_of_trade(data):
     fed = [None if place.ruined else history.fed_share(market, staples, extras) for place, market in zip(places, markets)]
     events = []
     history.dig(powers, places, settled, markets, 1, events)
+    from north import factions as faction_rules, leaders, war
+    supply = war.supplies(places, markets, staples, len(factions))
+    faction_settings = SimpleNamespace(**settings["factions"])
+    people = [f["population"] for f in data["factions"]]
+    memory = {(a, b): value for a, b, value in going["memory"]}
+    judged = []
+    for a, f in enumerate(data["factions"]):
+        mine = SimpleNamespace(index=a, path=f["path"], traits=f["traits"], prejudice=f["prejudice"],
+                               metal_supply=f["metal_supply"], metal_need=f["metal_need"], belief=f["belief"],
+                               border={int(k): v for k, v in f["border"].items()})
+        mine.metal_balance = lambda m=mine: faction_rules.Faction.metal_balance(m)
+        judged.append(mine)
+    opinions = [[a, b, faction_rules.opinion(judged[a], judged[b], faction_settings, memory.get((a, b), 0.0),
+                                             war.covet(supply, a, b))]
+                for a in range(len(judged)) for b in range(len(judged))
+                if a != b and people[a] > 0 and people[b] > 0]
+    fit = [leaders.path_fit(f["values"]) for f in data["factions"]]
+    against = [None if f["ruler"] is None else leaders.against_values(SimpleNamespace(traits=f["ruler"]["traits"]),
+                                                                      f["values"]) for f in data["factions"]]
     return {
+        "opinions": opinions,
+        "path_fit": fit,
+        "against_values": against,
         "markets": [{"made": m.made, "needed": m.needed, "bought": m.bought, "sold": m.sold} for m in markets],
         "fed": fed,
         "deals": len(deals),

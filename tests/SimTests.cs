@@ -219,6 +219,14 @@ public class SaveTests
         + "|" + string.Join(",", game.Factions.Select(f => $"{f.People},{f.MetalSupply:R},{f.MetalNeed:R}"))
         + "|" + string.Join(",", game.Mines.Select(m => m.Metal.ToString("R")))
         + "|" + string.Join(",", game.Memory.OrderBy(p => p.Key).Select(p => p.Value.ToString("R")))
+        + "|" + string.Join(";", game.Factions.Select(f => string.Join(",",
+                    f.Ruler?.Name, f.Ruler?.Age, f.Ruler?.Effort.ToString("R"), f.Grievance.ToString("R"), f.Path,
+                    f.Government, f.RulerCount, f.Revolutions, f.Cult?.Until, f.SplitPending,
+                    string.Join("/", f.Traits.Select(t => t.Value.ToString("R"))),
+                    string.Join("/", f.Prejudice.Select(t => t.Value.ToString("R"))),
+                    string.Join("/", f.Opinions.OrderBy(o => o.Key).Select(o => o.Value.ToString("R"))))))
+        + "|" + string.Join(",", game.Words.OrderBy(p => p.Key).Select(p => p.Value))
+        + "|" + string.Join(",", game.AllDice.OrderBy(d => d.Key).Select(d => d.Key + string.Join(".", d.Value.State)))
         + "|" + string.Join("/", game.Events.Select(e => e.Year + e.Text))
         + "|" + string.Join(",", Enumerable.Range(0, game.World.Towns.Count)
                                            .Select(i => string.Join(".", game.World.Towns[i].People)));
