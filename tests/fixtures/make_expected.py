@@ -98,6 +98,59 @@ def one_year(data):
     return result
 
 
+def one_year_of_trade(data):
+    """One year's markets and trade, with an ordinary year's weather, worked out with the generator's own
+    trade.make_markets, trade.trade_goods, history.fed_share and history.dig, on the exported towns, factions,
+    mines and routes (map cells for places, as the game has them). What each town made, needed, bought and
+    sold of every good, how well it was fed, how much passed along each route, and the metal left in each mine."""
+    from collections import defaultdict
+    from types import SimpleNamespace
+    from north import history, trade
+    going = data["continue"]
+    settings = going["settings"]
+    places = [SimpleNamespace(x=p["x"], y=p["y"], culture=p["culture"], ruined=p["ruined"],
+                              population=p["population"], name=p["name"]) for p in data["settlements"]]
+    owner = defaultdict(dict)
+    for mine, kept in zip(data["mines"], going["mines"]):
+        owner[mine["y"]][mine["x"]] = kept["land_town"]
+    near = defaultdict(lambda: defaultdict(lambda: defaultdict(bool)))
+    for place, town in zip(places, going["towns"]):
+        for kind in town["near"]:
+            near[kind][place.y][place.x] = True
+    settled = SimpleNamespace(owner=owner, near_places=near)
+    factions = [SimpleNamespace(index=i, name=f["name"], path=f["path"], lineage=f["lineage"], learned=set(f["learned"]),
+                                skills=going["factions"][i]["skills"], traits=f["traits"],
+                                opinions={int(k): v for k, v in f["opinions"].items()},
+                                government=f["government"],
+                                ruler=None if f["ruler"] is None else SimpleNamespace(traits=f["ruler"]["traits"]))
+                for i, f in enumerate(data["factions"])]
+    deposits = [SimpleNamespace(x=m["x"], y=m["y"], metal=m["metal"], owner=m["owner"], first=m["first"], name=m["name"])
+                for m in data["mines"]]
+    powers = SimpleNamespace(factions=factions, deposits=deposits)
+    trading = SimpleNamespace(**settings["trade"])
+    path_settings = SimpleNamespace(PATH_HARVEST=settings["factions"]["PATH_HARVEST"],
+                                    PATH_STEADINESS=settings["factions"]["PATH_STEADINESS"])
+    harvest = history.path_harvests([1.0] * len(places), places, factions, path_settings)
+    harvest = history.ruled_harvests(harvest, places, factions, settings["leaders"]["GOVERNMENTS"])
+    yields = [town["yields"] for town in going["towns"]]
+    markets = trade.make_markets(places, settled, None, powers, settings["factions"]["METAL_NEED"], trading,
+                                 yields, harvest)
+    routes = [trade.Route(r["a"], r["b"], [], r["cost"]) for r in data["routes"]]
+    deals = trade.trade_goods(places, routes, markets, powers, trading, None, going["history_columns"] / 256)
+    staples, extras = trade.staple_goods(trading), trade.extra_goods(trading)
+    fed = [None if place.ruined else history.fed_share(market, staples, extras) for place, market in zip(places, markets)]
+    events = []
+    history.dig(powers, places, settled, markets, 1, events)
+    return {
+        "markets": [{"made": m.made, "needed": m.needed, "bought": m.bought, "sold": m.sold} for m in markets],
+        "fed": fed,
+        "deals": len(deals),
+        "volumes": [route.volume for route in routes],
+        "metal": [deposit.metal for deposit in deposits],
+        "dry": [event.text for event in events],
+    }
+
+
 def main(generator):
     sys.path.insert(0, str(generator))
     from north import world_file
@@ -132,6 +185,7 @@ def main(generator):
             "drawn": towns_drawn(world, year),
         }
     expected["one_year"] = one_year(world.data)
+    expected["trade"] = one_year_of_trade(world.data)
     (HERE / "expected.json").write_text(json.dumps(expected, indent=1), encoding="utf-8")
 
     grid = [[(x * x * 7 + y * 31 + (x ^ y) * 13) % 256 for x in range(24)] for y in range(20)]

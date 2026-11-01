@@ -4,8 +4,14 @@ using WardensReckoning.World;
 
 namespace WardensReckoning.Sim;
 
-/// <summary>One good of the generator's GOODS (trade_settings.py), as far as the years need it so far.</summary>
-public sealed record Good(string Name, JsonNode? Need, string? Food)
+/// <summary>
+/// One good of the generator's GOODS (trade_settings.py): what it says about who needs and makes the good.
+/// `MadeBy` is how many each 1000 people of a path or faction lineage make; `Uses` the metal each one made takes;
+/// `Learned` how many each 1000 make once their faction has learned it; `MadeOn` the kinds of place it is only made
+/// near; `Wanted` a good wanted, not needed (a shortage of it is no hardship).
+/// </summary>
+public sealed record Good(string Name, JsonNode? Need, string? Food, IReadOnlyDictionary<string, double> MadeBy,
+                          double UsesMetal, double? Learned, IReadOnlyList<string> MadeOn, bool Wanted)
 {
     /// <summary>How much every 1000 people of `path` need of it: its "need", one number or one per path. A town no
     /// faction holds needs as much as the path that needs the most (the generator's trade.need_of).</summary>
@@ -19,6 +25,9 @@ public sealed record Good(string Name, JsonNode? Need, string? Food)
         }
         return Need is null ? 0.0 : (double)Need;
     }
+
+    /// <summary>Made by people (of a path, a lineage, or who learned it), not only grown on the land. trade.is_crafted.</summary>
+    public bool IsCrafted => MadeBy.Count > 0 || Learned != null;
 }
 
 /// <summary>
@@ -38,8 +47,25 @@ public sealed class GameSettings
     public int RuinPopulation { get; }
     public int RuinYears { get; }
 
-    /// <summary>trade_settings.py GOODS: every good by name.</summary>
+    /// <summary>trade_settings.py GOODS: every good by name, and in the order the settings list them (which is
+    /// the order the generator goes through them).</summary>
     public IReadOnlyDictionary<string, Good> Goods { get; }
+    public IReadOnlyList<Good> GoodsInOrder { get; }
+
+    /// <summary>trade_settings.py MIN_OPINION_TO_TRADE, TRADE_HANDS and TRADE_REACH (see Trade.cs).</summary>
+    public double MinOpinionToTrade { get; }
+    public int TradeHands { get; }
+    public double TradeReach { get; }
+
+    /// <summary>faction_settings.py METAL_NEED: metal each 1000 people of a path need; PATHS: each path's root
+    /// (an offshoot path makes its root's goods).</summary>
+    public IReadOnlyDictionary<string, double> MetalNeed { get; }
+    public IReadOnlyDictionary<string, string> PathRoot { get; }
+
+    /// <summary>history_settings.py MEMORY_HALF_LIFE and TRADE_WARMTH: how fast memories fade, and how much trade
+    /// warms them.</summary>
+    public double MemoryHalfLife { get; }
+    public double TradeWarmth { get; }
     /// <summary>The staple foods (any of them fills a stomach) and the extra foods (each needed on its own), by name.</summary>
     public IReadOnlyList<string> Staples { get; }
     public IReadOnlyList<string> Extras { get; }
@@ -64,7 +90,7 @@ public sealed class GameSettings
         RuinPopulation = (int)history["RUIN_POPULATION"]!;
         RuinYears = (int)history["RUIN_YEARS"]!;
 
-        var goods = new SortedDictionary<string, Good>(StringComparer.Ordinal);
+        var inOrder = new List<Good>();
         foreach (var (name, details) in settings["trade"]!["GOODS"]!.AsObject())
         {
             var food = details!["food"];
@@ -74,15 +100,29 @@ public sealed class GameSettings
                 JsonValue v when v.TryGetValue(out bool b) => b ? "staple" : null,
                 _ => (string?)food,
             };
-            goods[name] = new Good(name, details["need"]?.DeepClone(), kind);
+            inOrder.Add(new Good(name, details["need"]?.DeepClone(), kind, Numbers(details["made_by"]),
+                                 (double?)details["uses"]?["metal"] ?? 0.0, (double?)details["learned"],
+                                 details["made_on"] is JsonArray on ? on.Select(k => (string)k!).ToList() : new List<string>(),
+                                 (bool?)details["wanted"] ?? false));
         }
-        Goods = goods;
-        Staples = goods.Values.Where(g => g.Food == "staple").Select(g => g.Name).ToList();
-        Extras = goods.Values.Where(g => g.Food == "extra").Select(g => g.Name).ToList();
+        GoodsInOrder = inOrder;
+        Goods = inOrder.ToDictionary(g => g.Name);
+        // Python's sorted(): by name, in the order of the characters' codes.
+        Staples = inOrder.Where(g => g.Food == "staple").Select(g => g.Name).OrderBy(n => n, StringComparer.Ordinal).ToList();
+        Extras = inOrder.Where(g => g.Food == "extra").Select(g => g.Name).OrderBy(n => n, StringComparer.Ordinal).ToList();
+
+        var trading = settings["trade"]!.AsObject();
+        MinOpinionToTrade = (double?)trading["MIN_OPINION_TO_TRADE"] ?? -1.0;
+        TradeHands = trading["TRADE_HANDS"] is JsonValue hands && hands.TryGetValue(out int h) ? h : 0;
+        TradeReach = (double?)trading["TRADE_REACH"] ?? double.PositiveInfinity;
+        MemoryHalfLife = (double)history["MEMORY_HALF_LIFE"]!;
+        TradeWarmth = (double)history["TRADE_WARMTH"]!;
 
         var factions = settings["factions"]!.AsObject();
         PathHarvest = Numbers(factions["PATH_HARVEST"]);
         PathSteadiness = Numbers(factions["PATH_STEADINESS"]);
+        MetalNeed = Numbers(factions["METAL_NEED"]);
+        PathRoot = factions["PATHS"]!.AsObject().ToDictionary(p => p.Key, p => (string?)p.Value!["root"] ?? p.Key);
 
         RulerPower = settings["leaders"]!["GOVERNMENTS"]!.AsObject()
             .ToDictionary(g => g.Key, g => (double?)g.Value!["ruler_power"] ?? 0.0);

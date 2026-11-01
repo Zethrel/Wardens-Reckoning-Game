@@ -2,11 +2,11 @@
 namespace WardensReckoning.Sim;
 
 /// <summary>
-/// The core of a year (step 2): the harvest, food, growth and starvation, sizes and ruin. Each part follows the
-/// generator's north/history.py run_years, named after the Python function it ports.
+/// A year: the harvest, the markets and trade (Trade.cs, step 3), the mines dug, food, growth and starvation, sizes
+/// and ruin, and each faction's people, metal and memories. Each part follows the generator's north/history.py
+/// run_years, named after the Python function it ports.
 ///
-/// Not yet in the game, and so not in its years: trade (step 3: until then a town lives on its own land),
-/// rulers coming and going (step 4: each faction keeps the ruler it ended with), war (5), splits and migration
+/// Not yet in the game, and so not in its years: opinions changing and rulers coming and going (step 4: each faction keeps the ruler it ended with), war (5), splits and migration
 /// (6), paths and learning (7), attunement (8), happenings, threats and signs (9), and your rules from
 /// history_rules.py.
 /// </summary>
@@ -28,17 +28,23 @@ public static class YearCore
         var settings = game.Settings;
         var world = game.World;
 
+        // The harvest (harvests, path_harvests, ruled_harvests), what every town makes and needs, the trade between
+        // towns, and the metal dug (make_markets, trade_goods, dig).
+        var harvests = Enumerable.Range(0, game.Towns.Count)
+                                 .Select(i => game.Towns[i].Ruined ? 1.0 : Harvest(game, i, year)).ToList();
+        var markets = Trade.MakeMarkets(game, harvests);
+        var deals = Trade.TradeGoods(game, markets);
+        Trade.Dig(game, markets, year);
+
         for (int i = 0; i < game.Towns.Count; i++)
         {
             var town = game.Towns[i];
             if (town.Ruined)
                 continue;
             var record = world.Towns[i];
-            var faction = town.Holder is int h ? game.Factions[h] : null;
-            double harvest = Harvest(game, i, year);
 
-            // Food: what its own land grows this year against what its people need (make_markets, fed_share).
-            double fed = FedShare(town, faction?.Path, harvest, settings);
+            // Food: how much of its need its own land and its trade met (fed_share).
+            double fed = Trade.FedShare(markets[i], settings.Staples, settings.Extras);
             town.Fed = fed;
             town.Hungry = fed < 0.999 ? town.Hungry + 1 : 0;
             town.People = Grow(town.People, Capacity(i, game), fed, settings);
@@ -70,25 +76,64 @@ public static class YearCore
             }
         }
 
-        // Each faction's people (update_factions), and the news when a faction's last town falls.
-        var people = new int[game.Factions.Count];
-        foreach (var town in game.Towns)
-            if (!town.Ruined && town.Holder is int h)
-                people[h] += town.Population;
-        for (int f = 0; f < game.Factions.Count; f++)
-        {
-            if (game.Factions[f].People > 0 && people[f] == 0)
-                game.Record(new GameEvent(year, "faction", "faction_fell",
-                    "the last settlement of the " + game.Factions[f].Name + " fell", new[] { f },
-                    new Dictionary<string, string> { ["faction"] = game.Factions[f].Name }));
-            game.Factions[f].People = people[f];
-        }
+        var people = UpdateFactions(game, markets, deals, year);
 
         world.AddYear(game.Towns.Select(t => t.Ruined ? 0 : t.Population).ToList(),
                       game.Towns.Select(t => t.Holder).ToList(),
                       game.Towns.Select(t => t.Ruined).ToList(),
                       people);
         game.Year = year;
+    }
+
+    /// <summary>
+    /// Each faction's people, metal and memories this year (history.update_factions, without the opinions, which
+    /// come with step 4): its people and the metal its towns made, what its people need, the news when its last
+    /// town falls; and every memory fading by MEMORY_HALF_LIFE, warmed by TRADE_WARMTH for each faction it traded
+    /// with, by how much of its needs that trade met. Returns each faction's people.
+    /// </summary>
+    public static int[] UpdateFactions(Game game, Market[] markets, List<(string Good, int Seller, int Buyer, double Amount)> deals, int year)
+    {
+        var settings = game.Settings;
+        int count = game.Factions.Count;
+        var people = new int[count];
+        var needs = new double[count];
+        for (int f = 0; f < count; f++)
+        {
+            var faction = game.Factions[f];
+            double metal = 0;
+            for (int i = 0; i < game.Towns.Count; i++)
+            {
+                var town = game.Towns[i];
+                if (town.Ruined || town.Holder != f)
+                    continue;
+                people[f] += town.Population;
+                metal += markets[i].Made.GetValueOrDefault(Trade.Metal);
+                needs[f] += markets[i].Needed.Values.Sum();
+            }
+            faction.MetalSupply = metal;
+            faction.MetalNeed = people[f] / 1000.0 * (faction.Path != null ? settings.MetalNeed.GetValueOrDefault(faction.Path) : 0.0);
+            if (faction.People > 0 && people[f] == 0)
+                game.Record(new GameEvent(year, "faction", "faction_fell",
+                    "the last settlement of the " + faction.Name + " fell", new[] { f },
+                    new Dictionary<string, string> { ["faction"] = faction.Name }));
+            faction.People = people[f];
+        }
+
+        var exchanged = new Dictionary<(int, int), double>();
+        foreach (var (_, seller, buyer, amount) in deals)
+        {
+            if (game.Towns[seller].Holder is not int a || game.Towns[buyer].Holder is not int b || a == b)
+                continue;
+            exchanged[(a, b)] = exchanged.GetValueOrDefault((a, b)) + amount;
+            exchanged[(b, a)] = exchanged.GetValueOrDefault((b, a)) + amount;
+        }
+        double fade = Math.Pow(0.5, 1 / settings.MemoryHalfLife);
+        foreach (var pair in game.Memory.Keys.ToList())
+        {
+            double share = needs[pair.Item1] > 0 ? Math.Min(1.0, exchanged.GetValueOrDefault(pair) / needs[pair.Item1]) : 0.0;
+            game.Memory[pair] = Math.Clamp(game.Memory[pair] * fade + settings.TradeWarmth * share, -1.0, 1.0);
+        }
+        return people;
     }
 
     /// <summary>How town `index`'s harvest compares with an ordinary one (1.0) in `year`: the weather, then its
@@ -133,6 +178,7 @@ public static class YearCore
     }
 
     /// <summary>
+    /// (Step 2's food, before trade: kept for the tests that check the year's core against the generator.)
     /// How much of a town's food need its own land meets this year, 0 to 1 (1 if it needs no food).
     /// Its land grows its yields of each food good, times the harvest; its people need NeedOf(path) of each
     /// for every 1000. The staples count together (any of them fills a stomach); each extra counts on its own.

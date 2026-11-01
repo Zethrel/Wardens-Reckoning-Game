@@ -15,7 +15,7 @@ public static class SaveFile
     public const string Format = "wardens-reckoning-save";
 
     /// <summary>The save's version: raised when a part changes its meaning, so an older game refuses a newer save.</summary>
-    public const int Version = 1;
+    public const int Version = 2;     // 2: trade (the mines' metal, the memories, the factions' metal)
 
     public static void Write(string path, Game game)
     {
@@ -50,7 +50,11 @@ public static class SaveFile
             ["factions"] = new JsonArray(game.Factions.Select(f => (JsonNode)new JsonObject
             {
                 ["people"] = f.People, ["path"] = f.Path, ["government"] = f.Government, ["competence"] = f.Competence,
+                ["metal_supply"] = f.MetalSupply, ["metal_need"] = f.MetalNeed,
             }).ToArray()),
+            ["mines"] = new JsonArray(game.Mines.Select(m => (JsonNode?)JsonValue.Create(m.Metal)).ToArray()),
+            ["memory"] = new JsonArray(game.Memory.OrderBy(p => p.Key)
+                .Select(p => (JsonNode)new JsonArray(p.Key.Item1, p.Key.Item2, p.Value)).ToArray()),
             ["events"] = new JsonArray(game.Events.Select(e => (JsonNode)new JsonObject
             {
                 ["year"] = e.Year, ["kind"] = e.Kind, ["what"] = e.What, ["text"] = e.Text,
@@ -85,6 +89,9 @@ public static class SaveFile
             throw new WorldFileException(path + " is not a save of this game");
         if (save["version"] is not JsonValue v || !v.TryGetValue(out int version) || version > Version)
             throw new WorldFileException(path + " is save version " + save["version"] + "; this game reads up to " + Version);
+        if (version < Version)
+            throw new WorldFileException(path + " was saved before trade came to the game (save version " + version +
+                                         "): it cannot go on with trade. Start a new game on the world.");
 
         string worldPath = (string)save["world"]!;
         if (!File.Exists(worldPath))
@@ -129,7 +136,15 @@ public static class SaveFile
             game.Factions[f].Path = (string?)o["path"];
             game.Factions[f].Government = (string?)o["government"] ?? "";
             game.Factions[f].Competence = (double?)o["competence"];
+            game.Factions[f].MetalSupply = (double)o["metal_supply"]!;
+            game.Factions[f].MetalNeed = (double)o["metal_need"]!;
         }
+        var mines = save["mines"]!.AsArray();
+        for (int k = 0; k < game.Mines.Count; k++)
+            game.Mines[k].Metal = (double)mines[k]!;
+        game.Memory.Clear();
+        foreach (var pair in save["memory"]!.AsArray())
+            game.Memory[((int)pair![0]!, (int)pair[1]!)] = (double)pair[2]!;
         foreach (var node in save["events"]!.AsArray())
         {
             var e = node!.AsObject();

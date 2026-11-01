@@ -84,7 +84,10 @@ public class SimTests
             var game = new Game(Fresh(), seed);
             for (int i = 0; i < 30; i++)
                 YearCore.RunYear(game);
-            return string.Join(",", game.Towns.Select(t => t.People.ToString("R"))) + "|" + game.Events.Count;
+            // The weather moves how much each town makes, and so what passes along the routes (with trade, most
+            // towns are fed whatever the weather, so their people alone may not tell two seeds apart).
+            return string.Join(",", game.Towns.Select(t => t.People.ToString("R"))) + "|" + game.Events.Count
+                   + "|" + string.Join(",", game.Routes.Select(r => r.Volume.ToString("R")));
         }
         Assert.Equal(Run(5), Run(5));
         Assert.NotEqual(Run(5), Run(6));
@@ -106,7 +109,7 @@ public class SimTests
         int index = game.Towns.FindIndex(t => !t.Ruined);
         var town = game.Towns[index];
         town.People = game.Settings.RuinPopulation - 10;
-        town.Yields.Clear();                       // nothing to eat: it shrinks, and stays below RUIN_POPULATION
+        town.Yields.Clear();                       // it grows too slowly to climb back above RUIN_POPULATION in time
         for (int year = 1; year < game.Settings.RuinYears; year++)
         {
             YearCore.RunYear(game);
@@ -126,7 +129,8 @@ public class SimTests
         var game = new Game(Fresh(), 1);
         var town = game.Towns.First(t => !t.Ruined && t.Population > 500);
         double before = town.People;
-        town.Yields.Clear();
+        foreach (var each in game.Towns)
+            each.Yields.Clear();                   // no land grows anything, so no one has food to sell either
         YearCore.RunYear(game);
         Assert.Equal(0.0, town.Fed);
         Assert.Equal(1, town.Hungry);
@@ -167,7 +171,8 @@ public class SimTests
         var game = new Game(Fresh(), 1);
         var town = game.Towns.First(t => !t.Ruined && t.Population > 500);
         var yields = new Dictionary<string, double>(town.Yields);
-        town.Yields.Clear();
+        foreach (var each in game.Towns)
+            each.Yields.Clear();                   // no land grows anything, so no one has food to sell either
         YearCore.RunYear(game);
         YearCore.RunYear(game);
         Assert.Equal(2, town.Hungry);
@@ -211,7 +216,9 @@ public class SaveTests
 
     static string Snapshot(Game game) =>
         string.Join(";", game.Towns.Select(t => $"{t.People:R},{t.Size},{t.LowYears},{t.Hungry},{t.Ruined},{t.Holder},{t.Fed:R}"))
-        + "|" + string.Join(",", game.Factions.Select(f => f.People))
+        + "|" + string.Join(",", game.Factions.Select(f => $"{f.People},{f.MetalSupply:R},{f.MetalNeed:R}"))
+        + "|" + string.Join(",", game.Mines.Select(m => m.Metal.ToString("R")))
+        + "|" + string.Join(",", game.Memory.OrderBy(p => p.Key).Select(p => p.Value.ToString("R")))
         + "|" + string.Join("/", game.Events.Select(e => e.Year + e.Text))
         + "|" + string.Join(",", Enumerable.Range(0, game.World.Towns.Count)
                                            .Select(i => string.Join(".", game.World.Towns[i].People)));
@@ -246,6 +253,10 @@ public class SaveTests
         var save = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
 
         save["version"] = SaveFile.Version + 1;
+        File.WriteAllText(path, save.ToJsonString());
+        Assert.Throws<WorldFileException>(() => SaveFile.Read(path));
+
+        save["version"] = SaveFile.Version - 1;
         File.WriteAllText(path, save.ToJsonString());
         Assert.Throws<WorldFileException>(() => SaveFile.Read(path));
 
