@@ -228,6 +228,14 @@ public class SaveTests
         + "|" + string.Join(",", game.Words.OrderBy(p => p.Key).Select(p => p.Value))
         + "|" + string.Join(",", game.AllDice.OrderBy(d => d.Key).Select(d => d.Key + string.Join(".", d.Value.State)))
         + "|" + string.Join("/", game.Events.Select(e => e.Year + e.Text))
+        + "|" + string.Join(",", game.Towns.Select(t => $"{t.Origin}.{t.ConqueredIn}")) + string.Join(",", game.Mines.Select(m => m.Owner))
+        + "|" + string.Join(",", game.Regions) + game.BordersChanged + game.Conquests + "." + game.Rebellions
+        + "|" + string.Join(",", game.Alliances.OrderBy(p => p))
+        + "|" + string.Join(";", game.Wars.Select(w => $"{w.Attacker},{w.Defender},{w.Since},{w.LastBattle},{w.Ended},{w.Endurance:R},"
+                + string.Join("/", w.Sides.Select(s => string.Join(".", s.OrderBy(f => f)))) + ","
+                + string.Join("/", w.Dead.OrderBy(d => d.Key).Select(d => $"{d.Key}:{d.Value:R}"))))
+        + "|" + string.Join(";", game.Factions.Select(f => string.Join(",", f.Border.OrderBy(b => b.Key).Select(b => $"{b.Key}:{b.Value:R}"))))
+        + "|" + string.Join("/", game.World.Borders(game.Year))
         + "|" + string.Join(",", Enumerable.Range(0, game.World.Towns.Count)
                                            .Select(i => string.Join(".", game.World.Towns[i].People)));
 

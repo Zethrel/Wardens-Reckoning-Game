@@ -101,6 +101,27 @@ public sealed class GameSettings
         mine != null && theirs != null && PathOpinions.TryGetValue(mine, out var row) && row.TryGetValue(theirs, out double value)
             ? value : PathOpinionDefault;
 
+    /// <summary>war_settings.py: WAR_WEIGHTS (hatred, want, ambition, belief), WARLIKE, BATTLE_DEATHS and
+    /// PEACE_WEARINESS (each a number, or a range to draw from), ALLY_OPINION, SIZE_IN_BATTLE, RISE_AGAIN, JOIN_KIN,
+    /// and REBELLION and RESENTMENT_HALF_LIFE (the engine's values when the settings do not say).</summary>
+    public IReadOnlyDictionary<string, double> WarWeights { get; }
+    public double Warlike { get; }
+    public (double Low, double High) BattleDeaths { get; }
+    public (double Low, double High) PeaceWeariness { get; }
+    public double AllyOpinion { get; }
+    public double SizeInBattle { get; }
+    public double RiseAgain { get; }
+    public double JoinKin { get; }
+    public double Rebellion { get; }
+    public double ResentmentHalfLife { get; }
+
+    static (double, double) Range(JsonNode? value) => value switch
+    {
+        JsonArray pair => ((double)pair[0]!, (double)pair[1]!),
+        null => (0.0, 0.0),
+        _ => ((double)value, (double)value),
+    };
+
     /// <summary>settlement_settings.py SETTLEMENT_SIZES: the people each size starts at, smallest first.</summary>
     public IReadOnlyList<int> SizeLows { get; }
     public IReadOnlyList<string> SizeNames { get; }
@@ -165,6 +186,18 @@ public sealed class GameSettings
         PathOpinionDefault = (double?)factions["PATH_OPINION_DEFAULT"] ?? 0.0;
         BeliefOpinions = Tables(factions["BELIEF_OPINIONS"]);
         Relations = factions["RELATIONS"]!.AsArray().Select(r => ((double)r![0]!, (string)r[1]!)).ToList();
+
+        var war = settings["war"]!.AsObject();
+        WarWeights = Numbers(war["WAR_WEIGHTS"]);
+        Warlike = (double?)war["WARLIKE"] ?? 0.0;
+        BattleDeaths = Range(war["BATTLE_DEATHS"]);
+        PeaceWeariness = Range(war["PEACE_WEARINESS"]);
+        AllyOpinion = (double?)war["ALLY_OPINION"] ?? 1.0;
+        SizeInBattle = (double?)war["SIZE_IN_BATTLE"] ?? 0.0;
+        RiseAgain = (double?)war["RISE_AGAIN"] ?? 1.0;
+        JoinKin = (double?)war["JOIN_KIN"] ?? 0.5;
+        Rebellion = (double?)war["REBELLION"] ?? Sim.War.Rebellion;
+        ResentmentHalfLife = (double?)war["RESENTMENT_HALF_LIFE"] ?? Sim.War.ResentmentHalfLife;
 
         var sizes = settings["settlement"]!["SETTLEMENT_SIZES"]!.AsArray();
         SizeLows = sizes.Select(s => (int)s![0]!).ToList();

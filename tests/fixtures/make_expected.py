@@ -160,7 +160,101 @@ def one_year_of_trade(data):
     fit = [leaders.path_fit(f["values"]) for f in data["factions"]]
     against = [None if f["ruler"] is None else leaders.against_values(SimpleNamespace(traits=f["ruler"]["traits"]),
                                                                       f["values"]) for f in data["factions"]]
+    # War (step 5): each living faction's whole strength, the reasons to fight each neighbour, the fronts between
+    # them; how much each conquered town resents its rulers next year, and its unrest; the borders counted on the
+    # export's last borders; and the land shared out from the farms (factions.spread_territory, without costs).
+    governments = settings["leaders"]["GOVERNMENTS"]
+    rulers = [SimpleNamespace(index=i, population=f["population"], government=f["government"],
+                              traits=f["traits"], belief=f["belief"], grievance=f["grievance"],
+                              opinions={int(k): v for k, v in f["opinions"].items()},
+                              ruler=None if f["ruler"] is None else SimpleNamespace(traits=f["ruler"]["traits"]))
+              for i, f in enumerate(data["factions"])]
+    alive = [f.index for f in rulers if f.population > 0]
+    strengths = {str(i): war.strength(rulers[i], supply, governments) for i in alive}
+    # An army fighting from one town: that town's people and reinforcements from the rest (as in a battle).
+    size_in_battle = settings["war"]["SIZE_IN_BATTLE"]
+    fighting_from = {}
+    for i in alive:
+        mine = [t for t, place in enumerate(places) if place.culture == i and not place.ruined]
+        if mine:
+            local = round(going["towns"][mine[0]]["people"])   # the population, as the game counts it
+            fighting_from[str(i)] = [mine[0], war.strength(rulers[i], supply, governments, local, war.held(places, i),
+                                                           size_in_battle)]
+    from north.death import WORSHIP_WAR
+    constants = {name: getattr(war, name) for name in (
+        "BATTLE_BITTERNESS", "CONQUEST_BITTERNESS", "BETRAYAL", "ALLY_MARGIN", "PEACE_CHANCE", "QUIET_YEARS",
+        "WINNER_LOSSES", "REINFORCEMENTS", "DEFENDER_ADVANTAGE", "TAKE_CHANCE", "REBELLION", "RESENTMENT_HALF_LIFE",
+        "BORDER_YEARS", "WAR_COMPETENCE")}
+    constants["WORSHIP_WAR"] = WORSHIP_WAR
+    war_routes = [SimpleNamespace(a=r["a"], b=r["b"]) for r in data["routes"]]
+    neighbours, reasons, chances, odds = [], [], [], []
+    beliefs = settings["factions"]["BELIEF_OPINIONS"] if "belief" in settings["war"]["WAR_WEIGHTS"] else None
+    for a in alive:
+        for b in alive:
+            front = war.fronts(places, war_routes, a, b)
+            if a != b and front:
+                neighbours.append([a, b, front])
+                why = war.reasons(rulers[a], rulers[b], supply, beliefs)
+                reasons.append([a, b, why])
+                # As war.year_of_war weighs them (its own lines, without the happenings' readiness of step 9).
+                weighed = {reason: settings["war"]["WAR_WEIGHTS"][reason] * value for reason, value in why.items()}
+                ready = WORSHIP_WAR if rulers[a].belief == "worship" else 1.0
+                chances.append([a, b, settings["war"]["WARLIKE"] * ready * sum(weighed.values()),
+                                max(sorted(weighed), key=lambda r: weighed[r])])
+                # As war.battle reckons the two armies over the first route of the front, a attacking.
+                here, there = front[0]
+                odds.append([a, b, here, there,
+                             war.strength(rulers[a], supply, governments, places[here].population,
+                                          war.held(places, a), size_in_battle),
+                             war.strength(rulers[b], supply, governments, places[there].population,
+                                          war.held(places, b), size_in_battle) * war.DEFENDER_ADVANTAGE])
+    year = data["years"] + 1
+    war_settings = SimpleNamespace(**settings["war"])
+    fighting = SimpleNamespace(wars=[SimpleNamespace(ended=w["ended"], sides=[set(s) for s in w["sides"]])
+                                     for w in data["wars"]])
+    towns_now = [SimpleNamespace(ruined=p["ruined"], origin=p["origin"], culture=p["culture"],
+                                 conquered_in=p["conquered_in"]) for p in data["settlements"]]
+    unrest = []
+    for index, town in enumerate(towns_now):
+        resented = war.resentment(town, year, war_settings)
+        if resented > 0:
+            unrest.append([index, resented, war.unrest(town, index, SimpleNamespace(factions=rulers, fighting=fighting),
+                                                       towns_now, war_routes, governments)])
+    grid = going["grid"]
+    columns, rows = grid["columns"], grid["rows"]
+    def unrun(runs):
+        flat = []
+        for i in range(0, len(runs), 2):
+            flat += [runs[i]] * runs[i + 1]
+        return flat
+    owner_flat, ocean_flat = unrun(grid["owner"]), unrun(grid["ocean"])
+    culture = data["history"]["borders"]
+    borders_flat = None
+    for since, shot in culture["snapshots"]:
+        if "full" in shot:
+            borders_flat = unrun(shot["full"])
+        else:
+            for i in range(0, len(shot["changes"]), 3):
+                start, count, holder = shot["changes"][i:i + 3]
+                borders_flat[start:start + count] = [holder] * count
+    culture_of = [[None if v < 0 else v for v in borders_flat[y * columns:(y + 1) * columns]] for y in range(rows)]
+    ocean = [[bool(v) for v in ocean_flat[y * columns:(y + 1) * columns]] for y in range(rows)]
+    counted = [SimpleNamespace(border={}) for _ in rulers]
+    faction_rules.count_borders(SimpleNamespace(ocean=ocean), culture_of, counted)
+    owner = [[None if v < 0 else v for v in owner_flat[y * columns:(y + 1) * columns]] for y in range(rows)]
+    spread = [[None] * columns for _ in range(rows)]
+    faction_rules.spread_territory(places, owner, spread, ocean)
     return {
+        "strengths": strengths,
+        "fighting_from": fighting_from,
+        "war_constants": constants,
+        "war_chances": chances,
+        "odds": odds,
+        "fronts": neighbours,
+        "reasons": reasons,
+        "unrest": unrest,
+        "borders_counted": [{str(k): v for k, v in f.border.items()} for f in counted],
+        "spread": [-1 if v is None else v for row in spread for v in row],
         "opinions": opinions,
         "path_fit": fit,
         "against_values": against,

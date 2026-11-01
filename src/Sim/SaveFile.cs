@@ -17,17 +17,26 @@ public static class SaveFile
     /// <summary>The save's version: raised when a part changes its meaning, so an older game refuses a newer save.</summary>
     // 2: trade (the mines' metal, the memories, the factions' metal). 3: rulers (every faction's ruler, ways,
     // grievance, prejudices and opinions; the words between factions; the dice; the names used).
-    public const int Version = 3;
+    // 4: war (the wars and alliances, the towns' origins and conquests, the mines' owners, the regions' holders,
+    // the factions' borders, and each year's borders when they changed).
+    public const int Version = 4;
 
     public static void Write(string path, Game game)
     {
         var world = game.World;
         var years = new JsonArray();
+        var lastBorders = world.Borders(world.ExportYears);
         for (int year = world.ExportYears + 1; year <= world.Years; year++)
         {
             var states = Enumerable.Range(0, world.Towns.Count).Select(i => world.Town(i, year)).ToList();
+            var borders = world.Borders(year);
+            JsonNode? changed = null;
+            if (borders != null && (lastBorders == null || !borders.SequenceEqual(lastBorders)))
+                changed = Runs(borders);                   // only the years the borders changed
+            lastBorders = borders;
             years.Add(new JsonObject
             {
+                ["borders"] = changed,
                 ["people"] = Numbers(states.Select(s => s?.People ?? 0)),
                 ["holders"] = new JsonArray(states.Select(s => (JsonNode?)(s?.Holder is int h ? JsonValue.Create(h) : null)).ToArray()),
                 ["ruined"] = new JsonArray(states.Select(s => (JsonNode?)JsonValue.Create(s?.Ruined ?? false)).ToArray()),
@@ -50,6 +59,7 @@ public static class SaveFile
             {
                 ["people"] = t.People, ["size"] = t.Size, ["low_years"] = t.LowYears, ["hungry"] = t.Hungry,
                 ["ruined"] = t.Ruined, ["holder"] = t.Holder, ["fed"] = t.Fed,
+                ["origin"] = t.Origin, ["conquered_in"] = t.ConqueredIn,
             }).ToArray()),
             ["factions"] = new JsonArray(game.Factions.Select(f => (JsonNode)new JsonObject
             {
@@ -64,6 +74,7 @@ public static class SaveFile
                     ["name"] = f.Cult.Name,
                 },
                 ["split_pending"] = f.SplitPending,
+                ["border"] = new JsonArray(f.Border.OrderBy(b => b.Key).Select(b => (JsonNode)new JsonArray(b.Key, b.Value)).ToArray()),
                 ["held"] = f.Held == null ? null : new JsonArray(f.Held.OrderBy(p => p, StringComparer.Ordinal)
                                                                .Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()),
                 ["opinions"] = new JsonArray(f.Opinions.OrderBy(o => o.Key)
@@ -76,6 +87,20 @@ public static class SaveFile
             ["dice"] = new JsonObject(game.AllDice.OrderBy(d => d.Key, StringComparer.Ordinal).Select(d =>
                 KeyValuePair.Create(d.Key, (JsonNode?)new JsonArray(d.Value.State.Select(n => (JsonNode?)JsonValue.Create(n.ToString())).ToArray())))),
             ["mines"] = new JsonArray(game.Mines.Select(m => (JsonNode?)JsonValue.Create(m.Metal)).ToArray()),
+            ["mine_owners"] = new JsonArray(game.Mines.Select(m => (JsonNode?)(m.Owner is int o ? JsonValue.Create(o) : null)).ToArray()),
+            ["regions"] = Runs(game.Regions),
+            ["borders_changed"] = game.BordersChanged,
+            ["conquests"] = game.Conquests,
+            ["rebellions"] = game.Rebellions,
+            ["alliances"] = new JsonArray(game.Alliances.OrderBy(p => p)
+                .Select(p => (JsonNode)new JsonArray(p.Item1, p.Item2)).ToArray()),
+            ["wars"] = new JsonArray(game.Wars.Select(w => (JsonNode)new JsonObject
+            {
+                ["attacker"] = w.Attacker, ["defender"] = w.Defender, ["since"] = w.Since,
+                ["sides"] = new JsonArray(w.Sides.Select(side => (JsonNode)Numbers(side.OrderBy(f => f))).ToArray()),
+                ["dead"] = new JsonArray(w.Dead.OrderBy(d => d.Key).Select(d => (JsonNode)new JsonArray(d.Key, d.Value)).ToArray()),
+                ["last_battle"] = w.LastBattle, ["ended"] = w.Ended, ["endurance"] = w.Endurance,
+            }).ToArray()),
             ["memory"] = new JsonArray(game.Memory.OrderBy(p => p.Key)
                 .Select(p => (JsonNode)new JsonArray(p.Key.Item1, p.Key.Item2, p.Value)).ToArray()),
             ["events"] = new JsonArray(game.Events.Select(e => (JsonNode)new JsonObject
@@ -100,6 +125,30 @@ public static class SaveFile
     static Dictionary<string, double> ReadTable(JsonNode? node) =>
         node!.AsObject().ToDictionary(p => p.Key, p => (double)p.Value!);
 
+    // A grid of holders as runs [holder, count, ...], and back (as the export writes the borders).
+    static JsonArray Runs(IReadOnlyList<int> flat)
+    {
+        var runs = new JsonArray();
+        int i = 0;
+        while (i < flat.Count)
+        {
+            int start = i;
+            while (i < flat.Count && flat[i] == flat[start])
+                i++;
+            runs.Add((JsonNode)flat[start]);   // as a JsonNode: a plain Add<int> would need a type resolver to write
+            runs.Add((JsonNode)(i - start));
+        }
+        return runs;
+    }
+
+    static int[] Unruns(JsonArray runs)
+    {
+        var flat = new List<int>();
+        for (int i = 0; i < runs.Count; i += 2)
+            flat.AddRange(Enumerable.Repeat((int)runs[i]!, (int)runs[i + 1]!));
+        return flat.ToArray();
+    }
+
     static JsonArray Numbers(IEnumerable<int> values) => new(values.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray());
 
     /// <summary>Reads a save: opens its export again, replays the years it ran, and puts back what they carry.
@@ -121,7 +170,7 @@ public static class SaveFile
             throw new WorldFileException(path + " is save version " + save["version"] + "; this game reads up to " + Version);
         if (version < Version)
             throw new WorldFileException(path + " was saved by an older game (save version " + version +
-                                         "), before the rulers came to it: it cannot go on. Start a new game on the world.");
+                                         ") and cannot go on in this one. Start a new game on the world.");
 
         string worldPath = (string)save["world"]!;
         if (!File.Exists(worldPath))
@@ -133,14 +182,17 @@ public static class SaveFile
                                          "(it was exported again with other seeds or years)");
 
         var game = new Game(world, (long)save["seed"]!);
+        var regions = world.Borders(world.Years);
         foreach (var node in save["years"]!.AsArray())
         {
             var year = node!.AsObject();
+            if (year["borders"] is JsonArray runs)
+                regions = Unruns(runs);
             world.AddYear(year["people"]!.AsArray().Select(p => (int)p!).ToList(),
                           year["holders"]!.AsArray().Select(h => (int?)h).ToList(),
                           year["ruined"]!.AsArray().Select(r => (bool)r!).ToList(),
                           year["factions"]!.AsArray().Select(p => (int)p!).ToList(),
-                          year["states"]!.AsArray().Select(o => o as JsonObject).ToList());
+                          year["states"]!.AsArray().Select(o => o as JsonObject).ToList(), regions);
         }
         game.Year = (int)save["year"]!;
         if (game.Year != world.Years)
@@ -157,6 +209,8 @@ public static class SaveFile
             town.Hungry = (int)t["hungry"]!;
             town.Ruined = (bool)t["ruined"]!;
             town.Holder = (int?)t["holder"];
+            town.Origin = (int?)t["origin"];
+            town.ConqueredIn = (int?)t["conquered_in"];
             town.Fed = (double)t["fed"]!;
         }
         var factions = save["factions"]!.AsArray();
@@ -184,6 +238,7 @@ public static class SaveFile
             } : null;
             faction.SplitPending = (bool)o["split_pending"]!;
             faction.Held = o["held"] is JsonArray held ? held.Select(p => (string)p!).ToHashSet() : null;
+            faction.Border = o["border"]!.AsArray().ToDictionary(p => (int)p![0]!, p => (double)p![1]!);
             faction.Opinions = o["opinions"]!.AsArray().ToDictionary(p => (int)p![0]!, p => (double)p![1]!);
         }
         game.Words.Clear();
@@ -193,8 +248,31 @@ public static class SaveFile
         foreach (var (system, state) in save["dice"]!.AsObject())
             game.SetDice(system, new Dice(state!.AsArray().Select(n => ulong.Parse((string)n!)).ToList()));
         var mines = save["mines"]!.AsArray();
+        var owners = save["mine_owners"]!.AsArray();
         for (int k = 0; k < game.Mines.Count; k++)
+        {
             game.Mines[k].Metal = (double)mines[k]!;
+            game.Mines[k].Owner = (int?)owners[k];
+        }
+        Array.Copy(Unruns(save["regions"]!.AsArray()), game.Regions, game.Regions.Length);
+        game.BordersChanged = (bool)save["borders_changed"]!;
+        game.Conquests = (int)save["conquests"]!;
+        game.Rebellions = (int)save["rebellions"]!;
+        game.Alliances.Clear();
+        foreach (var pair in save["alliances"]!.AsArray())
+            game.Alliances.Add(((int)pair![0]!, (int)pair[1]!));
+        game.Wars.Clear();
+        foreach (var node in save["wars"]!.AsArray())
+        {
+            var w = node!.AsObject();
+            game.Wars.Add(new WarNow
+            {
+                Attacker = (int)w["attacker"]!, Defender = (int)w["defender"]!, Since = (int)w["since"]!,
+                Sides = w["sides"]!.AsArray().Select(side => side!.AsArray().Select(f => (int)f!).ToHashSet()).ToArray(),
+                Dead = w["dead"]!.AsArray().ToDictionary(d => (int)d![0]!, d => (double)d![1]!),
+                LastBattle = (int)w["last_battle"]!, Ended = (int?)w["ended"], Endurance = (double?)w["endurance"],
+            });
+        }
         game.Memory.Clear();
         foreach (var pair in save["memory"]!.AsArray())
             game.Memory[((int)pair![0]!, (int)pair[1]!)] = (double)pair[2]!;

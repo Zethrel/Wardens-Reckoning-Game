@@ -9,7 +9,9 @@ namespace WardensReckoning.Sim;
 /// Then each faction's opinions of the others (Opinions.cs) and its rulers' year (Rulers.cs, step 4), with your
 /// rules from history_rules.py (Rules.cs).
 ///
-/// Not yet in the game, and so not in its years: war (step 5), splits and migration (6), paths and learning (7),
+/// War and alliance come between the opinions and the rulers (War.cs, step 5).
+///
+/// Not yet in the game, and so not in its years: splits and migration (6), paths and learning (7),
 /// attunement (8), happenings, threats, signs and chokepoints (9), and death's other ways (mass death, the god's
 /// finds).
 /// </summary>
@@ -105,12 +107,13 @@ public static class YearCore
 
         var people = UpdateFactions(game, markets, deals, year, blame);
         Opinions.Year(game, markets, year);
+        War.Year(game, markets, hardship, year);
         Rulers.Year(game, hardship.Select(h => h.Felt()).ToList(), year);
 
         world.AddYear(game.Towns.Select(t => t.Ruined ? 0 : t.Population).ToList(),
                       game.Towns.Select(t => t.Holder).ToList(),
                       game.Towns.Select(t => t.Ruined).ToList(),
-                      people, StatesOf(game, year));
+                      game.Factions.Select(f => f.People).ToList(), StatesOf(game, year), game.Regions);
         game.Year = year;
     }
 

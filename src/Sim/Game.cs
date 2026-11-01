@@ -21,6 +21,9 @@ public sealed class TownNow
     public Dictionary<string, double> Yields { get; set; } = new();
     /// <summary>The kinds of place it is near (a good "made_on" one is only made here if it is near one).</summary>
     public HashSet<string> Near { get; set; } = new();
+    /// <summary>The faction whose people founded it (it resents another holder), and the year it was last taken.</summary>
+    public int? Origin { get; set; }
+    public int? ConqueredIn { get; set; }
     /// <summary>Its place on the map (map cells), for the nearest town to a mine.</summary>
     public int X { get; set; }
     public int Y { get; set; }
@@ -61,6 +64,8 @@ public sealed class FactionNow
     public Dictionary<int, double> Border { get; set; } = new();
     /// <summary>What it believes of the god of death.</summary>
     public string Belief { get; set; } = "unknowing";
+    /// <summary>How likely its conquests are to rise (below 1 for an empire that holds together; splits come with step 6).</summary>
+    public double Hold { get; set; } = 1.0;
     /// <summary>The paths it holds besides its main one (paths as skills), or null when paths are not skills.</summary>
     public HashSet<string>? Held { get; set; }
     /// <summary>The faction it comes from in the settings' FACTIONS (its goods), and its traits (greed digs more).</summary>
@@ -133,6 +138,23 @@ public sealed class Game
 
     /// <summary>How many regions wide the history's grid is: a route's cost is counted on it.</summary>
     public int HistoryColumns { get; }
+
+    /// <summary>Every war, ended or not, and each pair of allies (the lower number first).</summary>
+    public List<WarNow> Wars { get; } = new();
+    public HashSet<(int, int)> Alliances { get; } = new();
+    /// <summary>How many towns were taken in battle, and how many rose back, in the game's years.</summary>
+    public int Conquests { get; set; }
+    public int Rebellions { get; set; }
+    /// <summary>Whether towns changed hands since the land was last shared out (War.RedrawBorders).</summary>
+    public bool BordersChanged { get; set; }
+
+    /// <summary>The history's grid as land (the export's "continue" → "grid"): the town farming each region (-1: none)
+    /// and the sea, row after row.</summary>
+    public sealed record LandGrid(int Columns, int Rows, int[] Owner, bool[] Ocean);
+    public LandGrid Grid { get; }
+
+    /// <summary>Who holds each region of the history's grid now (-1: no one), as the borders show it.</summary>
+    public int[] Regions { get; }
 
     /// <summary>The band of RELATIONS each faction last spoke of each other in: [faction, other].</summary>
     public Dictionary<(int, int), int> Words { get; } = new();
@@ -207,6 +229,8 @@ public sealed class Game
                 Yields = town["yields"]!.AsObject().ToDictionary(p => p.Key, p => (double)p.Value!),
                 Near = town["near"] is JsonArray near ? near.Select(k => (string)k!).ToHashSet()
                        : throw Older("the towns' \"near\""),
+                Origin = (int?)place["origin"],
+                ConqueredIn = (int?)place["conquered_in"],
                 X = (int)place["x"]!,
                 Y = (int)place["y"]!,
             });
@@ -232,6 +256,26 @@ public sealed class Game
         foreach (var pair in going["words"]!.AsArray())
             Words[((int)pair![0]!, (int)pair[1]!)] = (int)pair[2]!;
         var names = going["names"]?["person"] as JsonArray ?? throw Older("\"names\"");
+        var land = going["grid"] as JsonObject ?? throw Older("\"grid\"");
+        Grid = new LandGrid((int)land["columns"]!, (int)land["rows"]!, Unrun(land["owner"]!.AsArray()),
+                            Unrun(land["ocean"]!.AsArray()).Select(v => v == 1).ToArray());
+        Regions = world.Borders(world.Years) ?? Enumerable.Repeat(-1, Grid.Columns * Grid.Rows).ToArray();
+        foreach (var node in world.Data["wars"]?.AsArray() ?? new JsonArray())
+        {
+            var w = node!.AsObject();
+            Wars.Add(new WarNow
+            {
+                Attacker = (int)w["attacker"]!, Defender = (int)w["defender"]!, Since = (int)w["since"]!,
+                Sides = w["sides"]!.AsArray().Select(side => side!.AsArray().Select(f => (int)f!).ToHashSet()).ToArray(),
+                Dead = w["dead"]!.AsObject().ToDictionary(p => int.Parse(p.Key), p => (double)p.Value!),
+                LastBattle = (int?)w["last_battle"] ?? 0, Ended = (int?)w["ended"], Endurance = (double?)w["endurance"],
+            });
+        }
+        foreach (var pair in world.Data["alliances"]?.AsArray() ?? new JsonArray())
+        {
+            int a = (int)pair![0]!, b = (int)pair[1]!;
+            Alliances.Add(a < b ? (a, b) : (b, a));
+        }
         Names = names.Select(list => list!.AsArray().Select(n => (string)n!).ToList()).ToList();
         NamesUsed = new int[Names.Count];
         Factions = world.Data["factions"]!.AsArray().Select((node, k) =>
@@ -262,6 +306,7 @@ public sealed class Game
                 Belief = (string?)f["belief"] ?? "unknowing",
                 Held = keptFactions[k]!["held"] is JsonArray held ? held.Select(p => (string)p!).ToHashSet() : null,
                 Lineage = (string?)f["lineage"],
+                Hold = (double?)f["hold"] ?? 1.0,
                 Learned = f["learned"] is JsonArray learned ? learned.Select(g => (string)g!).ToHashSet() : new HashSet<string>(),
                 Skills = keptFactions[k]!["skills"]!.AsObject().ToDictionary(p => p.Key, p => (double)p.Value!),
                 Opinions = f["opinions"]!.AsObject().ToDictionary(p => int.Parse(p.Key), p => (double)p.Value!),
@@ -269,6 +314,15 @@ public sealed class Game
                 MetalNeed = (double?)f["metal_need"] ?? 0.0,
             };
         }).ToList();
+    }
+
+    /// <summary>Runs [value, count, value, count, ...] as the values one by one.</summary>
+    static int[] Unrun(JsonArray runs)
+    {
+        var values = new List<int>();
+        for (int i = 0; i < runs.Count; i += 2)
+            values.AddRange(Enumerable.Repeat((int)runs[i]!, (int)runs[i + 1]!));
+        return values.ToArray();
     }
 
     static Dictionary<string, double> Numbers(JsonNode? table) =>

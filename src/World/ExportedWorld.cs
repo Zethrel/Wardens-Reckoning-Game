@@ -322,7 +322,8 @@ public sealed class ExportedWorld
     /// comes to the game (step 5), every year keeps the borders of the last.
     /// </summary>
     public void AddYear(IReadOnlyList<int> townPeople, IReadOnlyList<int?> holders, IReadOnlyList<bool> ruined,
-                        IReadOnlyList<int> factionPeople, IReadOnlyList<JsonObject?>? factionStates = null)
+                        IReadOnlyList<int> factionPeople, IReadOnlyList<JsonObject?>? factionStates = null,
+                        IReadOnlyList<int>? regions = null)
     {
         if (townPeople.Count != Towns.Count || holders.Count != Towns.Count || ruined.Count != Towns.Count)
             throw new ArgumentException("one entry for every settlement");
@@ -368,6 +369,31 @@ public sealed class ExportedWorld
                 if (changed.Count > 0)
                     factionChanges[f].Add((year, changed));
             }
+        // The borders, when they changed: only the stretches that changed, as the export's later snapshots are.
+        if (regions != null && snapshots.Count > 0)
+        {
+            var was = Borders(year - 1)!;
+            if (regions.Count != was.Length)
+                throw new ArgumentException("one region for every region of the history's grid");
+            var changes = new JsonArray();
+            int at = 0;
+            while (at < was.Length)
+            {
+                if (regions[at] == was[at])
+                {
+                    at++;
+                    continue;
+                }
+                int start = at, holder = regions[at];
+                while (at < was.Length && regions[at] == holder && regions[at] != was[at])
+                    at++;
+                changes.Add(start);
+                changes.Add(at - start);
+                changes.Add(holder);
+            }
+            if (changes.Count > 0)
+                snapshots.Add((year, new JsonObject { ["changes"] = changes }));
+        }
         Years = year;
     }
 
