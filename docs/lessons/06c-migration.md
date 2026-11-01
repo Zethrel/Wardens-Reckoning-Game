@@ -30,6 +30,12 @@ site scores, so the game's towns can sit a few cells from where the
 generator would have drawn them. Where it stands in the history (its region)
 is exactly the generator's.
 
+A ruin resettled this year gets its people, its size and a fresh start (no
+years of want) only once every town has had its turn, as in the generator: a
+ruin that is resettled early in the year does not send migrants of its own
+the same year. (Until 1 November the game counted its settlers at once; a
+world exported after the lore of the First Death showed the difference.)
+
 **Famines.** The game's towns have fewer famines than the generator's (0 to 1
 a century against 7 to 12). It is not migration: the generator's famines come
 from a few towns its chokepoints cut off (a faction refusing to sell to one it

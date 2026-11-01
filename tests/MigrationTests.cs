@@ -327,6 +327,7 @@ public class MigrationTests
             && game.Towns[i].Holder == game.Towns[source].Holder
             && Migration.Hypot(game.Towns[i].HX - game.Towns[source].HX, game.Towns[i].HY - game.Towns[source].HY) <= reach);
         game.Towns[ruin].Ruined = true;
+        game.Towns[ruin].People = 0;                    // a ruin has no one left
         game.Towns[ruin].LowYears = 7;
         game.Towns[ruin].Hungry = 5;
         foreach (int other in RuinsWithinReach(game, source).Where(r => r != ruin))
@@ -336,6 +337,7 @@ public class MigrationTests
         Assert.Equal("ruin_resettled", game.Events.Single().What);
         Assert.False(game.Towns[ruin].Ruined);
         Assert.Equal((0, 0), (game.Towns[ruin].LowYears, game.Towns[ruin].Hungry));
+        Assert.True(game.Towns[ruin].People > 0);       // its settlers, counted once the year's moves are done
         Assert.Equal(source, game.Towns[ruin].FoundedFrom);
     }
 

@@ -125,6 +125,10 @@ public static class Rulers
             };
             age = dice.Int(35, 60);
         }
+        // Older for a long-lived people, younger for a short-lived one (as a human's age, times its scale).
+        double scale = AgeScale(game, index);
+        if (scale != 1.0)
+            age = Py.Round(age * scale);
         string path;
         Dictionary<int, double> stances;
         if (method == "heir" && previous != null)
@@ -157,6 +161,32 @@ public static class Rulers
         Pulls.Sum(p => Math.Abs(ruler.Traits[p.Mine] - values[p.Theirs])) / Pulls.Length;
 
     public static double DeathChanceAt(int age) => DeathChance + DeathChancePerYearPast40 * Math.Max(0, age - 40);
+
+    /// <summary>The chance a ruler of `age` dies this year, their people aging by `scale`: an elf of 375 is as old as a
+    /// human of 40. leaders.death_chance.</summary>
+    public static double DeathChanceAt(int age, double scale) =>
+        scale == 1.0 ? DeathChanceAt(age) : DeathChance + DeathChancePerYearPast40 * Math.Max(0, age / scale - 40);
+
+    /// <summary>The lifespan (race_settings.py) the ages here are counted for: a human's.</summary>
+    public const double HumanLifespan = 80;
+
+    /// <summary>How much longer than a human a people of `race` lives, as LIFESPAN_SCALING says to count it: 1 for a
+    /// human, a people whose lifespan is not given, or a scaling of 0; a kind of a race (elf_wood) lives as its race.
+    /// leaders.age_scale.</summary>
+    public static double AgeScale(GameSettings settings, string? race)
+    {
+        if (settings.LifespanScaling == 0 || race == null || !settings.Races.TryGetValue(race, out var about))
+            return 1.0;
+        if (about.Of != null && settings.Races.TryGetValue(about.Of, out var of))
+            about = of;
+        if (about.Lifespan is not double lifespan || lifespan == 0)
+            return 1.0;
+        return 1.0 + settings.LifespanScaling * (lifespan / HumanLifespan - 1.0);
+    }
+
+    /// <summary>How faction `index`'s rulers age, by its race (the world's records keep it).</summary>
+    public static double AgeScale(Game game, int index) =>
+        AgeScale(game.Settings, index < game.World.Factions.Count ? game.World.Factions[index].Race : null);
 
     /// <summary>What is worth knowing about a new ruler's ways: another path, and stances. leaders.describe.</summary>
     public static string Describe(Game game, Ruler ruler, FactionNow faction)
@@ -276,7 +306,7 @@ public static class Rulers
 
             var dice = game.DiceFor("rulers");
             ruler.Age++;
-            if (dice.Random() < DeathChanceAt(ruler.Age))
+            if (dice.Random() < DeathChanceAt(ruler.Age, AgeScale(game, index)))
             {
                 double strength = StrengthOf(ruler, year);
                 var successor = NewRuler(game, government.Succession, index, ruler, year);

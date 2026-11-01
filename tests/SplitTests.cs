@@ -14,8 +14,8 @@ public class SplitTests
     static Game NewGame(long seed = 1) => new(ExportedWorld.Read(Path.Combine(Fixtures, "world-7")), seed);
 
     /// <summary>A game on a copy of the fixture whose split and war settings are changed by `change` (for rules whose
-    /// dice would otherwise decide).</summary>
-    static Game WithSettings(Action<JsonObject, JsonObject> change, long seed = 1)
+    /// dice would otherwise decide). The war tests use it too.</summary>
+    internal static Game WithSettings(Action<JsonObject, JsonObject> change, long seed = 1)
     {
         string folder = Path.Combine(Path.GetTempPath(), "wr-splits-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
@@ -251,8 +251,9 @@ public class SplitTests
     public void A_cautious_or_whole_realm_does_not_split_and_none_split_past_MAX_FACTIONS()
     {
         // Division made a certainty, but at most as many factions with land as there are now.
-        var game = WithSettings((splits, _) => { splits["DIVISION"] = 1000.0; splits["MAX_FACTIONS"] = 10; });
-        Assert.Equal(10, Splits.Living(game));
+        int living = Splits.Living(NewGame());
+        var game = WithSettings((splits, _) => { splits["DIVISION"] = 1000.0; splits["MAX_FACTIONS"] = living; });
+        Assert.Equal(living, Splits.Living(game));
         int before = game.Factions.Count;
         Splits.Year(game, NoHardship(game), game.Year + 1);
         Assert.Equal(before, game.Factions.Count);

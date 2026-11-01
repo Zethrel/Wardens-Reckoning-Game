@@ -198,7 +198,8 @@ public class WarTests
     [Fact]
     public void Friends_ally_and_fall_out()
     {
-        var game = NewGame();
+        // No one declares war (WARLIKE 0), so no war drags one of the two in and breaks the alliance on the way.
+        var game = SplitTests.WithSettings((_, war) => war["WARLIKE"] = 0.0);
         var alive = Enumerable.Range(0, game.Factions.Count).Where(f => game.Factions[f].People > 0).Take(2).ToList();
         int a = alive[0], b = alive[1];
         game.Alliances.Clear();

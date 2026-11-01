@@ -23,7 +23,35 @@ public static class Opinions
         var other = game.Factions[b];
         double envy = Envy * faction.Traits["greed"] * coveted;
         return Math.Min(1.0, Math.Max(-1.0, PathPart(game, faction, other) + MetalPart(faction, other)
-                                            + BorderPart(faction, b) + memory - envy + BeliefPart(game, faction, other)));
+                                            + BorderPart(faction, b) + memory - envy + BeliefPart(game, faction, other)
+                                            + RacePart(game, a, b)));
+    }
+
+    /// <summary>
+    /// What faction `a`'s race thinks of `b`'s (RACE_OPINIONS, decided 1 November 2026); 0 without it. The first the
+    /// table gives: the row of its race, then of the race it is a kind of (elf_wood is an elf), then "*" (every race);
+    /// in that row, the other's race, then the race it is a kind of, then "*". factions.race_part.
+    /// </summary>
+    public static double RacePart(Game game, int a, int b)
+    {
+        var table = game.Settings.RaceOpinions;
+        var races = game.World.Factions;
+        string? mine = a < races.Count ? races[a].Race : null, theirs = b < races.Count ? races[b].Race : null;
+        if (table.Count == 0 || mine == null || theirs == null)
+            return 0.0;
+        IEnumerable<string> Keys(string race)
+        {
+            yield return race;
+            if (game.Settings.Races.TryGetValue(race, out var about) && about.Of != null)
+                yield return about.Of;
+            yield return "*";
+        }
+        foreach (string row in Keys(mine))
+            if (table.TryGetValue(row, out var columns))
+                foreach (string column in Keys(theirs))
+                    if (columns.TryGetValue(column, out double value))
+                        return value;
+        return 0.0;
     }
 
     /// <summary>What `faction` thinks of `other`'s path: its own prejudice, or else PATH_OPINIONS. factions.path_part.</summary>

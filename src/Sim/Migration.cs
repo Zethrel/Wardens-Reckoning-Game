@@ -325,6 +325,10 @@ public static class Migration
         double reach = settings.Reach * game.Grid.Columns / 256.0;
         var living = game.Towns.Where(t => !t.Ruined && t.Holder != null).Select(t => t.Holder!.Value).ToHashSet();
         int count = game.Towns.Count;              // the towns at the start: a new one sends no one this year
+        // The towns settled this year, and how many settled each: their people, size and years of want are set once
+        // every town has had its turn (as the generator does after year_of_migration), so a ruin resettled this
+        // year still counts as empty when its own turn comes.
+        var settledThisYear = new List<(int Town, int People)>();
         for (int index = 0; index < count; index++)
         {
             var place = game.Towns[index];
@@ -391,13 +395,10 @@ public static class Migration
                                      game.World.Towns[target].Name);
                 what = "ruin_resettled";
             }
-            // The town left behind keeps its size unless it falls past the margin; the one settled is sized afresh.
+            // The town left behind keeps its size unless it falls past the margin.
             place.Size = YearCore.KeepBand(place.Population, settings.SizeLows, place.Size,
                                            settings.SizeLows[place.Size] * YearCore.SizeMargin);
-            var settled = game.Towns[target];
-            settled.People = settled.Population;
-            settled.Size = YearCore.BandOf(settled.Population, settings.SizeLows);
-            settled.LowYears = settled.Hungry = 0;
+            settledThisYear.Add((target, leaving));
             living.Add(holder);
             game.Record(new GameEvent(year, "colony", what, text + " (the " + faction.Name + ")", new[] { holder },
                 new Dictionary<string, string>
@@ -405,6 +406,13 @@ public static class Migration
                     ["people"] = leaving.ToString(System.Globalization.CultureInfo.InvariantCulture), ["why"] = why,
                     ["source"] = from, ["target"] = game.World.Towns[target].Name, ["faction"] = faction.Name,
                 }));
+        }
+        foreach (var (target, people) in settledThisYear)
+        {
+            var settled = game.Towns[target];
+            settled.People = people;
+            settled.Size = YearCore.BandOf(settled.Population, settings.SizeLows);
+            settled.LowYears = settled.Hungry = 0;
         }
     }
 
@@ -463,8 +471,7 @@ public static class Migration
     public static void Resettle(Game game, int target, int source, int faction, int leaving)
     {
         var place = game.Towns[target];
-        place.Ruined = false;
-        place.People = leaving;
+        place.Ruined = false;                       // its people are counted once the year's migrations are done
         place.Holder = place.Origin = faction;
         place.ConqueredIn = null;
         place.FoundedFrom = source;

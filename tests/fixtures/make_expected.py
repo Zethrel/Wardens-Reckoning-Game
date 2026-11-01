@@ -150,7 +150,7 @@ def one_year_of_trade(data):
     for a, f in enumerate(data["factions"]):
         mine = SimpleNamespace(index=a, path=f["path"], traits=f["traits"], prejudice=f["prejudice"],
                                metal_supply=f["metal_supply"], metal_need=f["metal_need"], belief=f["belief"],
-                               border={int(k): v for k, v in f["border"].items()})
+                               border={int(k): v for k, v in f["border"].items()}, race=data["faction_races"][a])
         mine.metal_balance = lambda m=mine: faction_rules.Faction.metal_balance(m)
         judged.append(mine)
     opinions = [[a, b, faction_rules.opinion(judged[a], judged[b], faction_settings, memory.get((a, b), 0.0),
@@ -158,6 +158,8 @@ def one_year_of_trade(data):
                 for a in range(len(judged)) for b in range(len(judged))
                 if a != b and people[a] > 0 and people[b] > 0]
     fit = [leaders.path_fit(f["values"]) for f in data["factions"]]
+    # How each faction's rulers age (the lore of 1 November 2026: LIFESPAN_SCALING), by its race.
+    age_scales = [leaders.age_scale(race, SimpleNamespace(**settings["leaders"])) for race in data["faction_races"]]
     against = [None if f["ruler"] is None else leaders.against_values(SimpleNamespace(traits=f["ruler"]["traits"]),
                                                                       f["values"]) for f in data["factions"]]
     # War (step 5): each living faction's whole strength, the reasons to fight each neighbour, the fronts between
@@ -257,6 +259,7 @@ def one_year_of_trade(data):
         "spread": [-1 if v is None else v for row in spread for v in row],
         "opinions": opinions,
         "path_fit": fit,
+        "age_scales": age_scales,
         "against_values": against,
         "markets": [{"made": m.made, "needed": m.needed, "bought": m.bought, "sold": m.sold} for m in markets],
         "fed": fed,

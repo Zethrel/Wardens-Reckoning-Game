@@ -342,3 +342,105 @@ public class RulerTests
         Assert.Equal(card.PeopleByYear, Book.Card(loaded.World, f, loaded.Year).PeopleByYear);
     }
 }
+
+/// <summary>The lore of 1 November 2026 in the game: rulers age by their people's lifespan, peoples think of each other by
+/// race.</summary>
+public class LoreTests
+{
+    static string Fixtures => Path.Combine(AppContext.BaseDirectory, "fixtures");
+    static Game NewGame(long seed = 1) => new(ExportedWorld.Read(Path.Combine(Fixtures, "world-7")), seed);
+    static readonly System.Text.Json.Nodes.JsonObject Expected =
+        System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(Fixtures, "expected.json")))!["trade"]!.AsObject();
+
+    [Fact]
+    public void Each_faction_s_rulers_age_as_the_generator_says()
+    {
+        var game = NewGame();
+        var want = Expected["age_scales"]!.AsArray();
+        Assert.Equal(want.Count, game.Factions.Count);
+        for (int f = 0; f < game.Factions.Count; f++)
+            Assert.Equal((double)want[f]!, Rulers.AgeScale(game, f));
+        Assert.Contains(Enumerable.Range(0, game.Factions.Count), f => Rulers.AgeScale(game, f) > 1.0);
+    }
+
+    [Fact]
+    public void A_long_lived_people_crowns_older_rulers_who_die_later()
+    {
+        var game = NewGame();
+        int elder = Enumerable.Range(0, game.Factions.Count).First(f => Rulers.AgeScale(game, f) > 2.0);
+        int human = Enumerable.Range(0, game.Factions.Count).First(f => Rulers.AgeScale(game, f) == 1.0);
+        double scale = Rulers.AgeScale(game, elder);
+        Assert.Equal(Rulers.DeathChanceAt(40), Rulers.DeathChanceAt((int)Math.Round(40 * scale), scale), 2);
+        Assert.True(Rulers.DeathChanceAt(200, scale) < Rulers.DeathChanceAt(200));
+        var young = new List<int>();
+        var old = new List<int>();
+        for (long seed = 1; seed <= 20; seed++)
+        {
+            var g = NewGame(seed);
+            old.Add(Rulers.NewRuler(g, "chosen", elder, null, g.Year).Age);
+            young.Add(Rulers.NewRuler(NewGame(seed), "chosen", human, null, g.Year).Age);
+        }
+        Assert.All(young, a => Assert.InRange(a, 35, 60));
+        Assert.All(old, a => Assert.InRange(a, Py.Round(35 * scale), Py.Round(60 * scale)));
+    }
+
+    /// <summary>A game on a copy of the fixture with leader_settings.py's LIFESPAN_SCALING set to `scaling`.</summary>
+    static Game WithScaling(double scaling)
+    {
+        string folder = Path.Combine(Path.GetTempPath(), "wr-lore-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        foreach (var file in Directory.GetFiles(Path.Combine(Fixtures, "world-7")))
+            File.Copy(file, Path.Combine(folder, Path.GetFileName(file)));
+        var data = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(folder, "world.json")))!;
+        data["continue"]!["settings"]!["leaders"]!["LIFESPAN_SCALING"] = scaling;
+        File.WriteAllText(Path.Combine(folder, "world.json"), data.ToJsonString());
+        return new Game(ExportedWorld.Read(folder), 1);
+    }
+
+    [Fact]
+    public void LIFESPAN_SCALING_sets_how_fully_a_lifespan_counts()
+    {
+        var full = NewGame();
+        var none = WithScaling(0.0);
+        var half = WithScaling(0.5);
+        for (int f = 0; f < full.Factions.Count; f++)
+        {
+            Assert.Equal(1.0, Rulers.AgeScale(none, f));
+            Assert.Equal(1.0 + 0.5 * (Rulers.AgeScale(full, f) - 1.0), Rulers.AgeScale(half, f), 12);
+        }
+    }
+
+    [Fact]
+    public void A_long_lived_ruler_is_not_sure_to_die_at_an_age_that_would_end_a_human()
+    {
+        // At 300 a human's chance of death is past one; an elder people's ruler of 300 counts as a man of 300 / scale.
+        int survived = 0;
+        for (long seed = 1; seed <= 10; seed++)
+        {
+            var game = NewGame(seed);
+            int elder = Enumerable.Range(0, game.Factions.Count)
+                .First(f => Rulers.AgeScale(game, f) > 2.0 && game.Factions[f].Ruler != null);
+            var ruler = game.Factions[elder].Ruler!;
+            ruler.Age = 299;
+            Rulers.Year(game, game.Factions.Select(_ => new Rulers.Felt(0, 0, 0, 1, 1)).ToList(), 301);
+            if (game.Factions[elder].Ruler == ruler)
+                survived++;
+        }
+        Assert.True(survived > 0);
+    }
+
+    [Fact]
+    public void A_split_s_rulers_age_as_its_kin_s()
+    {
+        var game = NewGame();
+        game.Waiting.Clear();
+        int parent = Enumerable.Range(0, game.Factions.Count).First(f => Rulers.AgeScale(game, f) > 2.0 && Splits.Holdings(game, f).Count >= 2);
+        var town = Splits.Holdings(game, parent).Last();
+        game.Towns[town].Origin = parent;
+        int child = Splits.Secede(game, new List<int> { town }, parent, "divided from their rulers",
+                                  game.Factions.Select(_ => new YearCore.Hardship()).ToList(), game.Year + 1);
+        Assert.Equal(Rulers.AgeScale(game, parent), Rulers.AgeScale(game, child));
+        Assert.True(game.Factions[child].Ruler!.Age > 60);
+    }
+}
+

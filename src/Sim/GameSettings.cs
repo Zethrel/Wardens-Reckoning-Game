@@ -183,6 +183,13 @@ public sealed class GameSettings
     public IReadOnlyList<(string Part, double Weight)> SiteWeights { get; }
     public IReadOnlyDictionary<string, IReadOnlyList<(string Part, double Weight)>> PeopleSites { get; }
 
+    /// <summary>The lore of 1 November 2026: leader_settings.py LIFESPAN_SCALING (how fully a people's lifespan sets its
+    /// rulers' ages), faction_settings.py RACE_OPINIONS (what one race thinks of another), and the export's races
+    /// (race_settings.py RACES: each race's lifespan, and the race a kind belongs to, "of").</summary>
+    public double LifespanScaling { get; }
+    public IReadOnlyDictionary<string, IReadOnlyDictionary<string, double>> RaceOpinions { get; }
+    public IReadOnlyDictionary<string, (double? Lifespan, string? Of)> Races { get; }
+
     static (double, double) Range(JsonNode? value) => value switch
     {
         JsonArray pair => ((double)pair[0]!, (double)pair[1]!),
@@ -194,8 +201,10 @@ public sealed class GameSettings
     public IReadOnlyList<int> SizeLows { get; }
     public IReadOnlyList<string> SizeNames { get; }
 
-    public GameSettings(JsonObject settings)
+    public GameSettings(JsonObject settings, JsonObject? races = null)
     {
+        Races = races?.ToDictionary(r => r.Key, r => ((double?)r.Value?["lifespan"], (string?)r.Value?["of"]))
+                ?? new Dictionary<string, (double?, string?)>();
         var history = settings["history"]!.AsObject();
         GrowthRate = (double)history["GROWTH_RATE"]!;
         Starvation = (double)history["STARVATION"]!;
@@ -335,6 +344,9 @@ public sealed class GameSettings
             ? influences.Select(i => ((string)i![0]!, (string)i[1]!, (double)i[2]!)).ToList()
             : new List<(string, string, double)>();
 
+        LifespanScaling = (double?)leaders["LIFESPAN_SCALING"] ?? 0.0;
+        RaceOpinions = Tables(factions["RACE_OPINIONS"]);
+
         var sizes = settlement["SETTLEMENT_SIZES"]!.AsArray();
         SizeLows = sizes.Select(s => (int)s![0]!).ToList();
         SizeNames = sizes.Select(s => (string)s![1]!).ToList();
@@ -349,7 +361,8 @@ public sealed class GameSettings
         table is JsonObject o ? o.ToDictionary(p => p.Key, p => (double)p.Value!) : new Dictionary<string, double>();
 
     /// <summary>The settings of an exported world, or a WorldFileException if it has no "continue" this game can read.</summary>
-    public static GameSettings Of(ExportedWorld world) => new(Continuation(world)["settings"]!.AsObject());
+    public static GameSettings Of(ExportedWorld world) =>
+        new(Continuation(world)["settings"]!.AsObject(), world.Data["races"]?["races"] as JsonObject);
 
     /// <summary>The newest version of the export's "continue" this game understands.</summary>
     public const int SupportedContinue = 1;
