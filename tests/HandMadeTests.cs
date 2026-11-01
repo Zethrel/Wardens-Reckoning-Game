@@ -45,7 +45,7 @@ public class HandMadeTests
                 },
             },
         };
-        string folder = Path.Combine(Path.GetTempPath(), "wr-hand-" + Guid.NewGuid().ToString("N"));
+        string folder = Path.Combine(Scratch.Root, "wr-hand-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
         File.WriteAllText(Path.Combine(folder, "world.json"), data.ToJsonString());
         return ExportedWorld.Read(folder);

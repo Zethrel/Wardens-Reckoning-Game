@@ -147,7 +147,7 @@ public class FeedingTests
     [Fact]
     public void With_no_tastes_a_town_keeps_its_food_whoever_holds_it()
     {
-        string folder = Path.Combine(Path.GetTempPath(), "wr-notastes-" + Guid.NewGuid().ToString("N"));
+        string folder = Path.Combine(Scratch.Root, "wr-notastes-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
         foreach (var file in Directory.GetFiles(Path.Combine(Fixtures, "world-7")))
             File.Copy(file, Path.Combine(folder, Path.GetFileName(file)));
@@ -203,7 +203,7 @@ public class FeedingTests
         game.Towns[town].Holder = taker;
         for (int i = 0; i < 12; i++)
             YearCore.RunYear(game);
-        string path = Path.Combine(Path.GetTempPath(), "wr-feed-" + Guid.NewGuid().ToString("N") + ".json");
+        string path = Path.Combine(Scratch.Root, "wr-feed-" + Guid.NewGuid().ToString("N") + ".json");
         SaveFile.Write(path, game);
         var loaded = SaveFile.Read(path);
         for (int i = 0; i < game.Towns.Count; i++)

@@ -196,7 +196,7 @@ public class SimTests
     [Fact]
     public void A_world_without_continue_cannot_be_played_on()
     {
-        string folder = Path.Combine(Path.GetTempPath(), "wr-nocont-" + Guid.NewGuid().ToString("N"));
+        string folder = Path.Combine(Scratch.Root, "wr-nocont-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
         var data = JsonNode.Parse(File.ReadAllText(Path.Combine(Fixtures, "world-7", "world.json")))!.AsObject();
         data.Remove("continue");
@@ -212,7 +212,7 @@ public class SimTests
 public class SaveTests
 {
     static string Fixtures => Path.Combine(AppContext.BaseDirectory, "fixtures");
-    static string Temp(string name) => Path.Combine(Path.GetTempPath(), "wr-save-" + Guid.NewGuid().ToString("N"), name);
+    static string Temp(string name) => Path.Combine(Scratch.Root, "wr-save-" + Guid.NewGuid().ToString("N"), name);
 
     static string Snapshot(Game game) =>
         string.Join(";", game.Towns.Select(t => $"{t.People:R},{t.Size},{t.LowYears},{t.Hungry},{t.Ruined},{t.Holder},{t.Fed:R}"))
@@ -282,7 +282,7 @@ public class SaveTests
         Assert.Throws<WorldFileException>(() => SaveFile.Read(path));
 
         save["world_seed"] = game.World.Seed;
-        save["world"] = Path.Combine(Path.GetTempPath(), "no-such-folder", "world.json");
+        save["world"] = Path.Combine(Scratch.Root, "no-such-folder", "world.json");
         File.WriteAllText(path, save.ToJsonString());
         Assert.Throws<WorldFileException>(() => SaveFile.Read(path));
 

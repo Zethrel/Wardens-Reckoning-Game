@@ -106,7 +106,7 @@ public class WarTests
     public void A_belief_the_settings_make_hateful_is_a_reason_for_war()
     {
         // A copy of the fixture where every belief thinks -0.5 of "worship" (all 0 in the maintainer's settings).
-        string folder = Path.Combine(Path.GetTempPath(), "wr-belief-" + Guid.NewGuid().ToString("N"));
+        string folder = Path.Combine(Scratch.Root, "wr-belief-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
         foreach (var file in Directory.GetFiles(Path.Combine(Fixtures, "world-7")))
             File.Copy(file, Path.Combine(folder, Path.GetFileName(file)));

@@ -17,7 +17,8 @@ October 2026"). Each step has its own tests and a lesson in `docs/lessons/`.
 | 6c | Migration: colonies founded and ruins resettled | 1 Nov |
 | 6d | The lore of the First Death: rulers age by their people's lifespan, and race opinions (lesson 04b; the undead come with the threats in step 9) | 1 Nov |
 | 7 | Learning (paths as skills, hybrids) and capitals (offshoot paths not yet: OFFSHOOT_CHANCE is 0) | 1 Nov |
-| 8 | Attunement and rituals | |
+| 8a | Attunement's mark (marking, spreading, fading, rifts, prey, towns given up, blame) and the harvest ritual | 1 Nov |
+| 8 | The rest of attunement: great rituals in war (8b: a crater without reshaping the land, decided 1 November), offshoot paths (8c) | |
 | 9 | Happenings, threats, signs and chokepoints (until then, the game's trade feeds towns the generator's chokepoints cut off, so it has fewer famines) | |
 | 10 | The chronicle as it happens | |
 | | Then the Wardens: the player's decisions, the legacy number, losing when the Wardens fall | |

@@ -16,7 +16,7 @@ public class LearningTests
     /// <summary>A game on a copy of the fixture whose learning and split settings are changed by `change`.</summary>
     static Game WithSettings(Action<JsonObject, JsonObject> change, long seed = 1)
     {
-        string folder = Path.Combine(Path.GetTempPath(), "wr-learning-" + Guid.NewGuid().ToString("N"));
+        string folder = Path.Combine(Scratch.Root, "wr-learning-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
         foreach (var file in Directory.GetFiles(Path.Combine(Fixtures, "world-7")))
             File.Copy(file, Path.Combine(folder, Path.GetFileName(file)));
@@ -332,7 +332,7 @@ public class LearningTests
         var second = new Game(ExportedWorld.Read(Path.Combine(Fixtures, "world-7")), 3);
         for (int i = 0; i < 50; i++)
             YearCore.RunYear(first);
-        string path = Path.Combine(Path.GetTempPath(), "wr-learning-" + Guid.NewGuid().ToString("N") + ".json");
+        string path = Path.Combine(Scratch.Root, "wr-learning-" + Guid.NewGuid().ToString("N") + ".json");
         SaveFile.Write(path, first);
         var loaded = SaveFile.Read(path);
         for (int i = 0; i < 50; i++)

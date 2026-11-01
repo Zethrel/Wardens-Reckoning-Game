@@ -207,6 +207,52 @@ public sealed class GameSettings
     public double LearnByEffort { get; }
     public double ForgetChance { get; }
 
+    /// <summary>
+    /// Attunement's mark (attunement_settings.py, step 8): how much metal used marks the land (MARK_PER_METAL), how
+    /// fast it fades (MARK_HALF_LIFE), how much rivers and animals carry on (RIVER_SHARE, ANIMAL_SHARE); the marks
+    /// at which the land is uneasy, preyed upon, given up and never fades (FAINT, STRONG, SEVERE, PERMANENT); the
+    /// harvest lost at STRONG (HARVEST_LOSS), the people things take a year (PREY); the blame for another's mark
+    /// (BLAME, and PATH_BLAME by path). The harvest ritual: HARVEST_RITUAL_CHANCE, the harvest it brings
+    /// (HARVEST_RITUAL, a range), how much the ruler's competence moves it (HARVEST_RITUAL_SKILL), the metal it takes
+    /// (HARVEST_RITUAL_METAL), the mark when it goes wrong (HARVEST_RITUAL_MARK), how much less others think of the
+    /// faction (HARVEST_RITUAL_UNEASE), and the poor harvest that frightens them (HARVEST_RITUAL_POOR).
+    /// </summary>
+    public bool Attuning { get; }
+    public double MarkPerMetal { get; }
+    public double MarkHalfLife { get; }
+    public double RiverShare { get; }
+    public double AnimalShare { get; }
+    public double Faint { get; }
+    public double Strong { get; }
+    public double Severe { get; }
+    public double Permanent { get; }
+    public double HarvestLoss { get; }
+    public double Prey { get; }
+    public double Blame { get; }
+    public IReadOnlyDictionary<string, double> PathBlame { get; }
+    public double HarvestRitualChance { get; }
+    public (double Low, double High) HarvestRitual { get; }
+    public double HarvestRitualSkill { get; }
+    public double HarvestRitualMetal { get; }
+    public double HarvestRitualMark { get; }
+    public double HarvestRitualUnease { get; }
+    public double HarvestRitualPoor { get; }
+    /// <summary>The great ritual: how weary a losing side must be (RITUAL_DESPERATION), the yearly chance
+    /// (RITUAL_CHANCE), the share of the metal it takes (RITUAL_METAL), the share of the enemy's people it kills
+    /// (RITUAL_DEATHS, or a range), and the crater's size (CRATER_RADIUS, on a 256 map).</summary>
+    public double RitualDesperation { get; }
+    public double RitualChance { get; }
+    public double RitualMetal { get; }
+    public (double Low, double High) RitualDeaths { get; }
+    public double CraterRadius { get; }
+
+    /// <summary>What each path can do, by name ("marks_land", "works_rituals": faction_settings.py PATHS).</summary>
+    public IReadOnlyDictionary<string, IReadOnlySet<string>> PathAbilities { get; }
+
+    /// <summary>Whether `path` has an ability in PATHS (factions.path_can).</summary>
+    public bool PathCan(string? path, string ability) =>
+        path != null && PathAbilities.TryGetValue(path, out var can) && can.Contains(ability);
+
     /// <summary>Capitals (split_settings.py, step 7): CAPITAL_CHOICE, "weighted" (a new capital drawn, bigger towns
     /// likelier) or "largest"; CAPITAL_MOVE_CHANCE, the yearly chance a faction moves its capital.</summary>
     public string CapitalChoice { get; }
@@ -369,6 +415,36 @@ public sealed class GameSettings
             : new List<(string, string, double)>();
 
         LifespanScaling = (double?)leaders["LIFESPAN_SCALING"] ?? 0.0;
+
+        var attuning = settings["attunement"] as JsonObject;
+        Attuning = attuning != null;
+        attuning ??= new JsonObject();
+        MarkPerMetal = (double?)attuning["MARK_PER_METAL"] ?? 0.0;
+        MarkHalfLife = (double?)attuning["MARK_HALF_LIFE"] ?? double.PositiveInfinity;
+        RiverShare = (double?)attuning["RIVER_SHARE"] ?? 0.0;
+        AnimalShare = (double?)attuning["ANIMAL_SHARE"] ?? 0.0;
+        Faint = (double?)attuning["FAINT"] ?? double.PositiveInfinity;
+        Strong = (double?)attuning["STRONG"] ?? double.PositiveInfinity;
+        Severe = (double?)attuning["SEVERE"] ?? double.PositiveInfinity;
+        Permanent = (double?)attuning["PERMANENT"] ?? double.PositiveInfinity;
+        HarvestLoss = (double?)attuning["HARVEST_LOSS"] ?? 0.0;
+        Prey = (double?)attuning["PREY"] ?? 0.0;
+        Blame = (double?)attuning["BLAME"] ?? 0.0;
+        PathBlame = Numbers(attuning["PATH_BLAME"]);
+        HarvestRitualChance = (double?)attuning["HARVEST_RITUAL_CHANCE"] ?? 0.0;
+        HarvestRitual = Range(attuning["HARVEST_RITUAL"]);
+        HarvestRitualSkill = (double?)attuning["HARVEST_RITUAL_SKILL"] ?? 0.0;
+        HarvestRitualMetal = (double?)attuning["HARVEST_RITUAL_METAL"] ?? 0.0;
+        HarvestRitualMark = (double?)attuning["HARVEST_RITUAL_MARK"] ?? 0.0;
+        HarvestRitualUnease = (double?)attuning["HARVEST_RITUAL_UNEASE"] ?? 0.0;
+        HarvestRitualPoor = (double?)attuning["HARVEST_RITUAL_POOR"] ?? 0.0;
+        RitualDesperation = (double?)attuning["RITUAL_DESPERATION"] ?? double.PositiveInfinity;
+        RitualChance = (double?)attuning["RITUAL_CHANCE"] ?? 0.0;
+        RitualMetal = (double?)attuning["RITUAL_METAL"] ?? 0.0;
+        RitualDeaths = Range(attuning["RITUAL_DEATHS"]);
+        CraterRadius = (double?)attuning["CRATER_RADIUS"] ?? 0.0;
+        PathAbilities = factions["PATHS"]!.AsObject().ToDictionary(p => p.Key, p => (IReadOnlySet<string>)p.Value!.AsObject()
+            .Where(a => a.Value is JsonValue v && v.TryGetValue(out bool yes) && yes).Select(a => a.Key).ToHashSet());
 
         var learning = settings["learning"] as JsonObject ?? new JsonObject();
         PathsAsSkills = (bool?)learning["PATHS_AS_SKILLS"] ?? false;

@@ -16,7 +16,7 @@ public class MigrationTests
     /// <summary>A game whose migration settings are changed (as the expected year was worked out with).</summary>
     static Game Moving(Action<JsonObject> change, long seed = 1)
     {
-        string folder = Path.Combine(Path.GetTempPath(), "wr-move-" + Guid.NewGuid().ToString("N"));
+        string folder = Path.Combine(Scratch.Root, "wr-move-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
         foreach (var file in Directory.GetFiles(Path.Combine(Fixtures, "world-7")))
             File.Copy(file, Path.Combine(folder, Path.GetFileName(file)));
@@ -29,7 +29,7 @@ public class MigrationTests
     /// <summary>A game whose settings (all of them, by module) are changed.</summary>
     static Game WithSettings(Action<JsonObject> change, long seed = 1)
     {
-        string folder = Path.Combine(Path.GetTempPath(), "wr-move-" + Guid.NewGuid().ToString("N"));
+        string folder = Path.Combine(Scratch.Root, "wr-move-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
         foreach (var file in Directory.GetFiles(Path.Combine(Fixtures, "world-7")))
             File.Copy(file, Path.Combine(folder, Path.GetFileName(file)));
@@ -198,10 +198,9 @@ public class MigrationTests
 
         game = EveryoneWhoCan();
         var all = Enumerable.Range(0, game.Grid.Columns * game.Grid.Rows);
-        var rifts = new HashSet<(int, int)>();
+        var marks = game.Marks!;                                   // rifts are the marks' severe patches (step 8)
         foreach (int c in all)
-            rifts.Add((c % game.Grid.Columns / game.Moving.RiftSize, c / game.Grid.Columns / game.Moving.RiftSize));
-        typeof(Movements).GetProperty(nameof(Movements.Rifts))!.SetValue(game.Moving, rifts);
+            marks.Severe.Add((c % game.Grid.Columns / marks.Size, c / game.Grid.Columns / marks.Size));
         Migration.Year(game, game.Year + 1);
         Assert.Empty(game.Events);                                 // the whole land a rift: no one moves
 
@@ -384,7 +383,7 @@ public class MigrationTests
         var game = EveryoneWhoCan(5);
         YearCore.RunYear(game);
         YearCore.RunYear(game);
-        string path = Path.Combine(Path.GetTempPath(), "wr-move-save-" + Guid.NewGuid().ToString("N") + ".json");
+        string path = Path.Combine(Scratch.Root, "wr-move-save-" + Guid.NewGuid().ToString("N") + ".json");
         SaveFile.Write(path, game);
         var loaded = SaveFile.Read(path);
         Assert.Equal(game.Towns.Count, loaded.Towns.Count);

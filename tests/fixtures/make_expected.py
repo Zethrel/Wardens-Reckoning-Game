@@ -606,6 +606,96 @@ def learning_and_capitals(data):
     return learned
 
 
+def attunement_years(data):
+    """Attunement (the game's step 8) by the generator's own attunement.year_of_attunement, which rolls no dice: one
+    year of trade (its markets), then MARK_YEARS years of marking, spreading, fading, rifts and what the marks do, on the
+    export's marks, with MARK_PER_METAL 30 times the export's so that the land is marked hard (unease, prey, new
+    rifts, towns given up); the marks, the towns' people, the blame and the events after each
+    year. Before those years, a harvest ritual year (300) with HARVEST_RITUAL_CHANCE 1, HARVEST_RITUAL_POOR 0 and HARVEST_RITUAL (0.5,
+    0.5), every town of a faction that works rituals made hungry: each such faction works one, and it goes wrong
+    (marking its towns)."""
+    from types import SimpleNamespace
+    from north import attunement, export, rituals
+    year = trade_year(data)
+    places, going, settings = year.places, year.going, year.settings
+    factor = data["history_factor"]
+    for place in places:
+        place.x, place.y = place.x // factor, place.y // factor
+    kept = going["marks"]
+    marks = attunement.Marks(kept["size"], kept["columns"], kept["rows"], {tuple(p) for p in kept["land"]},
+                             {(c, r): (c2, r2) for c, r, c2, r2 in kept["downstream"]},
+                             [{(c, r): n for c, r, n in land} for land in kept["lands"]])
+    for c, r, value, maker in kept["mark"]:
+        marks.mark[(c, r)] = value
+        if maker is not None:
+            marks.maker[(c, r)] = maker
+    marks.permanent = {tuple(p) for p in kept["permanent"]}
+    marks.severe = {tuple(p) for p in kept["severe"]}
+    marks.rifts = [(n, (c, r), y, m) for n, c, r, y, m in kept["rifts"]]
+    marks.harvest = list(kept["harvest"])
+    marks.preyed, marks.uneasy = set(kept["preyed"]), set(kept["uneasy"])
+    marks.abandoned = [tuple(a) for a in kept["abandoned"]]
+    for column, row in marks.land:
+        marks.around[(column, row)] = [(column + dx, row + dy) for dy in (-1, 0, 1) for dx in (-1, 0, 1)
+                                       if (dx or dy) and (column + dx, row + dy) in marks.land]
+    marks.near = [attunement.near_of(marks, patches) for patches in marks.lands]
+    factions = [SimpleNamespace(index=i, name=f["name"], path=f["path"], people=f["people"], population=f["population"],
+                                traits=f["traits"], ruler=None if f["ruler"] is None else SimpleNamespace(
+                                    name=f["ruler"]["name"], traits=f["ruler"]["traits"]))
+                for i, f in enumerate(data["factions"])]
+    powers = SimpleNamespace(factions=factions, marks=marks, deposits=year.deposits)
+    used = {kind: [0] * len(listed) for kind, listed in going["names"].items()}
+
+    class Namer:
+        def name(self, people, kind):
+            listed = going["names"][kind][people]
+            n = used[kind][people]
+            used[kind][people] += 1
+            return listed[n % len(listed)] + ("" if n < len(listed) else " %d" % (n // len(listed) + 1))
+
+    # The fixture's attunement towns have no metal: each uses 20 a year here, and each faction that works rituals is
+    # given a mine of its own (the next with metal left, in order).
+    from north.trade import METAL
+    attuned = [f.index for f in factions if f.path == "attunement" and f.population > 0]
+    for index, place in enumerate(places):
+        if not place.ruined and place.culture in attuned:
+            year.markets[index].made[METAL] = year.markets[index].needed[METAL] = 20.0
+    stocked = iter(d for d in year.deposits if d.metal > 0)
+    for f in attuned:
+        next(stocked).owner = f
+    hard = dict(settings["attunement"], MARK_PER_METAL=settings["attunement"]["MARK_PER_METAL"] * 30)
+    people = [town["people"] for town in going["towns"]]
+    years = []
+
+    def event(year, kind, text, what, facts):
+        return [text, what]
+
+    hungry = [1 if place.culture is not None and factions[place.culture].path == "attunement" else town["hungry"]
+              for place, town in zip(places, going["towns"])]
+    memory = {(a, b): value for a, b, value in going["memory"]}
+    ritual = dict(hard, HARVEST_RITUAL_CHANCE=1.0, HARVEST_RITUAL_POOR=0.0, HARVEST_RITUAL=(0.5, 0.5))
+    events = []
+    import random
+    worked = rituals.year_of_harvest_rituals(powers, places, hungry, SimpleNamespace(**ritual), random.Random(1),
+                                             300, events, event, memory)
+    ritual_year = {"worked": sorted([f, v] for f, v in worked.items()), "events": events,
+                   "marks": export.marks_state(powers), "metal": [deposit.metal for deposit in year.deposits],
+                   "memory": sorted([a, b, v] for (a, b), v in memory.items())}
+    for step in range(MARK_YEARS):
+        hardship = {f.index: {"lost": 0} for f in factions}
+        blame, events = {}, []
+        attunement.year_of_attunement(powers, places, year.markets, people, SimpleNamespace(**hard), hardship, blame,
+                                      Namer(), 301 + step, events, event)
+        years.append({"marks": export.marks_state(powers), "people": list(people),
+                      "ruined": [place.ruined for place in places],
+                      "lost": [hardship[f.index]["lost"] for f in factions],
+                      "blame": sorted([a, b, value] for (a, b), value in blame.items()), "events": events})
+    return {"years": years, "ritual": ritual_year}
+
+
+MARK_YEARS = 5
+
+
 def going_borders(data):
     """The borders at the end of the history, as runs."""
     culture = data["history"]["borders"]
@@ -667,6 +757,7 @@ def main(generator):
     expected["feeding"] = feeding_and_drift(world.data)
     expected["migration"] = migration_year(world.data)
     expected["learning"] = learning_and_capitals(world.data)
+    expected["attunement"] = attunement_years(world.data)
     (HERE / "expected.json").write_text(json.dumps(expected, separators=(",", ":")), encoding="utf-8")
 
     grid = [[(x * x * 7 + y * 31 + (x ^ y) * 13) % 256 for x in range(24)] for y in range(20)]

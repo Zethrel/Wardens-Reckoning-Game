@@ -17,7 +17,7 @@ public class SplitTests
     /// dice would otherwise decide). The war tests use it too.</summary>
     internal static Game WithSettings(Action<JsonObject, JsonObject> change, long seed = 1)
     {
-        string folder = Path.Combine(Path.GetTempPath(), "wr-splits-" + Guid.NewGuid().ToString("N"));
+        string folder = Path.Combine(Scratch.Root, "wr-splits-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
         foreach (var file in Directory.GetFiles(Path.Combine(Fixtures, "world-7")))
             File.Copy(file, Path.Combine(folder, Path.GetFileName(file)));
@@ -565,7 +565,7 @@ public class SplitTests
 
         var half = WithSettings((splits, _) => { splits["DIVISION"] = 0.5; splits["EMPIRE_JOIN"] = 0.5; }, 8);
         Run(half, 30);
-        string path = Path.Combine(Path.GetTempPath(), "wr-split-save-" + Guid.NewGuid().ToString("N") + ".json");
+        string path = Path.Combine(Scratch.Root, "wr-split-save-" + Guid.NewGuid().ToString("N") + ".json");
         SaveFile.Write(path, half);
         var loaded = SaveFile.Read(path);
         Assert.Equal(half.Factions.Count, loaded.Factions.Count);

@@ -131,7 +131,7 @@ public class FileTests
 
     static string Folder(string json)
     {
-        string folder = Path.Combine(Path.GetTempPath(), "wr-test-" + Guid.NewGuid().ToString("N"));
+        string folder = Path.Combine(Scratch.Root, "wr-test-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
         if (json != "")
             File.WriteAllText(Path.Combine(folder, "world.json"), json);

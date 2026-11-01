@@ -112,8 +112,9 @@ public static class Migration
         Math.Max(1, Py.Round(distance * Math.Max(game.Grid.Columns, game.Grid.Rows) / Feeding.ReferenceSize));
 
     /// <summary>Whether (x, y) lies in a rift, where no one settles. migration.is_rift.</summary>
-    public static bool IsRift(Game game, int x, int y) =>
-        game.Moving.Rifts is { } rifts && rifts.Contains((x / game.Moving.RiftSize, y / game.Moving.RiftSize));
+    public static bool IsRift(Game game, int x, int y) => game.Marks is { } marks
+        ? marks.Severe.Contains((x / marks.Size, y / marks.Size))
+        : game.Moving.Rifts is { } rifts && rifts.Contains((x / game.Moving.RiftSize, y / game.Moving.RiftSize));
 
     /// <summary>1 on a source cell, falling to 0 at `reach` cells (of a 256 map) away, as eight-way steps
     /// (settlements.nearness: a breadth-first search over the eight neighbours is the larger of the two distances).</summary>
@@ -440,6 +441,7 @@ public static class Migration
         int mapY = Math.Min(game.World.Size - 1, (site.Y * factor + Math.Min(game.World.Size, (site.Y + 1) * factor)) / 2);
         foreach (int c in cells)
             game.Grid.Owner[c] = index;
+        game.Marks?.AddLand(cells.Select(c => (c % columns, c / columns)));     // its land, by patch, in the order claimed
         var town = new TownNow
         {
             People = leaving, Holder = faction, Origin = faction, FoundedFrom = source, X = mapX, Y = mapY,

@@ -290,7 +290,7 @@ public class RulerTests
     {
         // A copy of the test world whose people weigh only hunger (GRIEVANCE_WEIGHTS), so nothing else can tell
         // the two years apart.
-        string folder = Path.Combine(Path.GetTempPath(), "wr-hunger-" + Guid.NewGuid().ToString("N"));
+        string folder = Path.Combine(Scratch.Root, "wr-hunger-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
         foreach (var file in Directory.GetFiles(Path.Combine(Fixtures, "world-7")))
             File.Copy(file, Path.Combine(folder, Path.GetFileName(file)));
@@ -335,7 +335,7 @@ public class RulerTests
         Assert.Equal(game.Factions[f].Ruler?.Name, card.Ruler);
         Assert.Equal(game.Factions[f].Government, card.Government);
         Assert.Equal(game.Factions[f].Path, card.Path);
-        string path = Path.Combine(Path.GetTempPath(), "wr-card-" + Guid.NewGuid().ToString("N"), "game.json");
+        string path = Path.Combine(Scratch.Root, "wr-card-" + Guid.NewGuid().ToString("N"), "game.json");
         SaveFile.Write(path, game);
         var loaded = SaveFile.Read(path);
         Assert.Equal(card, Book.Card(loaded.World, f, loaded.Year) with { PeopleByYear = card.PeopleByYear });
@@ -387,7 +387,7 @@ public class LoreTests
     /// <summary>A game on a copy of the fixture with leader_settings.py's LIFESPAN_SCALING set to `scaling`.</summary>
     static Game WithScaling(double scaling)
     {
-        string folder = Path.Combine(Path.GetTempPath(), "wr-lore-" + Guid.NewGuid().ToString("N"));
+        string folder = Path.Combine(Scratch.Root, "wr-lore-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
         foreach (var file in Directory.GetFiles(Path.Combine(Fixtures, "world-7")))
             File.Copy(file, Path.Combine(folder, Path.GetFileName(file)));

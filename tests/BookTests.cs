@@ -140,7 +140,7 @@ public class BookTests
         var game = new Game(World(), 4);
         for (int i = 0; i < 30; i++)
             YearCore.RunYear(game);
-        string path = Path.Combine(Path.GetTempPath(), "wr-book-" + Guid.NewGuid().ToString("N"), "game.json");
+        string path = Path.Combine(Scratch.Root, "wr-book-" + Guid.NewGuid().ToString("N"), "game.json");
         SaveFile.Write(path, game);
         var loaded = SaveFile.Read(path);
         Assert.Equal(game.BookEntries, loaded.BookEntries, new EntryComparer());

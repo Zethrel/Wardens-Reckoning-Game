@@ -208,6 +208,12 @@ public sealed class Game
     /// <summary>Names for the towns the game's migrants found, per people, and how many of each are used.</summary>
     public List<List<string>> SettlementNames { get; }
     public int[] SettlementNamesUsed { get; set; }
+    /// <summary>Names for the rifts each people's attunement opens (the export's, in turn), and how many are used.</summary>
+    public List<List<string>> RiftNames { get; }
+    public int[] RiftNamesUsed { get; set; }
+
+    /// <summary>Attunement's marks on the land (step 8), or null when the history had none.</summary>
+    public Marks? Marks { get; set; }
 
     /// <summary>What migration reads and remembers (Migration.cs).</summary>
     public Movements Moving { get; }
@@ -278,6 +284,18 @@ public sealed class Game
         if (listed.Count == 0)
             return "Town " + (Towns.Count + 1);
         int used = folk < SettlementNamesUsed.Length ? SettlementNamesUsed[folk]++ : 0;
+        string name = listed[used % listed.Count];
+        return used < listed.Count ? name : name + " " + (used / listed.Count + 1);
+    }
+
+    /// <summary>The next name for a rift opened by people `folk`'s attunement: the export's names in turn, then
+    /// numbered.</summary>
+    public string NextRiftName(int folk)
+    {
+        var listed = folk < RiftNames.Count ? RiftNames[folk] : new List<string>();
+        if (listed.Count == 0)
+            return "Rift " + ((Marks?.Rifts.Count ?? 0) + 1);
+        int used = folk < RiftNamesUsed.Length ? RiftNamesUsed[folk]++ : 0;
         string name = listed[used % listed.Count];
         return used < listed.Count ? name : name + " " + (used / listed.Count + 1);
     }
@@ -413,6 +431,11 @@ public sealed class Game
         var settlementNames = going["names"]?["settlement"] as JsonArray ?? throw Older("names for new towns");
         SettlementNames = settlementNames.Select(list => list!.AsArray().Select(n => (string)n!).ToList()).ToList();
         SettlementNamesUsed = new int[SettlementNames.Count];
+        // An export older than step 8 has no rift names and no marks: then there are no marks to look after.
+        RiftNames = (going["names"]?["rift"] as JsonArray)?.Select(list => list!.AsArray().Select(n => (string)n!).ToList()).ToList()
+                    ?? new List<List<string>>();
+        RiftNamesUsed = new int[RiftNames.Count];
+        Marks = Sim.Marks.Read(going["marks"]);
         Moving = Movements.Read(going["migration"] as JsonObject ?? throw Older("\"migration\""));
         foreach (var entry in going["waiting"] as JsonArray ?? throw Older("\"waiting\""))
             Waiting.Add(((string)entry![0]!, (int)entry[1]!));

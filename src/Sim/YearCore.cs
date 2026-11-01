@@ -41,8 +41,7 @@ public static class YearCore
 
         // The harvest (harvests, path_harvests, ruled_harvests), what every town makes and needs, the trade between
         // towns, and the metal dug (make_markets, trade_goods, dig).
-        var harvests = Enumerable.Range(0, game.Towns.Count)
-                                 .Select(i => game.Towns[i].Ruined ? 1.0 : Harvest(game, i, year)).ToList();
+        var harvests = Harvests(game, year);
         var markets = Trade.MakeMarkets(game, harvests);
         var deals = Trade.TradeGoods(game, markets);
         Trade.Dig(game, markets, year);
@@ -53,6 +52,9 @@ public static class YearCore
         var hardship = game.Factions.Select(_ => new Hardship()).ToList();   // a list: a faction founded this year adds its own
         var blame = new Dictionary<(int, int), double>();
         var food = settings.Staples.Concat(settings.Extras).ToList();
+
+        // Attunement's mark: marking, spreading, fading, rifts, and what the mark does to the towns (step 8).
+        Attunement.Year(game, markets, hardship, blame, year);
 
         for (int i = 0; i < game.Towns.Count; i++)
         {
@@ -246,6 +248,28 @@ public static class YearCore
 
     /// <summary>How town `index`'s harvest compares with an ordinary one (1.0) in `year`: the weather, then its
     /// faction's path and ruler. history.py harvests, path_harvests and ruled_harvests.</summary>
+    /// <summary>
+    /// Every town's harvest this year, as a share of an ordinary one: the weather, its path and its ruler (Harvest);
+    /// then the harvest rituals the hungry or frightened factions work (step 8), and the mark on its land. A ruin's is
+    /// 1.0. The harvest rituals are worked here, so this is called once a year.
+    /// </summary>
+    public static List<double> Harvests(Game game, int year)
+    {
+        var weather = Enumerable.Range(0, game.Towns.Count)
+                                .Select(i => Weather(game, game.World.Towns[i].X, game.World.Towns[i].Y, year)).ToList();
+        var harvests = Enumerable.Range(0, game.Towns.Count)
+                                 .Select(i => game.Towns[i].Ruined ? 1.0 : Harvest(game, i, year)).ToList();
+        var gambled = Rituals.HarvestYear(game, weather, year);
+        for (int i = 0; i < harvests.Count; i++)
+        {
+            if (game.Towns[i].Holder is int gambler && gambled.TryGetValue(gambler, out double factor))
+                harvests[i] *= factor;
+            if (game.Marks != null && game.Settings.Attuning)
+                harvests[i] *= game.Marks.HarvestOf(i);
+        }
+        return harvests;
+    }
+
     public static double Harvest(Game game, int index, int year)
     {
         var record = game.World.Towns[index];

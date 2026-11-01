@@ -22,8 +22,9 @@ public static class SaveFile
     // every faction's capital, nature, parent, hold and the rest, the factions still waiting to rise, the names given).
     // 6: feeding and drift (each town's food, capacity, harvest and who it was fed as; what each faction's land encourages).
     // 7: migration (the towns the game founded, who farms each region, the new routes, the free land left, the own
-    // site scores worked out, the names given).
-    public const int Version = 7;
+    // site scores worked out, the names given). 8: attunement (every patch's mark and what the marks have done; the
+    // rift names used).
+    public const int Version = 8;
 
     public static void Write(string path, Game game)
     {
@@ -90,6 +91,8 @@ public static class SaveFile
                 .Select(r => (JsonNode)new JsonArray(r.A, r.B, r.Cost)).ToArray()),
             ["mine_land_towns"] = new JsonArray(game.Mines.Select(m => (JsonNode?)(m.LandTown is int t ? JsonValue.Create(t) : null)).ToArray()),
             ["settlement_names_used"] = Numbers(game.SettlementNamesUsed),
+            ["rift_names_used"] = Numbers(game.RiftNamesUsed),
+            ["marks"] = game.Marks?.Write(),
             ["moving"] = new JsonObject
             {
                 ["sites"] = game.Moving.Sites == null ? null : Movements.WriteSites(game.Moving.Sites),
@@ -348,6 +351,8 @@ public static class SaveFile
             game.Words[((int)pair![0]!, (int)pair[1]!)] = (int)pair[2]!;
         game.NamesUsed = save["names_used"]!.AsArray().Select(n => (int)n!).ToArray();
         game.SettlementNamesUsed = save["settlement_names_used"]!.AsArray().Select(n => (int)n!).ToArray();
+        game.RiftNamesUsed = save["rift_names_used"]!.AsArray().Select(n => (int)n!).ToArray();
+        game.Marks = Marks.Read(save["marks"]);
         Array.Copy(Unruns(save["owner"]!.AsArray()), game.Grid.Owner, game.Grid.Owner.Length);
         foreach (var r in save["new_routes"]!.AsArray())
             game.Routes.Add(new Route { A = (int)r![0]!, B = (int)r[1]!, Cost = (double)r[2]! });
