@@ -417,6 +417,8 @@ public static class SaveFile
                                           e["factions"]!.AsArray().Select(f => (int)f!).ToList(),
                                           e["facts"]!.AsObject().ToDictionary(p => p.Key, p => (string?)p.Value ?? "")));
         }
+        game.CapitalsKnown.UnionWith(Enumerable.Range(0, game.Factions.Count));
+        Learning.Settle(game);                      // the hybrids each faction holds, from the paths it holds
         return game;
     }
 }

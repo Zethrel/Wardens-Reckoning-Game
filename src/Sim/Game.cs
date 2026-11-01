@@ -93,6 +93,8 @@ public sealed class FactionNow
     /// <summary>Goods it has learned to make (chokepoints), and the paths and hybrids it has learned and how well.</summary>
     public HashSet<string> Learned { get; set; } = new();
     public Dictionary<string, double> Skills { get; set; } = new();
+    /// <summary>The hybrids it holds both halves of (paths as skills, step 7).</summary>
+    public HashSet<string> Unlocked { get; set; } = new();
     /// <summary>What it thinks of each other faction, -1 to 1 (it trades with those it does not think too ill of).
     /// Opinions do not change until step 4.</summary>
     public Dictionary<int, double> Opinions { get; set; } = new();
@@ -163,6 +165,13 @@ public sealed class Game
     /// <summary>Every war, ended or not, and each pair of allies (the lower number first).</summary>
     public List<WarNow> Wars { get; } = new();
     public HashSet<(int, int)> Alliances { get; } = new();
+
+    /// <summary>
+    /// The factions whose capital has been looked after since they came to be (Capitals.Mend): one that is not yet
+    /// picks its first capital at the next mend. Every faction of an export or a save is: the generator and the game
+    /// look after every faction's capital at the end of each year, and a faction comes to be with towns of its own.
+    /// </summary>
+    public HashSet<int> CapitalsKnown { get; } = new();
     /// <summary>How many towns were taken in battle, and how many rose back, in the game's years.</summary>
     public int Conquests { get; set; }
     public int Rebellions { get; set; }
@@ -450,6 +459,8 @@ public sealed class Game
             };
         }).ToList();
         NoteNames();
+        CapitalsKnown.UnionWith(Enumerable.Range(0, Factions.Count));
+        Learning.Settle(this);
     }
 
     // Python's names are case-sensitive and so are these.

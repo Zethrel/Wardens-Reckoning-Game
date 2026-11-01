@@ -341,6 +341,7 @@ public static class Splits
                 Learned = new HashSet<string>(kin.Learned),
                 Held = kin.Held == null ? null : new HashSet<string>(kin.Held),
                 Skills = new Dictionary<string, double>(kin.Skills),
+                Unlocked = new HashSet<string>(kin.Unlocked),
             };
             info = new FactionInfo(name, (byte)r, (byte)g, (byte)b, kinInfo.Lineage, kinInfo.Race, parent, year);
         }
@@ -421,7 +422,7 @@ public static class Splits
     /// <summary>
     /// How a new faction may differ from its kin, by the settings (newcomers.vary), with its own dice: each trait
     /// (and the same trait of its values and nature) moved by up to TRAIT_SPREAD, another belief with BELIEF_CHANCE,
-    /// another government with GOVERNMENT_CHANCE. A path of its own (OFFSHOOT_CHANCE) comes with paths, step 7.
+    /// another government with GOVERNMENT_CHANCE. A path of its own (OFFSHOOT_CHANCE) is not in the game yet (lesson 7).
     /// </summary>
     static void Vary(Game game, FactionNow child, int year, List<GameEvent> told)
     {

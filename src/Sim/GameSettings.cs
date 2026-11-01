@@ -190,6 +190,28 @@ public sealed class GameSettings
     public IReadOnlyDictionary<string, IReadOnlyDictionary<string, double>> RaceOpinions { get; }
     public IReadOnlyDictionary<string, (double? Lifespan, string? Of)> Races { get; }
 
+    /// <summary>
+    /// Paths as skills (learning_settings.py, step 7): PATHS_AS_SKILLS switches it on; START_PATHS the paths each
+    /// faction of FACTIONS starts holding besides its main one; HYBRIDS the two paths each hybrid joins; LEARNED_SKILL
+    /// how well a learned path's goods are made; the yearly chances to learn a path by trade, alliance, a shared
+    /// border, conquest and effort; and FORGET_CHANCE, the yearly chance to forget one no one in touch holds.
+    /// </summary>
+    public bool PathsAsSkills { get; }
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> StartPaths { get; }
+    public IReadOnlyDictionary<string, (string First, string Second)> Hybrids { get; }
+    public double LearnedSkill { get; }
+    public double LearnByTrade { get; }
+    public double LearnByAlliance { get; }
+    public double LearnByBorder { get; }
+    public double LearnByConquest { get; }
+    public double LearnByEffort { get; }
+    public double ForgetChance { get; }
+
+    /// <summary>Capitals (split_settings.py, step 7): CAPITAL_CHOICE, "weighted" (a new capital drawn, bigger towns
+    /// likelier) or "largest"; CAPITAL_MOVE_CHANCE, the yearly chance a faction moves its capital.</summary>
+    public string CapitalChoice { get; }
+    public double CapitalMoveChance { get; }
+
     static (double, double) Range(JsonNode? value) => value switch
     {
         JsonArray pair => ((double)pair[0]!, (double)pair[1]!),
@@ -290,6 +312,8 @@ public sealed class GameSettings
             ? names.ToDictionary(p => p.Key, p => (IReadOnlyList<string>)p.Value!.AsArray().Select(n => (string)n!).ToList())
             : new Dictionary<string, IReadOnlyList<string>>();
         OffshootChance = (double?)splits["OFFSHOOT_CHANCE"] ?? 0.0;
+        CapitalChoice = (string?)splits["CAPITAL_CHOICE"] ?? "largest";
+        CapitalMoveChance = (double?)splits["CAPITAL_MOVE_CHANCE"] ?? 0.0;
         EmpireShare = (double?)splits["EMPIRE_SHARE"] ?? 2.0;
         EmpireHold = (double?)splits["EMPIRE_HOLD"] ?? 1.0;
         EmpireSmall = (int?)splits["EMPIRE_SMALL"] ?? 0;
@@ -345,6 +369,22 @@ public sealed class GameSettings
             : new List<(string, string, double)>();
 
         LifespanScaling = (double?)leaders["LIFESPAN_SCALING"] ?? 0.0;
+
+        var learning = settings["learning"] as JsonObject ?? new JsonObject();
+        PathsAsSkills = (bool?)learning["PATHS_AS_SKILLS"] ?? false;
+        StartPaths = learning["START_PATHS"] is JsonObject startPaths
+            ? startPaths.ToDictionary(p => p.Key, p => (IReadOnlyList<string>)p.Value!.AsArray().Select(n => (string)n!).ToList())
+            : new Dictionary<string, IReadOnlyList<string>>();
+        Hybrids = learning["HYBRIDS"] is JsonObject hybrids
+            ? hybrids.ToDictionary(p => p.Key, p => ((string)p.Value![0]!, (string)p.Value[1]!))
+            : new Dictionary<string, (string, string)>();
+        LearnedSkill = (double?)learning["LEARNED_SKILL"] ?? 0.0;
+        LearnByTrade = (double?)learning["LEARN_BY_TRADE"] ?? 0.0;
+        LearnByAlliance = (double?)learning["LEARN_BY_ALLIANCE"] ?? 0.0;
+        LearnByBorder = (double?)learning["LEARN_BY_BORDER"] ?? 0.0;
+        LearnByConquest = (double?)learning["LEARN_BY_CONQUEST"] ?? 0.0;
+        LearnByEffort = (double?)learning["LEARN_BY_EFFORT"] ?? 0.0;
+        ForgetChance = (double?)learning["FORGET_CHANCE"] ?? 0.0;
         RaceOpinions = Tables(factions["RACE_OPINIONS"]);
 
         var sizes = settlement["SETTLEMENT_SIZES"]!.AsArray();

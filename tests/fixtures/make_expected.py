@@ -98,11 +98,9 @@ def one_year(data):
     return result
 
 
-def one_year_of_trade(data):
-    """One year's markets and trade, with an ordinary year's weather, worked out with the generator's own
-    trade.make_markets, trade.trade_goods, history.fed_share and history.dig, on the exported towns, factions,
-    mines and routes (map cells for places, as the game has them). What each town made, needed, bought and
-    sold of every good, how well it was fed, how much passed along each route, and the metal left in each mine."""
+def trade_year(data):
+    """One year's markets and deals by the generator's trade.make_markets and trade.trade_goods on the export, with
+    an ordinary year's weather: the places, factions, settings and the rest, for the parts that follow."""
     from collections import defaultdict
     from types import SimpleNamespace
     from north import history, trade
@@ -137,6 +135,22 @@ def one_year_of_trade(data):
                                  yields, harvest)
     routes = [trade.Route(r["a"], r["b"], [], r["cost"]) for r in data["routes"]]
     deals = trade.trade_goods(places, routes, markets, powers, trading, None, going["history_columns"] / 256)
+    return SimpleNamespace(places=places, factions=factions, markets=markets, deals=deals, settled=settled,
+                           powers=powers, deposits=deposits, trading=trading, routes=routes, going=going, settings=settings)
+
+
+def one_year_of_trade(data):
+    """One year's markets and trade, with an ordinary year's weather, worked out with the generator's own
+    trade.make_markets, trade.trade_goods, history.fed_share and history.dig, on the exported towns, factions,
+    mines and routes (map cells for places, as the game has them). What each town made, needed, bought and
+    sold of every good, how well it was fed, how much passed along each route, and the metal left in each mine."""
+    from collections import defaultdict
+    from types import SimpleNamespace
+    from north import history, trade
+    year = trade_year(data)
+    places, factions, markets, deals, settled, powers, trading, routes, going, settings, deposits = (
+        year.places, year.factions, year.markets, year.deals, year.settled, year.powers, year.trading, year.routes,
+        year.going, year.settings, year.deposits)
     staples, extras = trade.staple_goods(trading), trade.extra_goods(trading)
     fed = [None if place.ruined else history.fed_share(market, staples, extras) for place, market in zip(places, markets)]
     events = []
@@ -531,6 +545,67 @@ def migration_year(data):
     }
 
 
+def learning_and_capitals(data):
+    """Learning and capitals (the game's step 7) by the generator's own learning.Learning and capitals.Capitals on
+    the export, with every chance 0 or 1 so that no dice decide: one year of trade (its deals), an alliance of the
+    first two living factions, and the first held town taken by the next living faction; then a year of learning
+    with LEARN_BY_TRADE, _ALLIANCE, _BORDER and _CONQUEST at 1, LEARN_BY_EFFORT at 0 and FORGET_CHANCE at 1; each
+    faction's held paths, skills (in order) and hybrids after it, and its events. Then capitals with CAPITAL_CHOICE
+    "largest": the conquered town's old holder loses it if it was its capital, and with CAPITAL_MOVE_CHANCE 1 every
+    faction of two towns or more moves to its largest other town."""
+    from types import SimpleNamespace
+    from north import capitals, learning
+    year = trade_year(data)
+    places, going, settings = year.places, year.going, year.settings
+    for place, f in zip(places, data["settlements"]):
+        place.conquered_in = None
+    factions = []
+    for i, f in enumerate(data["factions"]):
+        kept = going["factions"][i]
+        faction = SimpleNamespace(index=i, name=f["name"], path=f["path"], population=f["population"],
+                                  values=f["values"], traits=f["traits"], settings_name=None, lineage=f["lineage"],
+                                  border={int(k): v for k, v in f["border"].items()}, capital=f["capital"])
+        if kept["held"] is not None:
+            faction.held = set(kept["held"])
+        factions.append(faction)
+    chances = dict(settings["learning"], LEARN_BY_TRADE=1.0, LEARN_BY_ALLIANCE=1.0, LEARN_BY_BORDER=1.0,
+                   LEARN_BY_CONQUEST=1.0, LEARN_BY_EFFORT=0.0, FORGET_CHANCE=1.0)
+    skilled = learning.Learning(SimpleNamespace(**chances), 7)
+    for faction in factions:                      # skills and hybrids as the year began (the game works them out)
+        if hasattr(faction, "held"):
+            faction.unlocked = set()
+            skilled.update_skills(faction, None, None, None)
+    start = {"skills": [list(map(list, getattr(f, "skills", {}).items())) for f in factions],
+             "hybrids": [sorted(getattr(f, "unlocked", ())) for f in factions]}
+    skilled.remember(factions, places)
+    alive = [f.index for f in factions if f.population > 0]
+    allied = (alive[0], alive[1])
+    taken = next(t for t, p in enumerate(places) if not p.ruined and p.culture is not None)
+    loser = places[taken].culture
+    winner = next(i for i in alive if i != loser)
+    places[taken].culture, places[taken].conquered_in = winner, 301
+    events = []
+
+    def event(year, kind, text, what, facts):
+        return [year, kind, text, what, facts]
+
+    skilled.year(factions, places, year.deals, SimpleNamespace(alliances={allied}), 301, events, event)
+    learned = {"allied": list(allied), "taken": taken, "winner": winner, "start": start,
+               "held": [sorted(getattr(f, "held", ())) for f in factions],
+               "skills": [list(map(list, getattr(f, "skills", {}).items())) for f in factions],
+               "hybrids": [sorted(getattr(f, "unlocked", ())) for f in factions],
+               "events": [[e[2], e[3]] for e in events]}
+    seats = capitals.Capitals("largest", 1.0, 7)
+    seats.start(factions)
+    events = []
+    seats.mend(factions, places, 301, events, event)
+    after_mend = [f.capital for f in factions]
+    seats.mend(factions, places, 301, events, event, moving=True)
+    learned["capitals"] = {"mended": after_mend, "moved": [f.capital for f in factions],
+                           "events": [[e[2], e[3]] for e in events]}
+    return learned
+
+
 def going_borders(data):
     """The borders at the end of the history, as runs."""
     culture = data["history"]["borders"]
@@ -591,6 +666,7 @@ def main(generator):
     expected["splits"] = splits_without_dice(world.data)
     expected["feeding"] = feeding_and_drift(world.data)
     expected["migration"] = migration_year(world.data)
+    expected["learning"] = learning_and_capitals(world.data)
     (HERE / "expected.json").write_text(json.dumps(expected, separators=(",", ":")), encoding="utf-8")
 
     grid = [[(x * x * 7 + y * 31 + (x ^ y) * 13) % 256 for x in range(24)] for y in range(20)]

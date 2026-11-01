@@ -33,6 +33,9 @@ public static class YearCore
         var settings = game.Settings;
         var world = game.World;
 
+        // Who holds which paths and towns as the year begins (for learning at its end).
+        var learningStart = Learning.Remember(game);
+
         // Every town fed by the people holding it now (tastes): worked out again where its holder changed.
         Feeding.Refresh(game);
 
@@ -113,9 +116,12 @@ public static class YearCore
         Splits.UpdateEmpires(game);                 // who holds together this year, before the wars
         War.Year(game, markets, hardship, year);
         Rulers.Year(game, hardship.Select(h => h.Felt()).ToList(), year);
+        Capitals.Mend(game, year);                  // a capital lost this year, before the splits measure from it
         Splits.Year(game, hardship, year);
         Migration.Year(game, year);
         Drift.Year(game, year);
+        Capitals.Mend(game, year, moving: true);    // and perhaps a capital moved
+        Learning.Year(game, learningStart, deals, year);
 
         world.AddYear(game.Towns.Select(t => t.Ruined ? 0 : t.Population).ToList(),
                       game.Towns.Select(t => t.Holder).ToList(),

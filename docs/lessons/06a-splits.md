@@ -50,9 +50,9 @@ What is not in it yet:
 - **Capitals.** When a faction loses its capital, the largest town it still
   holds becomes the capital (the generator's `capital_of`). The generator's
   own way, a town chosen at random with bigger towns likelier
-  (`CAPITAL_CHOICE`), comes with step 7.
-- **A path of its own** (`OFFSHOOT_CHANCE`) also comes with step 7. It is 0 in
-  your settings, so nothing is missing yet.
+  (`CAPITAL_CHOICE`), came with step 7 (lesson 7).
+- **A path of its own** (`OFFSHOOT_CHANCE`) is not in the game yet (lesson 7).
+  It is 0 in your settings, so nothing is missing.
 - **The era's temper** (happenings, step 9) does not yet make splits likelier
   or rarer.
 
