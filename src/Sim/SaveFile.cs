@@ -18,17 +18,21 @@ public static class SaveFile
     // 2: trade (the mines' metal, the memories, the factions' metal). 3: rulers (every faction's ruler, ways,
     // grievance, prejudices and opinions; the words between factions; the dice; the names used).
     // 4: war (the wars and alliances, the towns' origins and conquests, the mines' owners, the regions' holders,
-    // the factions' borders, and each year's borders when they changed).
-    public const int Version = 4;
+    // the factions' borders, and each year's borders when they changed). 5: splits (the factions the game founded,
+    // every faction's capital, nature, parent, hold and the rest, the factions still waiting to rise, the names given).
+    public const int Version = 5;
 
     public static void Write(string path, Game game)
     {
         var world = game.World;
         var years = new JsonArray();
         var lastBorders = world.Borders(world.ExportYears);
+        int exported = world.Data["factions"]!.AsArray().Count;
         for (int year = world.ExportYears + 1; year <= world.Years; year++)
         {
             var states = Enumerable.Range(0, world.Towns.Count).Select(i => world.Town(i, year)).ToList();
+            // The factions there were that year: the export's, and those the game had founded by then (in order).
+            int there = exported + Enumerable.Range(exported, world.Factions.Count - exported).Count(f => world.FromOf(f) <= year);
             var borders = world.Borders(year);
             JsonNode? changed = null;
             if (borders != null && (lastBorders == null || !borders.SequenceEqual(lastBorders)))
@@ -36,12 +40,15 @@ public static class SaveFile
             lastBorders = borders;
             years.Add(new JsonObject
             {
+                // The factions the game founded this year, as the world's records list them.
+                ["new_factions"] = new JsonArray(Enumerable.Range(exported, world.Factions.Count - exported)
+                    .Where(f => world.FromOf(f) == year).Select(f => (JsonNode?)Info(world.Factions[f])).ToArray()),
                 ["borders"] = changed,
                 ["people"] = Numbers(states.Select(s => s?.People ?? 0)),
                 ["holders"] = new JsonArray(states.Select(s => (JsonNode?)(s?.Holder is int h ? JsonValue.Create(h) : null)).ToArray()),
                 ["ruined"] = new JsonArray(states.Select(s => (JsonNode?)JsonValue.Create(s?.Ruined ?? false)).ToArray()),
-                ["factions"] = Numbers(Enumerable.Range(0, world.Factions.Count).Select(f => world.PeopleOf(f, year))),
-                ["states"] = new JsonArray(Enumerable.Range(0, world.Factions.Count)
+                ["factions"] = Numbers(Enumerable.Range(0, there).Select(f => world.PeopleOf(f, year))),
+                ["states"] = new JsonArray(Enumerable.Range(0, there)
                     .Select(f => (JsonNode?)world.Faction(f, year)?.DeepClone()).ToArray()),
             });
         }
@@ -59,10 +66,14 @@ public static class SaveFile
             {
                 ["people"] = t.People, ["size"] = t.Size, ["low_years"] = t.LowYears, ["hungry"] = t.Hungry,
                 ["ruined"] = t.Ruined, ["holder"] = t.Holder, ["fed"] = t.Fed,
-                ["origin"] = t.Origin, ["conquered_in"] = t.ConqueredIn,
+                ["origin"] = t.Origin, ["conquered_in"] = t.ConqueredIn, ["founded_from"] = t.FoundedFrom,
             }).ToArray()),
             ["factions"] = new JsonArray(game.Factions.Select(f => (JsonNode)new JsonObject
             {
+                ["name"] = f.Name, ["folk"] = f.Folk, ["lineage"] = f.Lineage, ["capital"] = f.Capital,
+                ["parent"] = f.Parent, ["founded"] = f.Founded, ["nature"] = Table(f.Nature), ["belief"] = f.Belief,
+                ["hold"] = f.Hold, ["skills"] = Table(f.Skills),
+                ["learned"] = new JsonArray(f.Learned.OrderBy(g => g, StringComparer.Ordinal).Select(g => (JsonNode?)g).ToArray()),
                 ["people"] = f.People, ["path"] = f.Path, ["government"] = f.Government,
                 ["metal_supply"] = f.MetalSupply, ["metal_need"] = f.MetalNeed,
                 ["ruler"] = Game.WriteRuler(f.Ruler), ["traits"] = Table(f.Traits), ["values"] = Table(f.Values),
@@ -83,6 +94,10 @@ public static class SaveFile
             ["words"] = new JsonArray(game.Words.OrderBy(p => p.Key)
                 .Select(p => (JsonNode)new JsonArray(p.Key.Item1, p.Key.Item2, p.Value)).ToArray()),
             ["names_used"] = Numbers(game.NamesUsed),
+            ["people_names_used"] = Numbers(game.PeopleNamesUsed),
+            ["waiting"] = new JsonArray(game.Waiting.Select(w => (JsonNode)new JsonArray(w.Key, w.Folk)).ToArray()),
+            ["split_names_given"] = new JsonObject(game.SplitNamesGiven.OrderBy(p => p.Key, StringComparer.Ordinal)
+                .Select(p => KeyValuePair.Create(p.Key, (JsonNode?)p.Value))),
             // The dice's state is four 64-bit numbers each, written as text: JSON numbers cannot hold them exactly.
             ["dice"] = new JsonObject(game.AllDice.OrderBy(d => d.Key, StringComparer.Ordinal).Select(d =>
                 KeyValuePair.Create(d.Key, (JsonNode?)new JsonArray(d.Value.State.Select(n => (JsonNode?)JsonValue.Create(n.ToString())).ToArray())))),
@@ -116,6 +131,20 @@ public static class SaveFile
         string fresh = path + ".new";
         File.WriteAllText(fresh, save.ToJsonString(new JsonSerializerOptions { WriteIndented = false }));
         File.Move(fresh, path, overwrite: true);
+    }
+
+    // A faction the game founded, as the world's records list it, and back.
+    static JsonObject Info(FactionInfo f) => new()
+    {
+        ["name"] = f.Name, ["colour"] = new JsonArray(f.Red, f.Green, f.Blue), ["lineage"] = f.Lineage, ["race"] = f.Race,
+        ["parent"] = f.Parent, ["founded"] = f.Founded,
+    };
+
+    static FactionInfo ReadInfo(JsonObject f)
+    {
+        var c = f["colour"]!.AsArray();
+        return new FactionInfo((string)f["name"]!, (byte)c[0]!, (byte)c[1]!, (byte)c[2]!, (string?)f["lineage"],
+                               (string?)f["race"], (int?)f["parent"], (int)f["founded"]!);
     }
 
     // A table of named numbers (traits, prejudices) as JSON, and back.
@@ -188,6 +217,11 @@ public static class SaveFile
             var year = node!.AsObject();
             if (year["borders"] is JsonArray runs)
                 regions = Unruns(runs);
+            foreach (var founded in year["new_factions"]!.AsArray())
+            {
+                var info = ReadInfo(founded!.AsObject());
+                world.AddFaction(info, world.Years + 1);
+            }
             world.AddYear(year["people"]!.AsArray().Select(p => (int)p!).ToList(),
                           year["holders"]!.AsArray().Select(h => (int?)h).ToList(),
                           year["ruined"]!.AsArray().Select(r => (bool)r!).ToList(),
@@ -211,12 +245,29 @@ public static class SaveFile
             town.Holder = (int?)t["holder"];
             town.Origin = (int?)t["origin"];
             town.ConqueredIn = (int?)t["conquered_in"];
+            town.FoundedFrom = (int?)t["founded_from"];
             town.Fed = (double)t["fed"]!;
         }
         var factions = save["factions"]!.AsArray();
-        for (int f = 0; f < game.Factions.Count; f++)
+        if (factions.Count != world.Factions.Count)
+            throw new WorldFileException(path + " is damaged: its factions and its years do not agree");
+        for (int f = 0; f < factions.Count; f++)
         {
             var o = factions[f]!.AsObject();
+            if (f == game.Factions.Count)          // one the game founded
+                game.Factions.Add(new FactionNow());
+            game.Factions[f].Name = (string)o["name"]!;
+            game.Factions[f].Folk = (int)o["folk"]!;
+            game.Factions[f].Lineage = (string?)o["lineage"];
+            game.Factions[f].Capital = (int?)o["capital"];
+            game.Factions[f].Parent = (int?)o["parent"];
+            game.Factions[f].Founded = (int)o["founded"]!;
+            game.Factions[f].Nature = ReadTable(o["nature"]);
+            game.Factions[f].Belief = (string)o["belief"]!;
+            game.Factions[f].Hold = (double)o["hold"]!;
+            game.Factions[f].Skills = ReadTable(o["skills"]);
+            game.Factions[f].Learned = o["learned"]!.AsArray().Select(g => (string)g!).ToHashSet();
+            game.UsedNames.Add(game.Factions[f].Name);
             game.Factions[f].People = (int)o["people"]!;
             game.Factions[f].Path = (string?)o["path"];
             game.Factions[f].Government = (string?)o["government"] ?? "";
@@ -245,6 +296,13 @@ public static class SaveFile
         foreach (var pair in save["words"]!.AsArray())
             game.Words[((int)pair![0]!, (int)pair[1]!)] = (int)pair[2]!;
         game.NamesUsed = save["names_used"]!.AsArray().Select(n => (int)n!).ToArray();
+        game.PeopleNamesUsed = save["people_names_used"]!.AsArray().Select(n => (int)n!).ToArray();
+        game.Waiting.Clear();
+        foreach (var w in save["waiting"]!.AsArray())
+            game.Waiting.Add(((string)w![0]!, (int)w[1]!));
+        game.SplitNamesGiven.Clear();
+        foreach (var (key, given) in save["split_names_given"]!.AsObject())
+            game.SplitNamesGiven[key] = (int)given!;
         foreach (var (system, state) in save["dice"]!.AsObject())
             game.SetDice(system, new Dice(state!.AsArray().Select(n => ulong.Parse((string)n!)).ToList()));
         var mines = save["mines"]!.AsArray();

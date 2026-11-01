@@ -11,8 +11,9 @@ October 2026"). Each step has its own tests and a lesson in `docs/lessons/`.
 | 2b | The book of events, and a faction's own history (below) | 1 Nov |
 | 3 | Trade | 1 Nov |
 | 4 | Rulers, grievance and opinions (with your rules from history_rules.py) | 1 Nov |
-| 5 | War and alliance (until step 6, a faction that is gone rises again when a town of its people rebels) | 1 Nov |
-| 6 | Splits and migration | |
+| 5 | War and alliance | 1 Nov |
+| 6a | Splits, merging and empires (and a rising town founding a faction) | 1 Nov |
+| 6b | Migration and drift | |
 | 7 | Paths, learning and capitals | |
 | 8 | Attunement and rituals | |
 | 9 | Happenings, threats, signs and chokepoints | |

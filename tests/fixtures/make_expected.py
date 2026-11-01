@@ -267,6 +267,62 @@ def one_year_of_trade(data):
     }
 
 
+def splits_without_dice(data):
+    """Splits (the game's step 6), where no dice are rolled, by the generator's own functions on the export: each
+    faction's capital (splits.capital_of), fragility and how divided it is; for each faction of two towns or more
+    with a ruler, its towns' journeys from the capital (scaled as year_of_splits does), its outer towns in order, and
+    the province breaking away from the farthest and from the nearest of them; each faction's hold
+    (splits.update_empires); how many factions hold land; and a new faction's shade (colours.kin_colour)."""
+    from types import SimpleNamespace
+    from north import colours, splits, trade
+    from north.death import BELIEFS
+    from north.factions import EXTRA_TRAITS, TRAITS
+    going = data["continue"]
+    settings = going["settings"]
+    governments = settings["leaders"]["GOVERNMENTS"]
+    places = [SimpleNamespace(x=p["x"], y=p["y"], culture=p["culture"], ruined=p["ruined"], population=p["population"])
+              for p in data["settlements"]]
+    routes = [trade.Route(r["a"], r["b"], [], r["cost"]) for r in data["routes"]]
+    journeys = trade.all_journeys(places, routes)
+    scale = 256 / going["history_columns"]
+    factions = [SimpleNamespace(index=i, capital=f["capital"], traits=f["traits"], values=f["values"],
+                                government=f["government"], grievance=f["grievance"], hold=1.0,
+                                ruler=None if f["ruler"] is None else SimpleNamespace(traits=f["ruler"]["traits"]))
+                for i, f in enumerate(data["factions"])]
+    capitals = [splits.capital_of(f, places) for f in factions]
+    provinces = []
+    for f in factions:
+        held = splits.holdings(places, f.index)
+        if len(held) < 2 or f.ruler is None:
+            continue
+        distances = {town: cost * scale for town, cost in journeys[f.capital][0].items()}
+        outer = sorted((t for t in held if t != f.capital), key=lambda t: (-distances.get(t, 0.0), t))
+        provinces.append({"faction": f.index, "outer": outer,
+                          "distances": {str(t): distances.get(t, 0.0) for t in held},
+                          "farthest": splits.province(outer[0], f.index, distances, places, routes),
+                          "nearest": splits.province(outer[-1], f.index, distances, places, routes)})
+    powers = SimpleNamespace(factions=factions)
+    splits.update_empires(powers, places, SimpleNamespace(**settings["splits"]))
+    living = [f.index for f in factions if splits.holdings(places, f.index)]
+    others = [tuple(data["factions"][i]["colour"]) for i in living]
+    shades = [[i, list(colours.kin_colour(tuple(data["factions"][i]["colour"]), others))] for i in living]
+    shades.append([-1, list(colours.kin_colour((22, 18, 28), others))])
+    shades.append([-2, list(colours.kin_colour((200, 40, 40), []))])
+    return {
+        "capitals": capitals,
+        "fragility": [splits.fragility(f) for f in factions],
+        "divided": [splits.divided(f, governments) for f in factions],
+        "provinces": provinces,
+        "holds": [f.hold for f in factions],
+        "living": splits.living(powers, places),
+        "kin_colours": shades,
+        "constants": {"BITTER": splits.BITTER, "WARM": splits.WARM, "SMALL": splits.SMALL,
+                      "MERGE_CHANCE": splits.MERGE_CHANCE, "FRAGILITY_RANGE": list(splits.FRAGILITY_RANGE),
+                      "SHADES": list(colours.SHADES), "SPLIT_KINDS": splits.SPLIT_KINDS,
+                      "TRAITS": list(TRAITS), "EXTRA_TRAITS": list(EXTRA_TRAITS), "BELIEFS": list(BELIEFS)},
+    }
+
+
 def main(generator):
     sys.path.insert(0, str(generator))
     from north import world_file
@@ -302,6 +358,7 @@ def main(generator):
         }
     expected["one_year"] = one_year(world.data)
     expected["trade"] = one_year_of_trade(world.data)
+    expected["splits"] = splits_without_dice(world.data)
     (HERE / "expected.json").write_text(json.dumps(expected, indent=1), encoding="utf-8")
 
     grid = [[(x * x * 7 + y * 31 + (x ^ y) * 13) % 256 for x in range(24)] for y in range(20)]

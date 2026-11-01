@@ -123,7 +123,7 @@ public static class War
     }
 
     /// <summary>One year of alliances, declarations, battles, peace and rebellion. war.year_of_war.</summary>
-    public static void Year(Game game, Market[] markets, YearCore.Hardship[] hardship, int year)
+    public static void Year(Game game, Market[] markets, List<YearCore.Hardship> hardship, int year)
     {
         var settings = game.Settings;
         var dice = DiceOf(game);
@@ -286,7 +286,7 @@ public static class War
 
     /// <summary>One battle between factions x and y, over one of the routes between their lands. war.battle.</summary>
     public static void Battle(Game game, WarNow war, int x, int y, List<(int Mine, int Theirs)> front,
-                              List<Dictionary<string, double[]>> supply, YearCore.Hardship[] hardship, int year)
+                              List<Dictionary<string, double[]>> supply, List<YearCore.Hardship> hardship, int year)
     {
         var dice = DiceOf(game);
         double strongX = Strength(game, x, supply), strongY = Strength(game, y, supply);
@@ -350,7 +350,7 @@ public static class War
 
     /// <summary>Town `town` joins `conqueror`, with its land and mines; `counted` says whether it counts as a
     /// conquest (a rising does not). war.conquer.</summary>
-    public static void Conquer(Game game, int town, int conqueror, int loser, YearCore.Hardship[]? hardship, bool counted)
+    public static void Conquer(Game game, int town, int conqueror, int loser, List<YearCore.Hardship>? hardship, bool counted)
     {
         game.Towns[town].Holder = conqueror;
         if (counted)
@@ -358,7 +358,7 @@ public static class War
         var key = (loser, conqueror);
         if (game.Memory.TryGetValue(key, out double remembered))
             game.Memory[key] = Math.Max(-1.0, remembered - ConquestBitterness);
-        if (hardship != null && loser >= 0 && loser < hardship.Length)
+        if (hardship != null && loser >= 0 && loser < hardship.Count)
             hardship[loser].Lost += 2;
         foreach (var mine in game.Mines)
             if (mine.LandTown == town)
@@ -403,7 +403,7 @@ public static class War
     }
 
     /// <summary>Perhaps a conquered town rises and returns to its own people's faction. war.rebel.</summary>
-    public static void Rebel(Game game, int town, YearCore.Hardship[] hardship, int year)
+    public static void Rebel(Game game, int town, List<YearCore.Hardship> hardship, int year)
     {
         var place = game.Towns[town];
         double resented = Resentment(game, place, year);
@@ -441,8 +441,19 @@ public static class War
                     name, ruler.Name, own.Name, game.Factions[joined].Name, deadNow), new[] { holder, origin, joined }, facts));
                 return;
             }
-            // In the generator it would now found a faction of its own (splits.secede): splits come with step 6, so
-            // until then its own faction rises again, as when RISE_AGAIN is met.
+            // Otherwise it founds a faction of its own people, as a split would (war.break_free, splits.secede).
+            var later = new List<GameEvent>();
+            int child = Splits.Secede(game, new List<int> { town }, holder, "rising against them", hardship, year,
+                                      toldLater: later);
+            var founded = game.Factions[child];
+            facts["faction"] = founded.Name;
+            facts["ruler"] = founded.Ruler!.Name;
+            game.Record(new GameEvent(year, "rebellion", "rebellion_new_faction", string.Format(
+                "{0} rises against the {1}; the {2} are no more, and it founds the {3}, ruled by {4} ({5} dead)",
+                name, ruler.Name, own.Name, founded.Name, founded.Ruler.Name, deadNow), new[] { holder, origin, child }, facts));
+            foreach (var e in later)
+                game.Record(e);
+            return;
         }
         Conquer(game, town, origin, holder, hardship, counted: false);
         string text = string.Format("{0} rises against the {1} and returns to the {2} ({3} dead)", name, ruler.Name, own.Name, deadNow);

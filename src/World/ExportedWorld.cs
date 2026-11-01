@@ -4,8 +4,10 @@ using System.Text.Json.Nodes;
 
 namespace WardensReckoning.World;
 
-/// <summary>A faction as the export lists it at the end of the history (its colour and sprite sets never change).</summary>
-public sealed record FactionInfo(string Name, byte Red, byte Green, byte Blue, string? Lineage, string? Race);
+/// <summary>A faction as the export lists it at the end of the history, or as the game founded it: its name, colour
+/// and sprite sets (which never change), the faction it broke away from (or null) and the year it came to be.</summary>
+public sealed record FactionInfo(string Name, byte Red, byte Green, byte Blue, string? Lineage, string? Race,
+                                 int? Parent = null, int Founded = 0);
 
 /// <summary>One settlement's whole history: the year it was founded, its people every year from then,
 /// its holders as (year, faction) each time that changed, and its ruins as (year it fell, year it was lived in again).
@@ -56,7 +58,8 @@ public sealed class ExportedWorld
     /// <summary>How many map cells wide each region of the history's grid is.</summary>
     public int HistoryFactor { get; }
 
-    public IReadOnlyList<FactionInfo> Factions { get; }
+    public IReadOnlyList<FactionInfo> Factions => factions;
+    readonly List<FactionInfo> factions;
     public IReadOnlyList<TownRecord> Towns { get; }
 
     /// <summary>Each faction's people every year from 0 (empty for a faction not in the list).</summary>
@@ -88,16 +91,16 @@ public sealed class ExportedWorld
         HistoryFactor = (int?)data["history_factor"] ?? 1;
 
         var races = data["faction_races"] as JsonArray;
-        var factions = new List<FactionInfo>();
+        factions = new List<FactionInfo>();
         var list = data["factions"]!.AsArray();
         for (int i = 0; i < list.Count; i++)
         {
             var f = list[i]!.AsObject();
             var c = f["colour"]!.AsArray();
             factions.Add(new FactionInfo((string)f["name"]!, (byte)(int)c[0]!, (byte)(int)c[1]!, (byte)(int)c[2]!,
-                                         (string?)f["lineage"], races != null && i < races.Count ? (string?)races[i] : null));
+                                         (string?)f["lineage"], races != null && i < races.Count ? (string?)races[i] : null,
+                                         (int?)f["parent"], (int?)f["founded"] ?? 0));
         }
-        Factions = factions;
 
         Population = data["population"]!.AsArray().Select(row => row!.AsArray().Select(v => (int)v!).ToList()).ToList();
 
@@ -233,6 +236,21 @@ public sealed class ExportedWorld
                 state[key] = value?.DeepClone();
         }
         return state;
+    }
+
+    /// <summary>The first year faction `index` is in the records (the year it came to be, or 0).</summary>
+    public int FromOf(int index) => factionFrom[index];
+
+    /// <summary>
+    /// A faction the game founded (a split, a town that rose), from `year` on: added to Factions, with no people
+    /// before that year, and its path, ruler and the rest written down by the AddYear of that year.
+    /// </summary>
+    public void AddFaction(FactionInfo info, int year)
+    {
+        factions.Add(info);
+        ((List<List<int>>)Population).Add(new List<int>());
+        factionFrom.Add(year);
+        factionChanges.Add(new List<(int, JsonObject)>());
     }
 
     /// <summary>Faction `index`'s capital in `year`, or null (none, or not yet come to be).</summary>

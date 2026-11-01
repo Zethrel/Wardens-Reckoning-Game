@@ -44,7 +44,7 @@ public static class YearCore
         // Who has food to spare (a hungry town's people may blame them), what each faction's people go through this
         // year (for grievance: rulers), and how much each faction blames each other (souring its memory).
         var spare = FoodToSpare(game, markets);
-        var hardship = game.Factions.Select(_ => new Hardship()).ToArray();
+        var hardship = game.Factions.Select(_ => new Hardship()).ToList();   // a list: a faction founded this year adds its own
         var blame = new Dictionary<(int, int), double>();
         var food = settings.Staples.Concat(settings.Extras).ToList();
 
@@ -107,8 +107,10 @@ public static class YearCore
 
         var people = UpdateFactions(game, markets, deals, year, blame);
         Opinions.Year(game, markets, year);
+        Splits.UpdateEmpires(game);                 // who holds together this year, before the wars
         War.Year(game, markets, hardship, year);
         Rulers.Year(game, hardship.Select(h => h.Felt()).ToList(), year);
+        Splits.Year(game, hardship, year);
 
         world.AddYear(game.Towns.Select(t => t.Ruined ? 0 : t.Population).ToList(),
                       game.Towns.Select(t => t.Holder).ToList(),
@@ -171,10 +173,10 @@ public static class YearCore
     }
 
     /// <summary>Each faction's path, ruler, belief, government and capital this year, for the world's record (the map's
-    /// legend and the book's card). Capitals do not move in the game until step 7, so each keeps its last.</summary>
+    /// legend and the book's card).</summary>
     public static List<System.Text.Json.Nodes.JsonObject?> StatesOf(Game game, int year) =>
-        game.Factions.Select((f, i) => (System.Text.Json.Nodes.JsonObject?)World.ExportedWorld.FactionState(
-            f.Path, f.Ruler?.Name, f.Belief, f.Government, game.World.CapitalOf(i, year - 1))).ToList();
+        game.Factions.Select(f => (System.Text.Json.Nodes.JsonObject?)World.ExportedWorld.FactionState(
+            f.Path, f.Ruler?.Name, f.Belief, f.Government, f.Capital)).ToList();
 
     /// <summary>What one faction's people went through this year, added up over its towns (history.run_years' hardship).</summary>
     public sealed class Hardship

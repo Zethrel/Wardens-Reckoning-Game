@@ -115,6 +115,34 @@ public sealed class GameSettings
     public double Rebellion { get; }
     public double ResentmentHalfLife { get; }
 
+    /// <summary>split_settings.py: how readily factions break apart (DIVISION, FAR, DISTANCE, LEADER_SPLIT), at most
+    /// MAX_FACTIONS with land at once; merging (MERGE_OPINION); how new factions differ from their kin (TRAIT_SPREAD,
+    /// BELIEF_CHANCE, GOVERNMENT_CHANCE, SPLIT_NAMES by path, OFFSHOOT_CHANCE); and empires (EMPIRE_SHARE,
+    /// EMPIRE_HOLD, EMPIRE_SMALL, EMPIRE_JOIN_OPINION, EMPIRE_JOIN). A setting the export lacks is the engine's
+    /// default, as in splits.py.</summary>
+    public double Division { get; }
+    public double Far { get; }
+    public double Distance { get; }
+    public double LeaderSplit { get; }
+    public int MaxFactions { get; }
+    public double MergeOpinion { get; }
+    public double TraitSpread { get; }
+    public double BeliefChance { get; }
+    public double GovernmentChance { get; }
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> SplitNames { get; }
+    public double OffshootChance { get; }
+    public double EmpireShare { get; }
+    public double EmpireHold { get; }
+    public int EmpireSmall { get; }
+    public double EmpireJoinOpinion { get; }
+    public double EmpireJoin { get; }
+
+    /// <summary>One faction of faction_settings.py FACTIONS, as it starts: its name, colour, path and race, and its
+    /// traits (planning, risk, greed, and those of the four more it has).</summary>
+    public sealed record Start(string Name, byte Red, byte Green, byte Blue, string Path, string? Race,
+                               IReadOnlyDictionary<string, double> Traits);
+    public IReadOnlyDictionary<string, Start> Starts { get; }
+
     static (double, double) Range(JsonNode? value) => value switch
     {
         JsonArray pair => ((double)pair[0]!, (double)pair[1]!),
@@ -198,6 +226,37 @@ public sealed class GameSettings
         JoinKin = (double?)war["JOIN_KIN"] ?? 0.5;
         Rebellion = (double?)war["REBELLION"] ?? Sim.War.Rebellion;
         ResentmentHalfLife = (double?)war["RESENTMENT_HALF_LIFE"] ?? Sim.War.ResentmentHalfLife;
+
+        var splits = settings["splits"] as JsonObject ?? new JsonObject();
+        Division = (double?)splits["DIVISION"] ?? 0.0;
+        Far = (double?)splits["FAR"] ?? double.PositiveInfinity;
+        Distance = (double?)splits["DISTANCE"] ?? 0.0;
+        LeaderSplit = (double?)splits["LEADER_SPLIT"] ?? 0.0;
+        MaxFactions = (int?)splits["MAX_FACTIONS"] ?? int.MaxValue;
+        MergeOpinion = (double?)splits["MERGE_OPINION"] ?? double.PositiveInfinity;
+        TraitSpread = (double?)splits["TRAIT_SPREAD"] ?? 0.0;
+        BeliefChance = (double?)splits["BELIEF_CHANCE"] ?? 0.0;
+        GovernmentChance = (double?)splits["GOVERNMENT_CHANCE"] ?? 0.0;
+        SplitNames = splits["SPLIT_NAMES"] is JsonObject names
+            ? names.ToDictionary(p => p.Key, p => (IReadOnlyList<string>)p.Value!.AsArray().Select(n => (string)n!).ToList())
+            : new Dictionary<string, IReadOnlyList<string>>();
+        OffshootChance = (double?)splits["OFFSHOOT_CHANCE"] ?? 0.0;
+        EmpireShare = (double?)splits["EMPIRE_SHARE"] ?? 2.0;
+        EmpireHold = (double?)splits["EMPIRE_HOLD"] ?? 1.0;
+        EmpireSmall = (int?)splits["EMPIRE_SMALL"] ?? 0;
+        EmpireJoinOpinion = (double?)splits["EMPIRE_JOIN_OPINION"] ?? 0.0;
+        EmpireJoin = (double?)splits["EMPIRE_JOIN"] ?? 0.0;
+        Starts = factions["FACTIONS"] is JsonObject starts
+            ? starts.ToDictionary(p => p.Key, p =>
+            {
+                var f = p.Value!.AsObject();
+                var c = f["colour"]!.AsArray();
+                var traits = Splits.Traits.Concat(Splits.ExtraTraits).Where(t => f[t] != null)
+                    .ToDictionary(t => t, t => (double)f[t]!);
+                return new Start((string)f["name"]!, (byte)(int)c[0]!, (byte)(int)c[1]!, (byte)(int)c[2]!,
+                                 (string)f["path"]!, (string?)f["race"], traits);
+            })
+            : new Dictionary<string, Start>();
 
         var sizes = settings["settlement"]!["SETTLEMENT_SIZES"]!.AsArray();
         SizeLows = sizes.Select(s => (int)s![0]!).ToList();

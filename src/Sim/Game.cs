@@ -24,6 +24,8 @@ public sealed class TownNow
     /// <summary>The faction whose people founded it (it resents another holder), and the year it was last taken.</summary>
     public int? Origin { get; set; }
     public int? ConqueredIn { get; set; }
+    /// <summary>The town whose migrants founded or resettled it, or null: a colony far from the capital leaves in peace.</summary>
+    public int? FoundedFrom { get; set; }
     /// <summary>Its place on the map (map cells), for the nearest town to a mine.</summary>
     public int X { get; set; }
     public int Y { get; set; }
@@ -70,6 +72,12 @@ public sealed class FactionNow
     public HashSet<string>? Held { get; set; }
     /// <summary>The faction it comes from in the settings' FACTIONS (its goods), and its traits (greed digs more).</summary>
     public string? Lineage { get; set; }
+    /// <summary>Its capital (a town), or null; the faction it broke away from (or null) and the year it came to be.</summary>
+    public int? Capital { get; set; }
+    public int? Parent { get; set; }
+    public int Founded { get; set; }
+    /// <summary>Its people's nature: their traits before any land shaped them (a new faction takes its kin's).</summary>
+    public Dictionary<string, double> Nature { get; set; } = new();
     public double Greed { get => Traits.GetValueOrDefault("greed"); set => Traits["greed"] = value; }
     /// <summary>Goods it has learned to make (chokepoints), and the paths and hybrids it has learned and how well.</summary>
     public HashSet<string> Learned { get; set; } = new();
@@ -162,6 +170,25 @@ public sealed class Game
     /// <summary>Names for the rulers the game crowns, per people (the export's "names"), and how many of each are used.</summary>
     public List<List<string>> Names { get; }
     public int[] NamesUsed { get; set; }
+    /// <summary>Names for the factions the game founds, per people, and how many of each are used.</summary>
+    public List<List<string>> PeopleNames { get; }
+    public int[] PeopleNamesUsed { get; set; }
+
+    /// <summary>The factions of the settings' FACTIONS that have not risen yet, in order (the export's "waiting"):
+    /// the next new faction of a people is the first of them of that people.</summary>
+    public List<(string Key, int Folk)> Waiting { get; } = new();
+    /// <summary>How many of each path's SPLIT_NAMES have been given out (the export's "newcomers").</summary>
+    public Dictionary<string, int> SplitNamesGiven { get; } = new();
+    /// <summary>Every faction name and town name in the world: a name from SPLIT_NAMES is not given twice.</summary>
+    public HashSet<string> UsedNames { get; } = new();
+
+    List<Trade.Journeys>? journeys;
+
+    /// <summary>Every town's cheapest journeys over the routes, worked out once and kept until the routes change.</summary>
+    public List<Trade.Journeys> Journeys => journeys ??= Trade.AllJourneys(this);
+
+    /// <summary>Forget the journeys, after the routes changed (they are worked out again when next needed).</summary>
+    public void RoutesChanged() => journeys = null;
 
     readonly Dictionary<string, Dice> dice = new();
 
@@ -189,6 +216,26 @@ public sealed class Game
         int used = folk < NamesUsed.Length ? NamesUsed[folk]++ : 0;
         string name = listed[used % listed.Count];
         return used < listed.Count ? name : name + " " + (used / listed.Count + 1);
+    }
+
+    /// <summary>The next name for a new faction of people `folk`: the export's names in turn, then numbered.</summary>
+    public string NextPeopleName(int folk)
+    {
+        var listed = folk < PeopleNames.Count ? PeopleNames[folk] : new List<string>();
+        if (listed.Count == 0)
+            return "Faction " + (Factions.Count + 1);
+        int used = folk < PeopleNamesUsed.Length ? PeopleNamesUsed[folk]++ : 0;
+        string name = listed[used % listed.Count];
+        return used < listed.Count ? name : name + " " + (used / listed.Count + 1);
+    }
+
+    /// <summary>A faction the game founded: added to Factions and to the world's records from `year`, with the
+    /// colour and sprite sets in `info`.</summary>
+    public void AddFaction(FactionNow faction, FactionInfo info, int year)
+    {
+        Factions.Add(faction);
+        World.AddFaction(info, year);
+        UsedNames.Add(faction.Name);
     }
 
     /// <summary>The book: the export's events, then the game's, in the order they happened (World/Book.cs).</summary>
@@ -231,6 +278,7 @@ public sealed class Game
                        : throw Older("the towns' \"near\""),
                 Origin = (int?)place["origin"],
                 ConqueredIn = (int?)place["conquered_in"],
+                FoundedFrom = (int?)place["founded_from"],
                 X = (int)place["x"]!,
                 Y = (int)place["y"]!,
             });
@@ -278,6 +326,13 @@ public sealed class Game
         }
         Names = names.Select(list => list!.AsArray().Select(n => (string)n!).ToList()).ToList();
         NamesUsed = new int[Names.Count];
+        var peopleNames = going["names"]?["people"] as JsonArray ?? throw Older("names for new factions");
+        PeopleNames = peopleNames.Select(list => list!.AsArray().Select(n => (string)n!).ToList()).ToList();
+        PeopleNamesUsed = new int[PeopleNames.Count];
+        foreach (var entry in going["waiting"] as JsonArray ?? throw Older("\"waiting\""))
+            Waiting.Add(((string)entry![0]!, (int)entry[1]!));
+        foreach (var (path, given) in (going["newcomers"]?["given"] as JsonObject) ?? throw Older("\"newcomers\""))
+            SplitNamesGiven[path] = (int)given!;
         Factions = world.Data["factions"]!.AsArray().Select((node, k) =>
         {
             var f = node!.AsObject();
@@ -306,6 +361,10 @@ public sealed class Game
                 Belief = (string?)f["belief"] ?? "unknowing",
                 Held = keptFactions[k]!["held"] is JsonArray held ? held.Select(p => (string)p!).ToHashSet() : null,
                 Lineage = (string?)f["lineage"],
+                Capital = (int?)f["capital"],
+                Parent = (int?)f["parent"],
+                Founded = (int?)f["founded"] ?? 0,
+                Nature = Numbers(f["nature"]),
                 Hold = (double?)f["hold"] ?? 1.0,
                 Learned = f["learned"] is JsonArray learned ? learned.Select(g => (string)g!).ToHashSet() : new HashSet<string>(),
                 Skills = keptFactions[k]!["skills"]!.AsObject().ToDictionary(p => p.Key, p => (double)p.Value!),
@@ -314,6 +373,16 @@ public sealed class Game
                 MetalNeed = (double?)f["metal_need"] ?? 0.0,
             };
         }).ToList();
+        NoteNames();
+    }
+
+    // Python's names are case-sensitive and so are these.
+    void NoteNames()
+    {
+        foreach (var faction in Factions)
+            UsedNames.Add(faction.Name);
+        foreach (var town in World.Towns)
+            UsedNames.Add(town.Name);
     }
 
     /// <summary>Runs [value, count, value, count, ...] as the values one by one.</summary>

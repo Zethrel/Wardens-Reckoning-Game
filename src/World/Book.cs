@@ -64,10 +64,9 @@ public static class Book
     {
         var info = world.Factions[index];
         var state = world.Faction(index, Math.Min(year, world.Years)) ?? new JsonObject();
-        var exported = world.Data["factions"]![index]!.AsObject();
-        int from = (int?)world.Data["history"]?["factions"]?[index]?["from"] ?? (int?)exported["founded"] ?? 0;
-        string? parent = exported["parent"] is JsonValue p && p.TryGetValue(out int parentIndex)
-                         && parentIndex < world.Factions.Count ? world.Factions[parentIndex].Name : null;
+        int from = world.FromOf(index);
+        string? parent = info.Parent is int parentIndex && parentIndex < world.Factions.Count
+                         ? world.Factions[parentIndex].Name : null;
         string? capital = state["capital"] is JsonValue c && c.TryGetValue(out int town) && town < world.Towns.Count
                           ? world.Towns[town].Name : null;
         var people = Enumerable.Range(0, Math.Max(0, year + 1)).Select(y => world.PeopleOf(index, y)).ToList();

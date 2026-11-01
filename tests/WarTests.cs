@@ -183,7 +183,7 @@ public class WarTests
         int loser = game.Towns[town].Holder!.Value;
         int winner = Enumerable.Range(0, game.Factions.Count).First(f => f != loser && game.Memory.ContainsKey((loser, f)));
         double before = game.Memory[(loser, winner)];
-        var hardship = game.Factions.Select(_ => new YearCore.Hardship()).ToArray();
+        var hardship = game.Factions.Select(_ => new YearCore.Hardship()).ToList();
         War.Conquer(game, town, winner, loser, hardship, counted: true);
         Assert.Equal(winner, game.Towns[town].Holder);
         Assert.All(game.Mines.Where(m => m.LandTown == town), m => Assert.Equal(winner, m.Owner));
@@ -206,7 +206,7 @@ public class WarTests
         game.Factions[a].Opinions[b] = 0.9;
         game.Factions[b].Opinions[a] = 0.9;
         var markets = OneYearOfTrade(game);
-        var hardship = game.Factions.Select(_ => new YearCore.Hardship()).ToArray();
+        var hardship = game.Factions.Select(_ => new YearCore.Hardship()).ToList();
         War.Year(game, markets, hardship, game.Year + 1);
         Assert.Contains((Math.Min(a, b), Math.Max(a, b)), game.Alliances);
         game.Factions[b].Opinions[a] = game.Settings.AllyOpinion - War.AllyMargin / 2;   // cooler, but inside the margin
@@ -249,7 +249,7 @@ public class WarTests
         int conqueror = Enumerable.Range(0, game.Factions.Count).First(f => f != own && game.Factions[f].People > 0);
         War.Conquer(game, town, conqueror, own, null, counted: true);
         game.Towns[town].ConqueredIn = game.Year;
-        var hardship = game.Factions.Select(_ => new YearCore.Hardship()).ToArray();
+        var hardship = game.Factions.Select(_ => new YearCore.Hardship()).ToList();
         for (int year = game.Year + 1; year < game.Year + 400 && game.Towns[town].Holder == conqueror; year++)
             War.Rebel(game, town, hardship, year);
         Assert.Equal(own, game.Towns[town].Holder);
@@ -270,7 +270,7 @@ public class WarTests
         War.Conquer(game, town, conqueror, own, null, counted: true);
         game.Towns[town].ConqueredIn = game.Year;
         game.Factions[conqueror].Hold = 0.0;
-        var hardship = game.Factions.Select(_ => new YearCore.Hardship()).ToArray();
+        var hardship = game.Factions.Select(_ => new YearCore.Hardship()).ToList();
         for (int year = game.Year + 1; year < game.Year + 400; year++)
             War.Rebel(game, town, hardship, year);
         Assert.Equal(conqueror, game.Towns[town].Holder);
@@ -298,7 +298,7 @@ public class WarTests
         {
             var (game, war, a, b) = AtWar(seed);
             var supply = Opinions.Supplies(game, OneYearOfTrade(game));
-            var hardship = game.Factions.Select(_ => new YearCore.Hardship()).ToArray();
+            var hardship = game.Factions.Select(_ => new YearCore.Hardship()).ToList();
             var before = game.Towns.Select(t => (t.People, t.Holder)).ToArray();
             double ab = game.Memory[(a, b)], ba = game.Memory[(b, a)];
             War.Battle(game, war, a, b, War.Fronts(game, a, b), supply, hardship, game.Year + 1);
@@ -430,7 +430,7 @@ public class WarTests
     {
         var game = NewGame();
         var markets = OneYearOfTrade(game);
-        var hardship = game.Factions.Select(_ => new YearCore.Hardship()).ToArray();
+        var hardship = game.Factions.Select(_ => new YearCore.Hardship()).ToList();
         int round = (game.Year / War.BorderYears + 1) * War.BorderYears;
         game.BordersChanged = true;
         War.Year(game, markets, hardship, round + 1);
