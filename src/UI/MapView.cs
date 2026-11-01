@@ -51,6 +51,19 @@ public partial class MapView : Node2D
         ShowYear(world.Years);
     }
 
+    /// <summary>Called when the player clicks a town on the map (the topmost town under the mouse).</summary>
+    public event Action<TownDrawing>? TownClicked;
+
+    public override void _UnhandledInput(InputEvent @event)
+    {
+        if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true }
+            && TownAt(GetGlobalMousePosition()) is TownDrawing town)
+        {
+            TownClicked?.Invoke(town);
+            GetViewport().SetInputAsHandled();
+        }
+    }
+
     /// <summary>The town drawn at map point `point` in the year shown (the topmost, as drawn last), or null.</summary>
     public TownDrawing? TownAt(Vector2 point) => MapYear.TownAt(towns, point.X, point.Y, side);
 

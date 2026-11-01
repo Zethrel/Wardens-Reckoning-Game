@@ -30,7 +30,7 @@ The plan, step by step: `docs/plan.md`.
 
 - `src/World`: reads an exported world (as the generator's north/world_file.py does).
 - `src/Sim`: the history systems in C#, running the years on (so far: harvest, food, growth, ruin).
-- `src/UI`: the screens, in Godot.
+- `src/UI`: the screens, in Godot. The map is drawn in a SubViewport between the book and the factions, so no panel covers it.
 - `tests/`: the tests, and a small exported world to test with.
 
 Copyright (c) 2026 Zethrel. All rights reserved. See LICENSE.

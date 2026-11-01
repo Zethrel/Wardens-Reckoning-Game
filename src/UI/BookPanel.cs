@@ -5,7 +5,7 @@ using WardensReckoning.World;
 namespace WardensReckoning.UI;
 
 /// <summary>
-/// The book, on the left of the map: everything that happened up to the year shown, the newest first. Opened for
+/// The book, to the left of the map: everything that happened up to the year shown, the newest first. Opened for
 /// one faction (by clicking it in the list on the right, or one of its towns on the map), it shows that faction's
 /// card and only its own entries. "Only the chronicle" leaves the chronicle's sentences, the notable events.
 /// </summary>
@@ -36,9 +36,9 @@ public partial class BookPanel : PanelContainer
 
     public override void _Ready()
     {
-        SetAnchorsPreset(LayoutPreset.LeftWide);
-        OffsetRight = 420;
-        OffsetBottom = -52;
+        // A column of the screen's layout (MapScreen): 420 pixels wide, as tall as the room; hidden until opened.
+        CustomMinimumSize = new Vector2(420, 0);
+        SizeFlagsVertical = SizeFlags.ExpandFill;
         Visible = false;
         var margin = new MarginContainer();
         foreach (var side in new[] { "left", "right", "top", "bottom" })

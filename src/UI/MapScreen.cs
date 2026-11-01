@@ -42,18 +42,43 @@ public partial class MapScreen : Node
 
     public override void _Ready()
     {
-        map = new MapView(world);
-        AddChild(map);
-        AddChild(new MapCamera(world.Size));
-
-        // The bar and the legend are on a CanvasLayer: drawn on the screen, not on the map, so they do not zoom.
+        // The screen is laid out in rows and columns, so nothing covers the map: the book on the left (when
+        // open), the map in the middle, the factions on the right, and the bar along the bottom. The map is drawn
+        // in a SubViewport of its own: a picture inside the layout, with its own camera, that takes the room the
+        // panels leave and grows when the book is closed.
         var hud = new CanvasLayer();
         AddChild(hud);
+        var screen = new VBoxContainer();
+        screen.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        screen.AddThemeConstantOverride("separation", 0);
+        hud.AddChild(screen);
+        var middle = new HBoxContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill };
+        middle.AddThemeConstantOverride("separation", 0);
+        screen.AddChild(middle);
 
-        var bar = new PanelContainer();
-        bar.SetAnchorsPreset(Control.LayoutPreset.BottomWide);
-        bar.OffsetTop = -48;
-        hud.AddChild(bar);
+        // The book, on the left: the whole book or one faction's history (BookPanel.cs).
+        book = new BookPanel(world, () => game?.BookEntries ?? (exportBook ??= Book.FromExport(world)));
+        middle.AddChild(book);
+
+        var frame = new SubViewportContainer { Stretch = true, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                                               SizeFlagsVertical = Control.SizeFlags.ExpandFill };
+        middle.AddChild(frame);
+        var view = new SubViewport { HandleInputLocally = true };
+        frame.AddChild(view);
+        map = new MapView(world);
+        map.TownClicked += town => { if (town.Faction is int f) OpenFaction(f); };
+        view.AddChild(map);
+        view.AddChild(new MapCamera(world.Size));
+
+        var side = new PanelContainer { CustomMinimumSize = new Vector2(300, 0) };
+        middle.AddChild(side);
+        var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        side.AddChild(scroll);
+        legend = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        scroll.AddChild(legend);
+
+        var bar = new PanelContainer { CustomMinimumSize = new Vector2(0, 48) };
+        screen.AddChild(bar);
         var row = new HBoxContainer();
         row.AddThemeConstantOverride("separation", 12);
         bar.AddChild(row);
@@ -66,6 +91,10 @@ public partial class MapScreen : Node
                             TooltipText = game == null ? note : "Run one year (N)" };
         next.Pressed += () => RunYears(1);
         row.AddChild(next);
+        var bookButton = new Button { Text = "Book", FocusMode = Control.FocusModeEnum.None,
+                                      TooltipText = "Everything that happened (B); click a faction or a town for its own history" };
+        bookButton.Pressed += () => { book.ShowYear(map.Year); book.Toggle(); };
+        row.AddChild(bookButton);
         yearLabel = new Label { CustomMinimumSize = new Vector2(130, 0), VerticalAlignment = VerticalAlignment.Center };
         row.AddChild(yearLabel);
         slider = new HSlider { MinValue = 0, MaxValue = world.Years, Step = 1, Value = world.Years,
@@ -76,25 +105,6 @@ public partial class MapScreen : Node
         slider.ValueChanged += value => wanted = (int)value;
         row.AddChild(slider);
         row.AddChild(new Label { Text = Title(), VerticalAlignment = VerticalAlignment.Center });
-
-        var side = new PanelContainer();
-        side.SetAnchorsPreset(Control.LayoutPreset.RightWide);
-        side.OffsetLeft = -300;
-        side.OffsetBottom = -52;
-        hud.AddChild(side);
-        var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
-        side.AddChild(scroll);
-        legend = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-        scroll.AddChild(legend);
-
-        // The book, on the left: the whole book or one faction's history (BookPanel.cs).
-        book = new BookPanel(world, () => game?.BookEntries ?? (exportBook ??= Book.FromExport(world)));
-        hud.AddChild(book);
-        var bookButton = new Button { Text = "Book", FocusMode = Control.FocusModeEnum.None,
-                                      TooltipText = "Everything that happened (B); click a faction or a town for its own history" };
-        bookButton.Pressed += () => { book.ShowYear(map.Year); book.Toggle(); };
-        row.AddChild(bookButton);
-        row.MoveChild(bookButton, 2);
 
         var menuLayer = new CanvasLayer { Layer = 10 };
         AddChild(menuLayer);
@@ -209,17 +219,6 @@ public partial class MapScreen : Node
     {
         book!.ShowYear(map!.Year);
         book.Open(faction);
-    }
-
-    public override void _UnhandledInput(InputEvent @event)
-    {
-        // A left click on a town (not on the bar or a panel, which take their own clicks) opens its faction's history.
-        if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true }
-            && map!.TownAt(map.GetGlobalMousePosition()) is { Faction: int faction })
-        {
-            OpenFaction(faction);
-            GetViewport().SetInputAsHandled();
-        }
     }
 
     // The year shown, and the factions alive in it, the most people first, each with its colour and path.

@@ -17,11 +17,21 @@ public partial class MapCamera : Camera2D
 
     public MapCamera(int mapSize) => this.mapSize = mapSize;
 
+    // Whether the player has zoomed or moved the map yet: until then, the whole map is kept in view as the
+    // room for it changes (the window resized, the book opened or closed).
+    bool touched;
+
     public override void _Ready()
     {
-        // Start with the whole map on screen.
+        Fit();
+        GetViewport().SizeChanged += () => { if (!touched) Fit(); };
+    }
+
+    // The whole map in view, in the middle.
+    void Fit()
+    {
         var screen = GetViewportRect().Size;
-        float fit = Math.Min(screen.X, screen.Y) / Math.Max(1, mapSize);
+        float fit = Math.Max(0.01f, Math.Min(screen.X, screen.Y) / Math.Max(1, mapSize));
         Zoom = new Vector2(fit, fit);
         Position = new Vector2(mapSize / 2f, mapSize / 2f);
     }
@@ -34,13 +44,20 @@ public partial class MapCamera : Camera2D
         if (@event is InputEventMouseButton button && button.Pressed)
         {
             if (button.ButtonIndex == MouseButton.WheelUp)
+            {
+                touched = true;
                 ZoomAt(ZoomStep, button.Position);
+            }
             else if (button.ButtonIndex == MouseButton.WheelDown)
+            {
+                touched = true;
                 ZoomAt(1 / ZoomStep, button.Position);
+            }
         }
         else if (@event is InputEventMouseMotion motion
                  && (motion.ButtonMask & (MouseButtonMask.Right | MouseButtonMask.Middle)) != 0)
         {
+            touched = true;
             Position -= motion.Relative / Zoom;
             Keep();
         }
@@ -66,6 +83,7 @@ public partial class MapCamera : Camera2D
         if (Input.IsKeyPressed(Key.S)) move.Y += 1;
         if (move != Vector2.Zero)
         {
+            touched = true;
             Position += move.LimitLength(1) * KeySpeed * (float)delta / Zoom;
             Keep();
         }
