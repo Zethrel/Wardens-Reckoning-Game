@@ -20,6 +20,7 @@ public partial class BookPanel : PanelContainer
     VBoxContainer? card;
     RichTextLabel? text;
     CheckBox? chronicleOnly;
+    LineEdit? search;
     int year;
 
     /// <summary>The faction whose history is shown, or null for the whole book.</summary>
@@ -69,6 +70,13 @@ public partial class BookPanel : PanelContainer
         chronicleOnly.Toggled += _ => Refresh();
         column.AddChild(chronicleOnly);
 
+        // What to look for: text, a year ("315") or a span of years ("310-320"). The book changes as you type.
+        search = new LineEdit { PlaceholderText = "Search: text, a year, or 310-320", ClearButtonEnabled = true,
+                                TooltipText = "Text anywhere in an entry, a year, or a span of years like 310-320" };
+        search.TextChanged += _ => Refresh();
+        search.TextSubmitted += _ => search.ReleaseFocus();     // Enter: back to the map's keys
+        column.AddChild(search);
+
         text = new RichTextLabel { BbcodeEnabled = false, ScrollActive = true, SelectionEnabled = true,
                                    SizeFlagsVertical = SizeFlags.ExpandFill, FocusMode = FocusModeEnum.None };
         text.AddThemeFontSizeOverride("normal_font_size", 13);
@@ -84,6 +92,15 @@ public partial class BookPanel : PanelContainer
     }
 
     public void Close() => Visible = false;
+
+    /// <summary>Puts `typed` in the search box, as if typed there.</summary>
+    public void SetSearch(string typed)
+    {
+        if (search == null)
+            return;
+        search.Text = typed;
+        Refresh();
+    }
 
     public void Toggle()
     {
@@ -115,7 +132,8 @@ public partial class BookPanel : PanelContainer
             title.RemoveThemeColorOverride("font_color");
         }
 
-        var shown = Book.Read(entries(), year, Faction, chronicleOnly!.ButtonPressed);
+        var asked = Book.Search.Parse(search!.Text);
+        var shown = Book.Read(entries(), year, Faction, chronicleOnly!.ButtonPressed, asked);
         var lines = new System.Text.StringBuilder();
         foreach (var entry in shown.Take(MostShown))
             lines.Append(entry.Year).Append("   ").Append(entry.Shown).Append('\n');
@@ -123,7 +141,7 @@ public partial class BookPanel : PanelContainer
             lines.Append("\n(the newest ").Append(MostShown).Append(" of ").Append(shown.Count)
                  .Append(" entries: move the year back to read further)\n");
         if (shown.Count == 0)
-            lines.Append("Nothing written down yet.");
+            lines.Append(asked == null ? "Nothing written down yet." : "Nothing found.");
         text.Text = lines.ToString();
         text.ScrollToLine(0);
     }

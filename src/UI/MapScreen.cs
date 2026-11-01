@@ -203,6 +203,9 @@ public partial class MapScreen : Node
     }
 
     /// <summary>Opens the book: at `faction`'s history, or the whole book for -1 (for testing: `-- --book <faction>`).</summary>
+    /// <summary>Types `typed` in the book's search box (for testing: `-- --search <text>`).</summary>
+    public void SearchBook(string typed) => book?.SetSearch(typed);
+
     public void OpenBook(int faction)
     {
         if (faction < 0)

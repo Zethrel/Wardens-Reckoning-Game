@@ -76,6 +76,10 @@ public partial class MapCamera : Camera2D
 
     public override void _Process(double delta)
     {
+        // While a text box has the keys (the book's search), letters and arrows are typing, not moving the map. The
+        // map sits in its own viewport, so the focus is looked for in the window's.
+        if (GetTree().Root.GuiGetFocusOwner() is LineEdit)
+            return;
         var move = Input.GetVector("ui_left", "ui_right", "ui_up", "ui_down");
         if (Input.IsKeyPressed(Key.A)) move.X -= 1;
         if (Input.IsKeyPressed(Key.D)) move.X += 1;

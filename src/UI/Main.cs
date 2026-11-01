@@ -44,6 +44,10 @@ public partial class Main : Node
         int opened = Array.IndexOf(arguments, "--book");
         if (opened >= 0 && opened + 1 < arguments.Length && screen is MapScreen reading && int.TryParse(arguments[opened + 1], out int which))
             reading.CallDeferred(MapScreen.MethodName.OpenBook, which);
+        // `-- --search <text>` types that in the book's search box (with --book, for testing).
+        int sought = Array.IndexOf(arguments, "--search");
+        if (sought >= 0 && sought + 1 < arguments.Length && screen is MapScreen searching)
+            searching.CallDeferred(MapScreen.MethodName.SearchBook, arguments[sought + 1]);
         // `-- --screenshot <file.png>` saves what is on screen after a few frames and quits (for testing).
         int shot = Array.IndexOf(arguments, "--screenshot");
         if (shot >= 0 && shot + 1 < arguments.Length)

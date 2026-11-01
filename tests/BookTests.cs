@@ -39,6 +39,48 @@ public class BookTests
     }
 
     [Fact]
+    public void A_search_is_a_year_a_span_of_years_or_text()
+    {
+        Assert.Null(Book.Search.Parse(null));
+        Assert.Null(Book.Search.Parse("   "));
+        Assert.Equal(new Book.Search(315, 315, null), Book.Search.Parse(" 315 "));
+        Assert.Equal(new Book.Search(310, 320, null), Book.Search.Parse("310-320"));
+        Assert.Equal(new Book.Search(310, 320, null), Book.Search.Parse("320 - 310"));
+        Assert.Equal(new Book.Search(310, null, null), Book.Search.Parse("310-"));
+        Assert.Equal(new Book.Search(null, 320, null), Book.Search.Parse("-320"));
+        Assert.Equal(new Book.Search(null, null, "Vawyn"), Book.Search.Parse(" Vawyn "));
+        Assert.Equal(new Book.Search(null, null, "-"), Book.Search.Parse("-"));
+        Assert.Equal(new Book.Search(null, null, "war-band"), Book.Search.Parse("war-band"));
+    }
+
+    [Fact]
+    public void A_search_finds_entries_by_year_or_by_their_text_in_any_case()
+    {
+        var entries = new List<BookEntry>
+        {
+            new(1, "battle", "battle at Vawyn", null, new[] { 0 }),
+            new(3, "famine", "famine at Kethe", "In 3 hunger came to Kethe.", new[] { 1 }),
+            new(5, "battle", "battle at kethe", null, new[] { 1 }),
+            new(7, "ruin", "Vawyn fell", null, new[] { 0 }),
+        };
+        string[] Found(string typed, int? faction = null, bool chronicle = false) =>
+            Book.Read(entries, 9, faction, chronicle, Book.Search.Parse(typed)).Select(e => e.Text).ToArray();
+        Assert.Equal(new[] { "battle at kethe", "famine at Kethe" }, Found("KETHE"));
+        Assert.Equal(new[] { "famine at Kethe" }, Found("hunger"));          // the chronicle's sentence counts too
+        Assert.Equal(new[] { "Vawyn fell" }, Found("RUIN"));                 // and the kind of entry
+        entries.Add(new(8, "colony_founded", "people leave crowded Kethe to found Ash", null, new[] { 1 }));
+        Assert.Equal(new[] { "people leave crowded Kethe to found Ash" }, Found("colony founded"));
+        entries.RemoveAt(4);
+        Assert.Equal(new[] { "famine at Kethe" }, Found("3"));
+        Assert.Equal(new[] { "battle at kethe", "famine at Kethe" }, Found("2-6"));
+        Assert.Equal(new[] { "Vawyn fell", "battle at Vawyn" }, Found("vawyn", faction: 0));
+        Assert.Empty(Found("vawyn", faction: 1));
+        Assert.Equal(new[] { "famine at Kethe" }, Found("kethe", chronicle: true));
+        Assert.Equal(new[] { "Vawyn fell" }, Book.Read(entries, 9, null, false, Book.Search.Parse("6-")).Select(e => e.Text));
+        Assert.Empty(Book.Read(entries, 4, null, false, Book.Search.Parse("5-9")));   // not past the year shown
+    }
+
+    [Fact]
     public void A_faction_s_card_is_its_record_in_that_year()
     {
         var world = World();

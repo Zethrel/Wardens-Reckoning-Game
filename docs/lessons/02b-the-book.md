@@ -38,6 +38,22 @@ C# you will meet:
 | `shown.Take(MostShown)` | `shown[:MOST_SHOWN]` | `BookPanel.Refresh` |
 | `line.GuiInput += input => { ... }` | connecting a function to a signal | `MapScreen.ShowLegend` |
 
+### Searching the book (added 1 November 2026)
+
+The box under "Only the chronicle" searches the book as you type:
+
+- **text** anywhere in an entry, in any case: a town's name, a ruler's,
+  "famine". The kind of entry counts too, so "colony" finds every colony
+  founded and "rebellion" every rising;
+- **a year**: `315`;
+- **a span of years**: `310-320`, `310-` (from 310 on), `-320` (up to 320).
+
+It works with a faction's own book and with "Only the chronicle", and never
+shows years past the one on the map. Enter, or a click on the map, gives the
+keys back to the map (while you type, W A S D and the arrows do not move it).
+The code: `Book.Search` in `src/World/Book.cs` (`Parse` reads what was typed,
+`Finds` says whether an entry matches), the box in `src/UI/BookPanel.cs`.
+
 ## 3. Exercise
 
 1. In `src/UI/BookPanel.cs`, set `MostShown = 50`. How far back can you read
