@@ -39,41 +39,6 @@ public class AttunementTests
         return markets;
     }
 
-    /// <summary>Whether two JSON values hold the same: numbers compared as numbers, to the last digit.</summary>
-    static void Same(JsonNode? want, JsonNode? got, string where = "")
-    {
-        switch (want)
-        {
-            case null:
-                Assert.True(got is null, where + ": expected null, got " + got?.ToJsonString());
-                break;
-            case JsonArray a:
-                var b = Assert.IsType<JsonArray>(got);
-                Assert.True(a.Count == b.Count, where + ": " + a.Count + " items, got " + b.Count);
-                for (int i = 0; i < a.Count; i++)
-                    Same(a[i], b[i], where + "[" + i + "]");
-                break;
-            case JsonObject o:
-                var p = Assert.IsType<JsonObject>(got);
-                Assert.Equal(o.Select(k => k.Key).Order(), p.Select(k => k.Key).Order());
-                foreach (var (key, value) in o)
-                    Same(value, p[key], where + "." + key);
-                break;
-            default:
-                var v = want.AsValue();
-                if (v.TryGetValue(out string? text))
-                    Assert.Equal(text, (string?)got);
-                else if (v.TryGetValue(out bool yes))
-                    Assert.Equal(yes, (bool)got!);
-                else
-                    Assert.True(Number(v) == Number(got!), where + ": " + v.ToJsonString() + " against " + got!.ToJsonString());
-                break;
-        }
-    }
-
-    static double Number(JsonNode node) =>
-        double.Parse(node.ToJsonString(), System.Globalization.CultureInfo.InvariantCulture);
-
     /// <summary>The setup of make_expected.py's attunement_years: MARK_PER_METAL 30 times the export's, every town
     /// of a living attunement faction using 20 metal a year, each such faction given the next mine with metal, every
     /// town of an attunement faction hungry, and a certain harvest ritual that goes wrong (0.5).</summary>
@@ -112,13 +77,13 @@ public class AttunementTests
         // The harvest ritual: every faction that works rituals with a hungry town works one, and it goes wrong.
         var worked = Rituals.HarvestYear(game, Enumerable.Repeat(1.0, game.Towns.Count).ToList(), 300);
         var ritual = Expected["ritual"]!;
-        Same(ritual["worked"], new JsonArray(worked.OrderBy(w => w.Key)
+        Json.Same(ritual["worked"], new JsonArray(worked.OrderBy(w => w.Key)
             .Select(w => (JsonNode)new JsonArray(w.Key, w.Value)).ToArray()), "worked");
         Assert.Equal(ritual["events"]!.AsArray().Select(e => ((string)e![0]!, (string)e[1]!)),
                      game.Events.Select(e => (e.Text, e.What)));
-        Same(ritual["marks"], game.Marks!.Write(), "ritual marks");
-        Same(ritual["metal"], new JsonArray(game.Mines.Select(m => (JsonNode)m.Metal).ToArray()), "metal");
-        Same(ritual["memory"], new JsonArray(game.Memory.OrderBy(m => m.Key.Item1).ThenBy(m => m.Key.Item2)
+        Json.Same(ritual["marks"], game.Marks!.Write(), "ritual marks");
+        Json.Same(ritual["metal"], new JsonArray(game.Mines.Select(m => (JsonNode)m.Metal).ToArray()), "metal");
+        Json.Same(ritual["memory"], new JsonArray(game.Memory.OrderBy(m => m.Key.Item1).ThenBy(m => m.Key.Item2)
             .Select(m => (JsonNode)new JsonArray(m.Key.Item1, m.Key.Item2, m.Value)).ToArray()), "memory");
 
         // Five years of marking, spreading, fading, rifts and what the marks do.
@@ -131,11 +96,11 @@ public class AttunementTests
             int before = game.Events.Count;
             Attunement.Year(game, markets, hardship, blame, 301 + step);
             string at = "year " + (301 + step);
-            Same(want["marks"], game.Marks!.Write(), at + " marks");
-            Same(want["people"], new JsonArray(game.Towns.Select(t => (JsonNode)t.People).ToArray()), at + " people");
+            Json.Same(want["marks"], game.Marks!.Write(), at + " marks");
+            Json.Same(want["people"], new JsonArray(game.Towns.Select(t => (JsonNode)t.People).ToArray()), at + " people");
             Assert.Equal(want["ruined"]!.AsArray().Select(r => (bool)r!), game.Towns.Select(t => t.Ruined));
             Assert.Equal(want["lost"]!.AsArray().Select(l => (int)l!), hardship.Select(h => h.Lost));
-            Same(want["blame"], new JsonArray(blame.OrderBy(b => b.Key.Item1).ThenBy(b => b.Key.Item2)
+            Json.Same(want["blame"], new JsonArray(blame.OrderBy(b => b.Key.Item1).ThenBy(b => b.Key.Item2)
                 .Select(b => (JsonNode)new JsonArray(b.Key.Item1, b.Key.Item2, b.Value)).ToArray()), at + " blame");
             Assert.Equal(want["events"]!.AsArray().Select(e => ((string)e![0]!, (string)e[1]!)),
                          game.Events.Skip(before).Select(e => (e.Text, e.What)));
@@ -149,7 +114,7 @@ public class AttunementTests
     {
         var game = new Game(ExportedWorld.Read(Path.Combine(Fixtures, "world-7")), 1);
         var data = JsonNode.Parse(File.ReadAllText(Path.Combine(Fixtures, "world-7", "world.json")))!;
-        Same(data["continue"]!["marks"], game.Marks!.Write(), "marks");
+        Json.Same(data["continue"]!["marks"], game.Marks!.Write(), "marks");
         Assert.Equal(game.Towns.Count, game.Marks!.Lands.Count);
     }
 
@@ -327,14 +292,14 @@ public class AttunementTests
         string path = Path.Combine(Scratch.Root, "wr-attunement-" + Guid.NewGuid().ToString("N") + ".json");
         SaveFile.Write(path, game);
         var loaded = SaveFile.Read(path);
-        Same(game.Marks!.Write(), loaded.Marks!.Write(), "saved marks");
+        Json.Same(game.Marks!.Write(), loaded.Marks!.Write(), "saved marks");
         for (int i = 0; i < 20; i++)
         {
             YearCore.RunYear(game);
             YearCore.RunYear(loaded);
         }
         Assert.Equal(game.Events.Select(e => e.Text), loaded.Events.Select(e => e.Text));
-        Same(game.Marks!.Write(), loaded.Marks!.Write(), "marks after");
+        Json.Same(game.Marks!.Write(), loaded.Marks!.Write(), "marks after");
         Assert.Contains(game.Events, e => e.What == "colony_founded");
         Assert.Equal(game.Towns.Count, game.Marks!.Lands.Count);            // every town the game founded has its land
         Assert.Contains(game.Events, e => e.Kind == "attunement");

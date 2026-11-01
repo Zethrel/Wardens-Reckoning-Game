@@ -416,6 +416,7 @@ public sealed class Game
                 Sides = w["sides"]!.AsArray().Select(side => side!.AsArray().Select(f => (int)f!).ToHashSet()).ToArray(),
                 Dead = w["dead"]!.AsObject().ToDictionary(p => int.Parse(p.Key), p => (double)p.Value!),
                 LastBattle = (int?)w["last_battle"] ?? 0, Ended = (int?)w["ended"], Endurance = (double?)w["endurance"],
+                Rituals = w["rituals"] is JsonArray worked ? worked.Select(f => (int)f!).ToHashSet() : new HashSet<int>(),
             });
         }
         foreach (var pair in world.Data["alliances"]?.AsArray() ?? new JsonArray())

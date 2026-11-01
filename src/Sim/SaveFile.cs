@@ -23,7 +23,7 @@ public static class SaveFile
     // 6: feeding and drift (each town's food, capacity, harvest and who it was fed as; what each faction's land encourages).
     // 7: migration (the towns the game founded, who farms each region, the new routes, the free land left, the own
     // site scores worked out, the names given). 8: attunement (every patch's mark and what the marks have done; the
-    // rift names used).
+    // rift names used; and each war's great rituals).
     public const int Version = 8;
 
     public static void Write(string path, Game game)
@@ -151,6 +151,7 @@ public static class SaveFile
                 ["sides"] = new JsonArray(w.Sides.Select(side => (JsonNode)Numbers(side.OrderBy(f => f))).ToArray()),
                 ["dead"] = new JsonArray(w.Dead.OrderBy(d => d.Key).Select(d => (JsonNode)new JsonArray(d.Key, d.Value)).ToArray()),
                 ["last_battle"] = w.LastBattle, ["ended"] = w.Ended, ["endurance"] = w.Endurance,
+                ["rituals"] = Numbers(w.Rituals.Order().ToArray()),
             }).ToArray()),
             ["memory"] = new JsonArray(game.Memory.OrderBy(p => p.Key)
                 .Select(p => (JsonNode)new JsonArray(p.Key.Item1, p.Key.Item2, p.Value)).ToArray()),
@@ -407,6 +408,8 @@ public static class SaveFile
                 Sides = w["sides"]!.AsArray().Select(side => side!.AsArray().Select(f => (int)f!).ToHashSet()).ToArray(),
                 Dead = w["dead"]!.AsArray().ToDictionary(d => (int)d![0]!, d => (double)d![1]!),
                 LastBattle = (int)w["last_battle"]!, Ended = (int?)w["ended"], Endurance = (double?)w["endurance"],
+                // A save of step 8a has no "rituals" (no war had any in the game then): none.
+                Rituals = w["rituals"] is JsonArray worked ? worked.Select(f => (int)f!).ToHashSet() : new HashSet<int>(),
             });
         }
         game.DriftTargets.Clear();

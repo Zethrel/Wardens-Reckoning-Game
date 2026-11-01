@@ -18,6 +18,8 @@ public sealed class WarNow
     public int? Ended { get; set; }
     /// <summary>The weariness at which a side will make peace (drawn once from PEACE_WEARINESS).</summary>
     public double? Endurance { get; set; }
+    /// <summary>The factions that have worked a great ritual in this war (each works at most one; step 8).</summary>
+    public HashSet<int> Rituals { get; set; } = new();
 }
 
 /// <summary>
@@ -26,7 +28,7 @@ public sealed class WarNow
 /// between every two enemies that meet along a route (and towns taken), peace when a side is weary or the war goes
 /// quiet, conquered towns rising, and every BORDER_YEARS the land between the towns shared out again.
 ///
-/// Not yet in the game's wars: happenings that stir or calm a faction (step 9), great rituals (8), and a rising
+/// Not yet in the game's wars: happenings that stir or calm a faction (step 9), and a rising
 /// whose faction is gone founding a faction of its own (splits, step 6): until then such a faction rises again.
 /// The land between towns goes to the nearest town over land, not along ridges and rivers as in the generator.
 /// </summary>

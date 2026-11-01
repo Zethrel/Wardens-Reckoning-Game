@@ -606,21 +606,9 @@ def learning_and_capitals(data):
     return learned
 
 
-def attunement_years(data):
-    """Attunement (the game's step 8) by the generator's own attunement.year_of_attunement, which rolls no dice: one
-    year of trade (its markets), then MARK_YEARS years of marking, spreading, fading, rifts and what the marks do, on the
-    export's marks, with MARK_PER_METAL 30 times the export's so that the land is marked hard (unease, prey, new
-    rifts, towns given up); the marks, the towns' people, the blame and the events after each
-    year. Before those years, a harvest ritual year (300) with HARVEST_RITUAL_CHANCE 1, HARVEST_RITUAL_POOR 0 and HARVEST_RITUAL (0.5,
-    0.5), every town of a faction that works rituals made hungry: each such faction works one, and it goes wrong
-    (marking its towns)."""
-    from types import SimpleNamespace
-    from north import attunement, export, rituals
-    year = trade_year(data)
-    places, going, settings = year.places, year.going, year.settings
-    factor = data["history_factor"]
-    for place in places:
-        place.x, place.y = place.x // factor, place.y // factor
+def marks_of(going):
+    """The generator's attunement.Marks from an export's "continue"."marks"."""
+    from north import attunement
     kept = going["marks"]
     marks = attunement.Marks(kept["size"], kept["columns"], kept["rows"], {tuple(p) for p in kept["land"]},
                              {(c, r): (c2, r2) for c, r, c2, r2 in kept["downstream"]},
@@ -639,6 +627,25 @@ def attunement_years(data):
         marks.around[(column, row)] = [(column + dx, row + dy) for dy in (-1, 0, 1) for dx in (-1, 0, 1)
                                        if (dx or dy) and (column + dx, row + dy) in marks.land]
     marks.near = [attunement.near_of(marks, patches) for patches in marks.lands]
+    return marks
+
+
+def attunement_years(data):
+    """Attunement (the game's step 8) by the generator's own attunement.year_of_attunement, which rolls no dice: one
+    year of trade (its markets), then MARK_YEARS years of marking, spreading, fading, rifts and what the marks do, on the
+    export's marks, with MARK_PER_METAL 30 times the export's so that the land is marked hard (unease, prey, new
+    rifts, towns given up); the marks, the towns' people, the blame and the events after each
+    year. Before those years, a harvest ritual year (300) with HARVEST_RITUAL_CHANCE 1, HARVEST_RITUAL_POOR 0 and HARVEST_RITUAL (0.5,
+    0.5), every town of a faction that works rituals made hungry: each such faction works one, and it goes wrong
+    (marking its towns)."""
+    from types import SimpleNamespace
+    from north import attunement, export, rituals
+    year = trade_year(data)
+    places, going, settings = year.places, year.going, year.settings
+    factor = data["history_factor"]
+    for place in places:
+        place.x, place.y = place.x // factor, place.y // factor
+    marks = marks_of(going)
     factions = [SimpleNamespace(index=i, name=f["name"], path=f["path"], people=f["people"], population=f["population"],
                                 traits=f["traits"], ruler=None if f["ruler"] is None else SimpleNamespace(
                                     name=f["ruler"]["name"], traits=f["ruler"]["traits"]))
@@ -691,6 +698,43 @@ def attunement_years(data):
                       "lost": [hardship[f.index]["lost"] for f in factions],
                       "blame": sorted([a, b, value] for (a, b), value in blame.items()), "events": events})
     return {"years": years, "ritual": ritual_year}
+
+
+def great_ritual(data):
+    """A great ritual (the game's step 8b) by the generator's own rituals.year_of_rituals, made certain: the first
+    living attunement faction with towns at war with the first other living faction with towns, its side's dead
+    10 000 (losing), the next mine with metal its own, RITUAL_CHANCE 1000 and RITUAL_DEATHS one number, so no dice
+    decide. The war's dead, the towns' people, the memories, the mines' metal, the marks and the events after it."""
+    from types import SimpleNamespace
+    from north import export, rituals
+    year = trade_year(data)
+    places, going, settings = year.places, year.going, year.settings
+    factor = data["history_factor"]
+    for place in places:
+        place.x, place.y = place.x // factor, place.y // factor
+    factions = [SimpleNamespace(index=i, name=f["name"], path=f["path"], population=f["population"],
+                                ruler=None if f["ruler"] is None else SimpleNamespace(traits=f["ruler"]["traits"]))
+                for i, f in enumerate(data["factions"])]
+    with_towns = [f.index for f in factions if f.population > 0
+                  and any(p.culture == f.index and not p.ruined for p in places)]
+    mage = next(f for f in with_towns if factions[f].path == "attunement")
+    enemy = next(f for f in with_towns if f != mage)
+    next(d for d in year.deposits if d.metal > 0).owner = mage
+    war = SimpleNamespace(ended=None, sides=[{enemy}, {mage}], dead={mage: 10000.0}, rituals=set())
+    powers = SimpleNamespace(factions=factions, deposits=year.deposits, marks=marks_of(going), deaths=[], rituals=[],
+                             fighting=SimpleNamespace(wars=[war]))
+    certain = SimpleNamespace(**dict(settings["attunement"], RITUAL_CHANCE=1000.0, RITUAL_DEATHS=0.3))
+    people = [town["people"] for town in going["towns"]]
+    memory = {(a, b): value for a, b, value in going["memory"]}
+    events = []
+    import random
+    rituals.year_of_rituals(powers, places, people, certain, random.Random(1), 301, events,
+                            lambda y, kind, text, what, facts: [text, what], memory, going["history_columns"])
+    ritual = powers.rituals[0]
+    return {"mage": mage, "enemy": enemy, "dead": sorted([f, v] for f, v in war.dead.items()),
+            "worked": sorted(war.rituals), "people": people, "crater": [ritual.x, ritual.y],
+            "pair": [ritual.source, ritual.target], "memory": sorted([a, b, v] for (a, b), v in memory.items()),
+            "metal": [d.metal for d in year.deposits], "marks": export.marks_state(powers), "events": events}
 
 
 MARK_YEARS = 5
@@ -758,6 +802,7 @@ def main(generator):
     expected["migration"] = migration_year(world.data)
     expected["learning"] = learning_and_capitals(world.data)
     expected["attunement"] = attunement_years(world.data)
+    expected["great_ritual"] = great_ritual(world.data)
     (HERE / "expected.json").write_text(json.dumps(expected, separators=(",", ":")), encoding="utf-8")
 
     grid = [[(x * x * 7 + y * 31 + (x ^ y) * 13) % 256 for x in range(24)] for y in range(20)]

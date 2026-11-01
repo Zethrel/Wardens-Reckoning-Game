@@ -117,6 +117,7 @@ public static class YearCore
         Opinions.Year(game, markets, year);
         Splits.UpdateEmpires(game);                 // who holds together this year, before the wars
         War.Year(game, markets, hardship, year);
+        Rituals.WarYear(game, year);                // desperate attunement factions strike their enemies (step 8)
         Rulers.Year(game, hardship.Select(h => h.Felt()).ToList(), year);
         Capitals.Mend(game, year);                  // a capital lost this year, before the splits measure from it
         Splits.Year(game, hardship, year);

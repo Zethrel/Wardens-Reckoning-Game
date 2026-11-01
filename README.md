@@ -29,7 +29,7 @@ The plan, step by step: `docs/plan.md`.
 ## Layout
 
 - `src/World`: reads an exported world (as the generator's north/world_file.py does).
-- `src/Sim`: the history systems in C#, running the years on (so far: harvest, trade, mines, food, growth, ruin, memories, opinions, rulers, grievance, revolutions, your rules, war, alliances, conquest, rebellion, splits, merging and empires, feeding by tastes, drift, migration, rulers who age by their people's lifespan, learned paths and hybrids, capitals, attunement's mark and the harvest ritual).
+- `src/Sim`: the history systems in C#, running the years on (so far: harvest, trade, mines, food, growth, ruin, memories, opinions, rulers, grievance, revolutions, your rules, war, alliances, conquest, rebellion, splits, merging and empires, feeding by tastes, drift, migration, rulers who age by their people's lifespan, learned paths and hybrids, capitals, attunement's mark, the harvest ritual and the great ritual in war).
 - `src/UI`: the screens, in Godot. The map is drawn in a SubViewport between the book and the factions, so no panel covers it.
 - `tests/`: the tests, and a small exported world to test with.
 
