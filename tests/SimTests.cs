@@ -235,7 +235,7 @@ public class SaveTests
                 + string.Join("/", w.Sides.Select(s => string.Join(".", s.OrderBy(f => f)))) + ","
                 + string.Join("/", w.Dead.OrderBy(d => d.Key).Select(d => $"{d.Key}:{d.Value:R}"))))
         + "|" + string.Join(";", game.Factions.Select(f => string.Join(",", f.Border.OrderBy(b => b.Key).Select(b => $"{b.Key}:{b.Value:R}"))))
-        + "|" + string.Join("/", game.World.Borders(game.Year))
+        + "|" + string.Join("/", game.World.Borders(game.Year) ?? Array.Empty<int>())
         + "|" + string.Join(",", Enumerable.Range(0, game.World.Towns.Count)
                                            .Select(i => string.Join(".", game.World.Towns[i].People)));
 
