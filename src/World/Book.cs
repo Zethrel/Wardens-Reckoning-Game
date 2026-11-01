@@ -10,9 +10,30 @@ namespace WardensReckoning.World;
 /// </summary>
 public sealed record BookEntry(int Year, string What, string Text, string? Told, IReadOnlyList<int> Factions)
 {
-    /// <summary>What the book shows: the chronicle's sentence, or else the plain text with a capital first letter
-    /// (as the chronicle writes every sentence).</summary>
-    public string Shown => Told ?? (Text.Length > 0 ? char.ToUpperInvariant(Text[0]) + Text[1..] : Text);
+    /// <summary>What the book shows: the chronicle's sentence without the year it opens with (the book shows the
+    /// year in front of it), or else the plain text; either with a capital first letter, as the chronicle writes
+    /// every sentence.</summary>
+    public string Shown => Capital(Told == null ? Text : WithoutYear(Told, Year));
+
+    static string Capital(string text) => text.Length > 0 ? char.ToUpperInvariant(text[0]) + text[1..] : text;
+
+    /// <summary>
+    /// A chronicle sentence without the year it opens with: "In 262, the Whisperward took..." becomes "the
+    /// Whisperward took...", "By 262, no one..." "no one...", "From 262, no salt came..." "from then on, no salt
+    /// came...", "After a long battle in 30, ..." "after a long battle, ...". A year anywhere else is kept.
+    /// </summary>
+    public static string WithoutYear(string told, int year)
+    {
+        string y = year.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        foreach (var (opening, instead) in new[] { ("In " + y + ", ", ""), ("By " + y + ", ", ""),
+                                                   ("From " + y + ", ", "from then on, ") })
+            if (told.StartsWith(opening, StringComparison.Ordinal))
+                return instead + told[opening.Length..];
+        var after = System.Text.RegularExpressions.Regex.Match(told, "^(After [^,]*?) in " + y + ", ");
+        if (after.Success)
+            return after.Groups[1].Value + ", " + told[after.Length..];
+        return told;
+    }
 }
 
 /// <summary>What a faction's card shows about it in one year.</summary>

@@ -54,6 +54,17 @@ keys back to the map (while you type, W A S D and the arrows do not move it).
 The code: `Book.Search` in `src/World/Book.cs` (`Parse` reads what was typed,
 `Finds` says whether an entry matches), the box in `src/UI/BookPanel.cs`.
 
+### The year said once (added 1 November 2026)
+
+Every entry shows its year in front, so a chronicle sentence that opens with
+it would say it twice ("262   In 262, the Whisperward took..."). The book
+now drops that opening: "In 262, " and "By 262, " go, "From 262, " becomes
+"From then on, ", and "After a long battle in 30, " becomes "After a long
+battle, ". A year anywhere else in the sentence stays, and the generator's
+`chronicle.md` keeps every sentence as written. The code: `BookEntry.Shown`
+and `BookEntry.WithoutYear` in `src/World/Book.cs`; the tests are in
+`tests/BookTests.cs`.
+
 ## 3. Exercise
 
 1. In `src/UI/BookPanel.cs`, set `MostShown = 50`. How far back can you read

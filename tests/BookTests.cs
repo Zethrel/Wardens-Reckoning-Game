@@ -17,7 +17,10 @@ public class BookTests
         Assert.Equal(world.Data["events"]!.AsArray().Count, entries.Count);
         Assert.Contains(entries, e => e.Told != null);
         Assert.True(entries.Count(e => e.Factions.Count > 0) > entries.Count * 9 / 10);
-        Assert.All(entries.Where(e => e.Told != null), e => Assert.Equal(e.Told, e.Shown));
+        // The chronicle's sentence is shown, without the year it opens with (the book shows the year in front).
+        Assert.Contains(entries, e => e.Told != null && e.Told.StartsWith("In " + e.Year + ", "));
+        Assert.All(entries.Where(e => e.Told != null), e => Assert.EndsWith(e.Told!.Split(", ", 2)[^1][1..], e.Shown));
+        Assert.All(entries.Where(e => e.Told != null), e => Assert.False(e.Shown.StartsWith("In " + e.Year + ",")));
         var plain = entries.First(e => e.Told == null && e.Text.Length > 0 && char.IsLower(e.Text[0]));
         Assert.Equal(char.ToUpperInvariant(plain.Text[0]), plain.Shown[0]);
         Assert.Equal(plain.Text[1..], plain.Shown[1..]);
@@ -149,4 +152,17 @@ public class BookTests
             a!.Year == b!.Year && a.Text == b.Text && a.Told == b.Told && a.Factions.SequenceEqual(b.Factions);
         public int GetHashCode(BookEntry e) => e.Text.GetHashCode();
     }
+
+    [Theory]
+    [InlineData("In 262, the Whisperward took the craft.", 262, "The Whisperward took the craft.")]
+    [InlineData("By 104, no one among the Deephands remembered.", 104, "No one among the Deephands remembered.")]
+    [InlineData("From 7, no salt came to the Sylze.", 7, "From then on, no salt came to the Sylze.")]
+    [InlineData("After a long battle in 30, Hearthfall Commons conquered Whisperward.", 30,
+                "After a long battle, Hearthfall Commons conquered Whisperward.")]
+    [InlineData("In 262, the war of 261 ended.", 262, "The war of 261 ended.")]
+    [InlineData("In 26, the Whisperward fell.", 262, "In 26, the Whisperward fell.")]
+    [InlineData("The Whisperward fell in 262.", 262, "The Whisperward fell in 262.")]
+    [InlineData("Peace came. By 262, all was quiet.", 262, "Peace came. By 262, all was quiet.")]
+    public void The_book_drops_the_year_a_chronicle_sentence_opens_with(string told, int year, string shown) =>
+        Assert.Equal(shown, new BookEntry(year, "x", "plain", told, Array.Empty<int>()).Shown);
 }
