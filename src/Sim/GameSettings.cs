@@ -246,6 +246,116 @@ public sealed class GameSettings
     public (double Low, double High) RitualDeaths { get; }
     public double CraterRadius { get; }
 
+    /// <summary>
+    /// Offshoot paths (split_settings.py, step 8c): OFFSHOOT_CHANCE (above) is the chance a new faction founds a path
+    /// of its own, PATH_SPREAD how far each of its values may move from its parent's; faction_settings.py PATH_NAMES
+    /// the names for the paths that branch from each root path, in turn; split_settings.py STANCES the stances a
+    /// founder may take towards all others, in order: (name, chance, how much its memory of every other moves).
+    /// </summary>
+    public double PathSpread { get; }
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> PathNames { get; }
+    public IReadOnlyList<(string Name, double Chance, double Memory)> Stances { get; }
+    /// <summary>Each path's ritual factor ("rituals" in PATHS: 1 for your own paths), which multiplies the chances of
+    /// its factions' rituals (paths.ritual_factor).</summary>
+    public IReadOnlyDictionary<string, double> PathRituals { get; }
+    /// <summary>Whether the tables of paths by name are there (as the generator's book copies only those that are).</summary>
+    bool hasPathOpinions;
+
+    /// <summary>One path the game founded, with the values it was given (for a save: they are put back in order).</summary>
+    public sealed record FoundedPath(string Name, string Parent, double Rituals, double? MetalNeed, double? Harvest,
+                                     double? Steadiness, IReadOnlyList<(string Path, double Value)> Row,
+                                     IReadOnlyList<(string Path, double Value)> Column, double? Blame);
+
+    /// <summary>The paths the game founded, in order.</summary>
+    public List<FoundedPath> Founded { get; } = new();
+
+    /// <summary>A path's ritual factor (paths.ritual_factor): 1 for a path without one.</summary>
+    public double RitualFactor(string? path) => path != null ? PathRituals.GetValueOrDefault(path, 1.0) : 1.0;
+
+    /// <summary>
+    /// A new path branching from `parent`, founded by `faction` (the generator's paths.Book.found): named from
+    /// PATH_NAMES for its root, or "&lt;faction&gt; way"; every value its parent's moved by a draw of `draw` (a number
+    /// between -PATH_SPREAD and PATH_SPREAD), in the generator's order: its ritual factor, METAL_NEED, PATH_HARVEST,
+    /// PATH_STEADINESS (0 to 1), what it thinks of every other path and of itself, what every other path thinks of it
+    /// (-1 to 1), and PATH_BLAME. Its suits, abilities and PATH_LAND are its parent's. Returns its name.
+    /// </summary>
+    public string FoundPath(string parent, string faction, Func<double> draw)
+    {
+        string root = PathRoot.GetValueOrDefault(parent, parent);
+        string name = PathNameFor(root, faction);
+        double Moved(double value, double? low = null, double? high = null)
+        {
+            value += draw();
+            if (low is double l)
+                value = Math.Max(l, value);
+            if (high is double h)
+                value = Math.Min(h, value);
+            return value;
+        }
+        double rituals = Moved(PathRituals.GetValueOrDefault(parent, 1.0), 0.0);
+        double? metal = MetalNeed.TryGetValue(parent, out double m) ? Moved(m, 0.0) : null;
+        double? harvest = PathHarvest.TryGetValue(parent, out double hv) ? Moved(hv, 0.0) : null;
+        double? steady = PathSteadiness.TryGetValue(parent, out double st) ? Moved(st, 0.0, 1.0) : null;
+        var row = new List<(string, double)>();
+        var column = new List<(string, double)>();
+        if (hasPathOpinions)
+        {
+            var others = PathSuits.Keys.ToList();                   // every path before this one, in order
+            foreach (string other in others)
+                row.Add((other, Moved(PathOpinion(parent, other), -1.0, 1.0)));
+            row.Add((name, Moved(PathOpinion(parent, parent), -1.0, 1.0)));
+            foreach (string other in others)
+                column.Add((other, Moved(PathOpinion(other, parent), -1.0, 1.0)));
+        }
+        double? blame = Attuning && PathBlame.TryGetValue(parent, out double b) ? Moved(b) : null;
+        var founded = new FoundedPath(name, parent, rituals, metal, harvest, steady, row, column, blame);
+        AddPath(founded);
+        return name;
+    }
+
+    /// <summary>The name for a path branching from `root` (paths.Book.name_for): the first of PATH_NAMES[root] not yet
+    /// a path, or "&lt;faction&gt; way", then "&lt;faction&gt; way 2" and on.</summary>
+    string PathNameFor(string root, string faction)
+    {
+        foreach (string listed in PathNames.GetValueOrDefault(root) ?? new List<string>())
+            if (!PathSuits.ContainsKey(listed))
+                return listed;
+        string plain = Splits.WithoutArticle(faction);
+        string name = plain + " way";
+        for (int number = 2; PathSuits.ContainsKey(name); number++)
+            name = plain + " way " + number;
+        return name;
+    }
+
+    /// <summary>Put a founded path into every table by path (for FoundPath, and for a save being read).</summary>
+    public void AddPath(FoundedPath p)
+    {
+        static void Put<T>(IReadOnlyDictionary<string, T> table, string key, T value) => ((Dictionary<string, T>)table)[key] = value;
+        Put(PathSuits, p.Name, PathSuits[p.Parent]);
+        Put(PathAbilities, p.Name, PathAbilities[p.Parent]);
+        Put(PathRoot, p.Name, PathRoot.GetValueOrDefault(p.Parent, p.Parent));
+        Put(PathRituals, p.Name, p.Rituals);
+        if (p.MetalNeed is double metal)
+            Put(MetalNeed, p.Name, metal);
+        if (p.Harvest is double harvest)
+            Put(PathHarvest, p.Name, harvest);
+        if (p.Steadiness is double steady)
+            Put(PathSteadiness, p.Name, steady);
+        if (PathLand.TryGetValue(p.Parent, out var land))
+            Put(PathLand, p.Name, (IReadOnlyDictionary<string, string>)new Dictionary<string, string>(land));
+        foreach (var (other, value) in p.Column)
+        {
+            if (!PathOpinions.TryGetValue(other, out var theirs))
+                Put(PathOpinions, other, theirs = new Dictionary<string, double>());
+            ((Dictionary<string, double>)theirs)[p.Name] = value;
+        }
+        if (p.Row.Count > 0)
+            Put(PathOpinions, p.Name, (IReadOnlyDictionary<string, double>)p.Row.ToDictionary(r => r.Path, r => r.Value));
+        if (p.Blame is double blame)
+            Put(PathBlame, p.Name, blame);
+        Founded.Add(p);
+    }
+
     /// <summary>What each path can do, by name ("marks_land", "works_rituals": faction_settings.py PATHS).</summary>
     public IReadOnlyDictionary<string, IReadOnlySet<string>> PathAbilities { get; }
 
@@ -328,6 +438,11 @@ public sealed class GameSettings
         PathSuits = factions["PATHS"]!.AsObject().ToDictionary(p => p.Key, p => (IReadOnlyList<(string, string)>)(
             p.Value!["suits"] is JsonObject suits ? suits.Select(t => (t.Key, (string)t.Value!)).ToList() : new List<(string, string)>()));
         PathOpinions = Tables(factions["PATH_OPINIONS"]);
+        hasPathOpinions = factions["PATH_OPINIONS"] != null;
+        PathRituals = factions["PATHS"]!.AsObject().ToDictionary(p => p.Key, p => (double?)p.Value!["rituals"] ?? 1.0);
+        PathNames = factions["PATH_NAMES"] is JsonObject pathNames
+            ? pathNames.ToDictionary(p => p.Key, p => (IReadOnlyList<string>)p.Value!.AsArray().Select(n => (string)n!).ToList())
+            : new Dictionary<string, IReadOnlyList<string>>();
         PathOpinionDefault = (double?)factions["PATH_OPINION_DEFAULT"] ?? 0.0;
         BeliefOpinions = Tables(factions["BELIEF_OPINIONS"]);
         Relations = factions["RELATIONS"]!.AsArray().Select(r => ((double)r![0]!, (string)r[1]!)).ToList();
@@ -358,6 +473,10 @@ public sealed class GameSettings
             ? names.ToDictionary(p => p.Key, p => (IReadOnlyList<string>)p.Value!.AsArray().Select(n => (string)n!).ToList())
             : new Dictionary<string, IReadOnlyList<string>>();
         OffshootChance = (double?)splits["OFFSHOOT_CHANCE"] ?? 0.0;
+        PathSpread = (double?)splits["PATH_SPREAD"] ?? 0.0;
+        Stances = splits["STANCES"] is JsonObject stances
+            ? stances.Select(p => (p.Key, (double?)p.Value!["chance"] ?? 0.0, (double?)p.Value["memory"] ?? 0.0)).ToList()
+            : new List<(string, double, double)>();
         CapitalChoice = (string?)splits["CAPITAL_CHOICE"] ?? "largest";
         CapitalMoveChance = (double?)splits["CAPITAL_MOVE_CHANCE"] ?? 0.0;
         EmpireShare = (double?)splits["EMPIRE_SHARE"] ?? 2.0;

@@ -371,6 +371,8 @@ public static class Splits
         double parting = peaceful ? Warm : Bitter;
         game.Memory[(index, parent)] = game.Memory[(parent, index)] = parting;
         child.Opinions[parent] = mother.Opinions[index] = parting;
+        if (rising < 0)
+            Settle(game, index, year, told);
 
         string succession = settings.Governments.TryGetValue(child.Government, out var government) ? government.Succession : "chosen";
         child.Ruler = Rulers.NewRuler(game, succession, index, null, year);
@@ -457,5 +459,47 @@ public static class Splits
                     new Dictionary<string, string> { ["faction"] = child.Name, ["government"] = child.Government }));
             }
         }
+        // A path of its own (step 8c): with OFFSHOOT_CHANCE, branching from its kin's.
+        if (settings.OffshootChance > 0 && child.Path != null && dice.Random() < settings.OffshootChance)
+        {
+            string parent = child.Path;
+            child.Path = settings.FoundPath(parent, child.Name, () => dice.Uniform(-settings.PathSpread, settings.PathSpread));
+            game.Founders.Add(game.Factions.Count);
+            told.Add(new GameEvent(year, "path", "path_founded",
+                "the " + child.Name + " found a path of their own, the " + child.Path + ", from the " + parent,
+                new[] { game.Factions.Count },
+                new Dictionary<string, string> { ["faction"] = child.Name, ["path"] = child.Path, ["parent"] = parent }));
+        }
+    }
+
+    /// <summary>
+    /// A faction that founded a path may take a stance towards all others (newcomers.settle), once its memories are
+    /// set: one draw against STANCES' chances in order; it remembers every other faction by the stance's "memory"
+    /// more (or less) kindly. Told after the split.
+    /// </summary>
+    static void Settle(Game game, int child, int year, List<GameEvent> told)
+    {
+        var stances = game.Settings.Stances;
+        if (!game.Founders.Contains(child) || stances.Count == 0)
+            return;
+        double roll = game.DiceFor("newcomers").Random();
+        (string Name, double Chance, double Memory)? stance = null;
+        foreach (var candidate in stances)
+        {
+            if (roll < candidate.Chance)
+            {
+                stance = candidate;
+                break;
+            }
+            roll -= candidate.Chance;
+        }
+        if (stance is not { } taken)
+            return;
+        for (int other = 0; other < game.Factions.Count; other++)
+            if (other != child && game.Memory.TryGetValue((child, other), out double remembered))
+                game.Memory[(child, other)] = Math.Min(1.0, Math.Max(-1.0, remembered + taken.Memory));
+        string name = game.Factions[child].Name;
+        told.Add(new GameEvent(year, "split", "split_stance", "the " + name + " are " + taken.Name + " towards all others",
+            new[] { child }, new Dictionary<string, string> { ["faction"] = name, ["stance"] = taken.Name }));
     }
 }

@@ -55,7 +55,7 @@ public static class Rituals
                 (why, odds) = ("poor harvest", chance * (1.0 - faction.Traits["planning"]));
             else
                 continue;
-            if (dice.Random() >= odds || MetalOf(game, f) <= 0)
+            if (dice.Random() >= ByPath(game, odds, faction) || MetalOf(game, f) <= 0)
                 continue;
             foreach (var mine in game.Mines)
                 if (mine.Owner == f)
@@ -114,7 +114,7 @@ public static class Rituals
                         continue;
                     if (Losing(game, war, f) < settings.RitualDesperation)
                         continue;
-                    if (dice.Random() >= settings.RitualChance * 2 * Recklessness(faction.Ruler))
+                    if (dice.Random() >= ByPath(game, settings.RitualChance * 2 * Recklessness(faction.Ruler), faction))
                         continue;
                     double left = MetalOf(game, f);
                     var pair = NearestPair(game, f, war.Sides[other]);
@@ -229,6 +229,14 @@ public static class Rituals
                 marks.Permanent.Add(patch);
             }
         }
+    }
+
+    /// <summary>A ritual's chance for a faction, times its path's ritual factor (an offshoot's; 1 for your own paths).
+    /// rituals.by_path, without the chokepoints' part, which comes with step 9.</summary>
+    public static double ByPath(Game game, double chance, FactionNow faction)
+    {
+        double factor = game.Settings.RitualFactor(faction.Path);
+        return factor == 1.0 ? chance : chance * factor;
     }
 
     /// <summary>The average of this year's weather over a faction's towns; 1.0 without any (rituals.poor_year).</summary>

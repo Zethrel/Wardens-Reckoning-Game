@@ -737,6 +737,35 @@ def great_ritual(data):
             "metal": [d.metal for d in year.deposits], "marks": export.marks_state(powers), "events": events}
 
 
+def offshoots(data):
+    """Offshoot paths (the game's step 8c) by the generator's own paths.Book on the export's settings, with
+    PATH_NAMES {"handcraft": ["attunement", "Stonehand"]} and PATH_SPREAD 0 (no value moves): three paths founded by
+    the Kilnrow, from handcraft, from the first offshoot, and from handcraft again (named Stonehand, skipping
+    attunement, a path already; then "Kilnrow way", "Kilnrow way 2"). Every table's entry for each, as the book holds
+    it after all three."""
+    import random
+    from types import SimpleNamespace
+    from north import paths
+    settings = data["continue"]["settings"]
+    book = paths.Book(SimpleNamespace(**settings["factions"]), SimpleNamespace(**settings["attunement"]),
+                      {"handcraft": ["attunement", "Stonehand"]})
+    try:
+        names = [book.found("handcraft", "The Kilnrow", 0.0, random.Random(1), 301)]
+        names.append(book.found(names[0], "The Kilnrow", 0.0, random.Random(1), 302))
+        names.append(book.found("handcraft", "The Kilnrow", 0.0, random.Random(1), 303))
+        f = book.factions
+        return {"names": names, "order": list(book.table), "paths": {name: {
+            "root": book.table[name]["root"], "parent": book.table[name]["parent"],
+            "rituals": book.table[name]["rituals"],
+            "metal_need": f.METAL_NEED.get(name), "harvest": f.PATH_HARVEST.get(name),
+            "steadiness": f.PATH_STEADINESS.get(name), "land": f.PATH_LAND.get(name),
+            "row": f.PATH_OPINIONS.get(name),
+            "column": {other: row[name] for other, row in f.PATH_OPINIONS.items() if name in row and other != name},
+            "blame": book.attunement.PATH_BLAME.get(name)} for name in names}}
+    finally:
+        paths.close()
+
+
 MARK_YEARS = 5
 
 
@@ -803,6 +832,7 @@ def main(generator):
     expected["learning"] = learning_and_capitals(world.data)
     expected["attunement"] = attunement_years(world.data)
     expected["great_ritual"] = great_ritual(world.data)
+    expected["offshoots"] = offshoots(world.data)
     (HERE / "expected.json").write_text(json.dumps(expected, separators=(",", ":")), encoding="utf-8")
 
     grid = [[(x * x * 7 + y * 31 + (x ^ y) * 13) % 256 for x in range(24)] for y in range(20)]

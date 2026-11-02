@@ -132,6 +132,15 @@ public static class SaveFile
             ["names_used"] = Numbers(game.NamesUsed),
             ["people_names_used"] = Numbers(game.PeopleNamesUsed),
             ["waiting"] = new JsonArray(game.Waiting.Select(w => (JsonNode)new JsonArray(w.Key, w.Folk)).ToArray()),
+            ["founders"] = Numbers(game.Founders.Order().ToArray()),
+            // The paths the game founded (step 8c), with their values, to be put back in order.
+            ["founded_paths"] = new JsonArray(game.Settings.Founded.Select(p => (JsonNode)new JsonObject
+            {
+                ["name"] = p.Name, ["parent"] = p.Parent, ["rituals"] = p.Rituals, ["metal_need"] = p.MetalNeed,
+                ["harvest"] = p.Harvest, ["steadiness"] = p.Steadiness, ["blame"] = p.Blame,
+                ["row"] = new JsonArray(p.Row.Select(r => (JsonNode)new JsonArray(r.Path, r.Value)).ToArray()),
+                ["column"] = new JsonArray(p.Column.Select(r => (JsonNode)new JsonArray(r.Path, r.Value)).ToArray()),
+            }).ToArray()),
             ["split_names_given"] = new JsonObject(game.SplitNamesGiven.OrderBy(p => p.Key, StringComparer.Ordinal)
                 .Select(p => KeyValuePair.Create(p.Key, (JsonNode?)p.Value))),
             // The dice's state is four 64-bit numbers each, written as text: JSON numbers cannot hold them exactly.
@@ -379,6 +388,19 @@ public static class SaveFile
         game.Waiting.Clear();
         foreach (var w in save["waiting"]!.AsArray())
             game.Waiting.Add(((string)w![0]!, (int)w[1]!));
+        // A save of step 8b or before has no founded paths and no founders: none.
+        foreach (var node in save["founded_paths"] as JsonArray ?? new JsonArray())
+        {
+            var p = node!.AsObject();
+            static List<(string, double)> Pairs(JsonNode? list) =>
+                list!.AsArray().Select(r => ((string)r![0]!, (double)r[1]!)).ToList();
+            game.Settings.AddPath(new GameSettings.FoundedPath((string)p["name"]!, (string)p["parent"]!, (double)p["rituals"]!,
+                (double?)p["metal_need"], (double?)p["harvest"], (double?)p["steadiness"], Pairs(p["row"]), Pairs(p["column"]),
+                (double?)p["blame"]));
+        }
+        game.Founders.Clear();
+        foreach (var founder in save["founders"] as JsonArray ?? new JsonArray())
+            game.Founders.Add((int)founder!);
         game.SplitNamesGiven.Clear();
         foreach (var (key, given) in save["split_names_given"]!.AsObject())
             game.SplitNamesGiven[key] = (int)given!;

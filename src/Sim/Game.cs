@@ -172,6 +172,9 @@ public sealed class Game
     /// look after every faction's capital at the end of each year, and a faction comes to be with towns of its own.
     /// </summary>
     public HashSet<int> CapitalsKnown { get; } = new();
+
+    /// <summary>The factions that founded a path of their own (newcomers.founders): one may take a stance.</summary>
+    public HashSet<int> Founders { get; } = new();
     /// <summary>How many towns were taken in battle, and how many rose back, in the game's years.</summary>
     public int Conquests { get; set; }
     public int Rebellions { get; set; }
@@ -442,6 +445,8 @@ public sealed class Game
             Waiting.Add(((string)entry![0]!, (int)entry[1]!));
         foreach (var (path, given) in (going["newcomers"]?["given"] as JsonObject) ?? throw Older("\"newcomers\""))
             SplitNamesGiven[path] = (int)given!;
+        foreach (var founder in (going["newcomers"]?["founders"] as JsonArray) ?? new JsonArray())
+            Founders.Add((int)founder!);
         Factions = world.Data["factions"]!.AsArray().Select((node, k) =>
         {
             var f = node!.AsObject();
