@@ -23,7 +23,8 @@ public static class SaveFile
     // 6: feeding and drift (each town's food, capacity, harvest and who it was fed as; what each faction's land encourages).
     // 7: migration (the towns the game founded, who farms each region, the new routes, the free land left, the own
     // site scores worked out, the names given). 8: attunement (every patch's mark and what the marks have done; the
-    // rift names used; and each war's great rituals).
+    // rift names used; and each war's great rituals; 8c and 9a add parts that an older save of version 8 lacks and
+    // reads as none: the founded paths and founders, the hidden metal, the signs, the mines found).
     public const int Version = 8;
 
     public static void Write(string path, Game game)
@@ -92,6 +93,17 @@ public static class SaveFile
             ["mine_land_towns"] = new JsonArray(game.Mines.Select(m => (JsonNode?)(m.LandTown is int t ? JsonValue.Create(t) : null)).ToArray()),
             ["settlement_names_used"] = Numbers(game.SettlementNamesUsed),
             ["rift_names_used"] = Numbers(game.RiftNamesUsed),
+            // The god of death (step 9a): the metal still hidden, the signs' lasting harvests, the mine names used, the
+            // mines found in the game (every mine's metal and owner are below), and every mine's first metal.
+            ["hidden"] = Death.Write(game.Hidden),
+            ["signs_lasting"] = new JsonObject(game.SignsLasting.OrderBy(p => p.Key).Select(p => KeyValuePair.Create(
+                p.Key.ToString(), (JsonNode?)new JsonArray(p.Value.Select(e => (JsonNode)new JsonArray(e.First, e.Last, e.Factor)).ToArray())))),
+            ["mine_names_used"] = Numbers(game.MineNamesUsed),
+            ["found_mines"] = new JsonArray(game.Mines.Skip(game.Mines.Count - game.FoundMines).Select(m => (JsonNode)new JsonObject
+            {
+                ["name"] = m.Name, ["x"] = m.X, ["y"] = m.Y, ["hx"] = m.HX, ["hy"] = m.HY,
+            }).ToArray()),
+            ["mine_first"] = new JsonArray(game.Mines.Select(m => (JsonNode)m.First).ToArray()),
             ["marks"] = game.Marks?.Write(),
             ["moving"] = new JsonObject
             {
@@ -367,6 +379,27 @@ public static class SaveFile
         foreach (var r in save["new_routes"]!.AsArray())
             game.Routes.Add(new Route { A = (int)r![0]!, B = (int)r[1]!, Cost = (double)r[2]! });
         game.RoutesChanged();
+        // The mines found in the game's years (a save of step 8 or before has none), before their land, metal and
+        // owners are read below with every other mine's.
+        foreach (var node in save["found_mines"] as JsonArray ?? new JsonArray())
+        {
+            var m = node!.AsObject();
+            game.Mines.Add(new Mine { Name = (string)m["name"]!, X = (int)m["x"]!, Y = (int)m["y"]!, HX = (int)m["hx"]!, HY = (int)m["hy"]! });
+            game.FoundMines++;
+        }
+        if (save["mine_first"] is JsonArray firsts)
+            for (int k = 0; k < game.Mines.Count; k++)
+                game.Mines[k].First = (double)firsts[k]!;
+        if (save["hidden"] is JsonArray hidden)
+            game.Hidden = Death.Read(hidden);
+        if (save["signs_lasting"] is JsonObject lasting)
+        {
+            game.SignsLasting.Clear();
+            foreach (var (town, entries) in lasting)
+                game.SignsLasting[int.Parse(town)] = entries!.AsArray().Select(e => ((int)e![0]!, (int)e[1]!, (double)e[2]!)).ToList();
+        }
+        if (save["mine_names_used"] is JsonArray minesUsed)
+            game.MineNamesUsed = minesUsed.Select(n => (int)n!).ToArray();
         var landTowns = save["mine_land_towns"]!.AsArray();
         for (int k = 0; k < game.Mines.Count; k++)
             game.Mines[k].LandTown = (int?)landTowns[k];

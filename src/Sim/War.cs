@@ -327,7 +327,9 @@ public static class War
             if (game.Memory.TryGetValue(key, out double remembered))
                 game.Memory[key] = Math.Max(-1.0, remembered - BattleBitterness);
         string place = game.World.Towns[there].Name;
-        int deadAll = (int)Math.Round(losses.Values.Sum(), MidpointRounding.ToEven);
+        var target0 = game.Towns[there];
+        int deadAll = Py.Round(Py.Sum(losses.Values));
+        game.Deaths.Add((year, target0.HX, target0.HY, deadAll));       // where they fell: the god of death takes note
         string attackerName = game.Factions[attacker].Name, defenderName = game.Factions[defender].Name;
         string text = string.Format("battle at {0}: the {1} {2} the {3} ({4} dead)", place, attackerName,
                                     won ? "beat" : "are beaten by", defenderName, deadAll);
@@ -423,6 +425,7 @@ public static class War
         game.Rebellions++;
         string name = game.World.Towns[town].Name;
         int deadNow = (int)Math.Round(dead, MidpointRounding.ToEven);
+        game.Deaths.Add((year, place.HX, place.HY, deadNow));
         var facts = new Dictionary<string, string>
         {
             ["place"] = name, ["conqueror"] = ruler.Name, ["people"] = own.Name, ["dead"] = deadNow.ToString(CultureInfo.InvariantCulture),

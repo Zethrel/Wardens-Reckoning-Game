@@ -33,6 +33,11 @@ public static class YearCore
         var settings = game.Settings;
         var world = game.World;
 
+        // The god of death looks at this year's dead only (step 9a): last year's were all looked at.
+        game.Deaths.Clear();
+        game.MassDeaths.Clear();
+        game.DeathsSeen = game.SignsSeen = 0;
+
         // Who holds which paths and towns as the year begins (for learning at its end).
         var learningStart = Learning.Remember(game);
 
@@ -50,6 +55,7 @@ public static class YearCore
         // year (for grievance: rulers), and how much each faction blames each other (souring its memory).
         var spare = FoodToSpare(game, markets);
         var hardship = game.Factions.Select(_ => new Hardship()).ToList();   // a list: a faction founded this year adds its own
+        var massLosses = new Dictionary<int, double>();
         var blame = new Dictionary<(int, int), double>();
         var food = settings.Staples.Concat(settings.Extras).ToList();
 
@@ -79,8 +85,16 @@ public static class YearCore
             var view = new PlaceView(record.Name, settings.SizeNames[town.Size], town.Population, Capacity(i, game), fed,
                                      town.Hungry, Shortages(markets[i], settings.Staples), faction?.Name ?? "",
                                      faction?.Path ?? "", new Dictionary<string, double>(faction?.Traits ?? new()));
+            double before = town.People;
             town.People = Grow(town.People, Capacity(i, game), fed, settings);
             Rules.SettlementRules(game, i, view, spare, blame, year);
+            // Many dead at once, to hunger or a rule: a site of the god of death's (step 9a), and a loss its people feel.
+            double massLost = Death.MassDeathOf(before, town.People);
+            if (massLost > 0 && town.Holder is int mourner)
+            {
+                game.MassDeaths.Add((year, town.HX, town.HY, Py.Round(massLost)));
+                massLosses[mourner] = massLosses.GetValueOrDefault(mourner) + massLost;
+            }
             int population = town.Population;
 
             // Its size, with a margin downwards, and the news when it changes.
@@ -118,6 +132,11 @@ public static class YearCore
         Splits.UpdateEmpires(game);                 // who holds together this year, before the wars
         War.Year(game, markets, hardship, year);
         Rituals.WarYear(game, year);                // desperate attunement factions strike their enemies (step 8)
+        // The god of death: metal where many died, beliefs that shift, and her signs (step 9a).
+        var deathDice = game.DiceFor("death");
+        Death.Year(game, deathDice.Random, year);
+        Death.Loss(game, massLosses, deathDice.Random, year);
+        Signs.Year(game, game.DiceFor("signs").Random, year);
         Rulers.Year(game, hardship.Select(h => h.Felt()).ToList(), year);
         Capitals.Mend(game, year);                  // a capital lost this year, before the splits measure from it
         Splits.Year(game, hardship, year);
@@ -263,6 +282,7 @@ public static class YearCore
         var gambled = Rituals.HarvestYear(game, weather, year);
         for (int i = 0; i < harvests.Count; i++)
         {
+            harvests[i] *= Signs.Factor(game, i, year);                 // a sign's lasting harvest (step 9a)
             if (game.Towns[i].Holder is int gambler && gambled.TryGetValue(gambler, out double factor))
                 harvests[i] *= factor;
             if (game.Marks != null && game.Settings.Attuning)

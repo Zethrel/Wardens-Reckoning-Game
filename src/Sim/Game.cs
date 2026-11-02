@@ -173,6 +173,23 @@ public sealed class Game
     /// </summary>
     public HashSet<int> CapitalsKnown { get; } = new();
 
+    /// <summary>
+    /// The god of death (step 9a): where many died this year, (year, x, y on the history's grid, dead) for every
+    /// battle, rising and great ritual, and for every town that lost many at once; how many of Deaths the god of death
+    /// and the signs have looked at; the metal hidden where they died; each town's lasting harvest from the signs
+    /// (first year, last year, factor); and how many mines were found in the game's years.
+    /// </summary>
+    public List<(int Year, int X, int Y, int Dead)> Deaths { get; } = new();
+    public List<(int Year, int X, int Y, int Dead)> MassDeaths { get; } = new();
+    public int DeathsSeen { get; set; }
+    public int SignsSeen { get; set; }
+    public List<Hidden> Hidden { get; set; } = new();
+    public Dictionary<int, List<(int First, int Last, double Factor)>> SignsLasting { get; } = new();
+    public int FoundMines { get; set; }
+    /// <summary>Names for the mines each people finds where the dead lie (the export's, in turn), and how many are used.</summary>
+    public List<List<string>> MineNames { get; }
+    public int[] MineNamesUsed { get; set; }
+
     /// <summary>The factions that founded a path of their own (newcomers.founders): one may take a stance.</summary>
     public HashSet<int> Founders { get; } = new();
     /// <summary>How many towns were taken in battle, and how many rose back, in the game's years.</summary>
@@ -299,6 +316,18 @@ public sealed class Game
         if (listed.Count == 0)
             return "Rift " + ((Marks?.Rifts.Count ?? 0) + 1);
         int used = folk < RiftNamesUsed.Length ? RiftNamesUsed[folk]++ : 0;
+        string name = listed[used % listed.Count];
+        return used < listed.Count ? name : name + " " + (used / listed.Count + 1);
+    }
+
+    /// <summary>The next name for a mine people `folk` finds where the dead lie: the export's names in turn, then
+    /// numbered; without names, "the find of &lt;year&gt;" as in the generator.</summary>
+    public string NextMineName(int folk, int year)
+    {
+        var listed = folk < MineNames.Count ? MineNames[folk] : new List<string>();
+        if (listed.Count == 0)
+            return "the find of " + year;
+        int used = folk < MineNamesUsed.Length ? MineNamesUsed[folk]++ : 0;
         string name = listed[used % listed.Count];
         return used < listed.Count ? name : name + " " + (used / listed.Count + 1);
     }
@@ -439,6 +468,14 @@ public sealed class Game
         RiftNames = (going["names"]?["rift"] as JsonArray)?.Select(list => list!.AsArray().Select(n => (string)n!).ToList()).ToList()
                     ?? new List<List<string>>();
         RiftNamesUsed = new int[RiftNames.Count];
+        MineNames = (going["names"]?["mine"] as JsonArray)?.Select(list => list!.AsArray().Select(n => (string)n!).ToList()).ToList()
+                    ?? new List<List<string>>();
+        MineNamesUsed = new int[MineNames.Count];
+        Hidden = Sim.Death.Read(going["underworld"]?["hidden"]);
+        if (going["underworld"]?["lasting"] is JsonObject lasting)
+            foreach (var (town, entries) in lasting)
+                SignsLasting[int.Parse(town)] = entries!.AsArray()
+                    .Select(e => ((int)e![0]!, (int)e[1]!, (double)e[2]!)).ToList();
         Marks = Sim.Marks.Read(going["marks"]);
         Moving = Movements.Read(going["migration"] as JsonObject ?? throw Older("\"migration\""));
         foreach (var entry in going["waiting"] as JsonArray ?? throw Older("\"waiting\""))

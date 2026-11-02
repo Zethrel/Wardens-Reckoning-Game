@@ -204,6 +204,7 @@ public static class Rituals
         string name = game.Factions[faction].Name, against = game.Factions[enemy].Name;
         string from = game.World.Towns[source].Name, at = game.World.Towns[target].Name;
         int died = Py.Round(dead);
+        game.Deaths.Add((year, game.Towns[target].HX, game.Towns[target].HY, died));
         game.Record(new GameEvent(year, "ritual", "great_ritual",
             "the " + name + " of " + from + " work a great ritual against the " + against + ": " + died + " die at " + at
             + ", and the land between is torn open", new[] { faction, enemy }, new Dictionary<string, string>

@@ -356,6 +356,26 @@ public sealed class GameSettings
         Founded.Add(p);
     }
 
+    /// <summary>
+    /// The god of death (death_settings.py, step 9a): METAL_DELAY, how many years the metal takes to form, and
+    /// METAL_PER_DEATH, how much forms for each of the dead (each a number, or a range drawn for every site);
+    /// DIG_ANGER, how much less those who fear or worship her think of a finder; SIGNS, what is seen after a great death,
+    /// in order.
+    /// </summary>
+    public (double Low, double High, bool IsRange) MetalDelay { get; }
+    public (double Low, double High, bool IsRange) MetalPerDeath { get; }
+    public double DigAnger { get; }
+    public sealed record Sign(string Name, double Chance, double Dead, double Reach, (string Belief, double Chance)? Belief,
+                              double Harvest, int Years);
+    public IReadOnlyList<Sign> Signs { get; }
+
+    static (double, double, bool) Setting(JsonNode? value) => value switch
+    {
+        JsonArray pair => ((double)pair[0]!, (double)pair[1]!, true),
+        null => (0.0, 0.0, false),
+        _ => ((double)value, (double)value, false),
+    };
+
     /// <summary>What each path can do, by name ("marks_land", "works_rituals": faction_settings.py PATHS).</summary>
     public IReadOnlyDictionary<string, IReadOnlySet<string>> PathAbilities { get; }
 
@@ -535,6 +555,16 @@ public sealed class GameSettings
 
         LifespanScaling = (double?)leaders["LIFESPAN_SCALING"] ?? 0.0;
 
+        var death = settings["death"] as JsonObject ?? new JsonObject();
+        MetalDelay = Setting(death["METAL_DELAY"]);
+        MetalPerDeath = Setting(death["METAL_PER_DEATH"]);
+        DigAnger = (double?)death["DIG_ANGER"] ?? 0.0;
+        // signs.DEFAULTS: chance 0, dead 500, reach 20, no belief, harvest 1.0, years 5.
+        Signs = death["SIGNS"] is JsonObject signs
+            ? signs.Select(p => new Sign(p.Key, (double?)p.Value!["chance"] ?? 0.0, (double?)p.Value["dead"] ?? 500,
+                (double?)p.Value["reach"] ?? 20, p.Value["belief"] is JsonArray b ? ((string)b[0]!, (double)b[1]!) : null,
+                (double?)p.Value["harvest"] ?? 1.0, (int?)p.Value["years"] ?? 5)).ToList()
+            : new List<Sign>();
         var attuning = settings["attunement"] as JsonObject;
         Attuning = attuning != null;
         attuning ??= new JsonObject();

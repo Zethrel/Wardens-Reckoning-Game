@@ -766,6 +766,101 @@ def offshoots(data):
         paths.close()
 
 
+# The stand-in dice of the god of death's cross-check: handed out in turn, over and over (the game's test has the same).
+FIXED_DICE = [0.2, 0.0005, 0.7, 0.35, 0.001, 0.9, 0.55, 0.003, 0.15, 0.8, 0.0002, 0.45]
+
+
+class FixedDice:
+    """Dice that give FIXED_DICE in turn: random() each next one; uniform(a, b) as Python's random does it."""
+
+    def __init__(self):
+        self.at = 0
+
+    def random(self):
+        value = FIXED_DICE[self.at % len(FIXED_DICE)]
+        self.at += 1
+        return value
+
+    def uniform(self, a, b):
+        return a + (b - a) * self.random()
+
+
+def god_of_death(data):
+    """The god of death and her signs (the game's step 9a) by the generator's own death.year_of_death,
+    death.year_of_loss and signs.Signs.year, with FixedDice for their dice: in the year the export's last hidden find
+    has formed, a battle at the first town held (3000 dead), a battle where the first hidden find lies (500 dead,
+    which joins it), a town of the second faction (the first other that denies her or does not know her) losing
+    many at once (800, a mass death), DIG_ANGER 0.05; then that faction losing a fifth of its people to hunger; then a sign "black_birds" (chance 1, dead 100, reach 30,
+    belief fear at 1, harvest 0.5 for 3 years). Everything after: the hidden metal, every mine, the memories, the
+    beliefs, the signs' lasting harvests and the events."""
+    from types import SimpleNamespace
+    from north import death, signs
+    from north.factions import Deposit
+    going, settings = data["continue"], data["continue"]["settings"]
+    factor = data["history_factor"]
+    places = [SimpleNamespace(x=p["x"] // factor, y=p["y"] // factor, culture=p["culture"], ruined=p["ruined"],
+                              population=p["population"], name=p["name"]) for p in data["settlements"]]
+    factions = [SimpleNamespace(index=i, name=f["name"], traits=f["traits"], belief=f["belief"],
+                                population=f["population"], people=f["people"]) for i, f in enumerate(data["factions"])]
+    deposits = []
+    for m, kept in zip(data["mines"], going["mines"]):
+        deposit = Deposit(kept["x"], kept["y"], m["metal"], owner=m["owner"], name=m["name"])
+        deposit.first = m["first"]
+        deposits.append(deposit)
+    world = death.Underworld(hidden=[death.Hidden(*h) for h in going["underworld"]["hidden"]])
+    year = max(h.ready for h in world.hidden)
+    first = next(p for p in places if not p.ruined and p.culture is not None)
+    second = next(f for f in factions if f.population > 0 and f.index != first.culture
+                  and f.belief in ("deny", "unknowing") and any(p.culture == f.index and not p.ruined for p in places))
+    mourning = next(p for p in places if not p.ruined and p.culture == second.index)
+    h0 = world.hidden[0]
+    sites = [(year, first.x, first.y, 3000), (year, h0.x, h0.y, 500)]
+    world.mass = [(year, mourning.x, mourning.y, 800)]
+    powers = SimpleNamespace(factions=factions, deposits=deposits, deaths=list(sites), underworld=world)
+    used = {}
+
+    class Namer:
+        def name(self, people, kind):
+            listed = going["names"][kind][people]
+            n = used.get((kind, people), 0)
+            used[(kind, people)] = n + 1
+            return listed[n % len(listed)] + ("" if n < len(listed) else " %d" % (n // len(listed) + 1))
+
+    memory = {(a, b): value for a, b, value in going["memory"]}
+    columns, rows = data["continue"]["grid"]["columns"], data["continue"]["grid"]["rows"]
+    ocean = [[False] * columns for _ in range(rows)]
+    from north import record
+    flat = []
+    runs = going["grid"]["ocean"]
+    for value, count in zip(runs[::2], runs[1::2]):
+        flat += [bool(value)] * count
+    ocean = [flat[r * columns:(r + 1) * columns] for r in range(rows)]
+    events = []
+
+    def event(y, kind, text, what, facts):
+        return [text, what]
+
+    dice = FixedDice()
+    death_settings = SimpleNamespace(**dict(settings["death"], DIG_ANGER=0.05))
+    death.year_of_death(powers, places, columns, rows, death_settings, dice, Namer(), year, events, event, ocean,
+                        memory)
+    second.population = round(second.population * 0.8)
+    death.year_of_loss(powers, places, {second.index: second.population / 4}, dice, year, events, event)
+    table = {"black_birds": {"chance": 1.0, "dead": 100, "reach": 30, "belief": ["fear", 1.0], "harvest": 0.5,
+                             "years": 3}}
+    seen = signs.Signs(table, 1, columns)
+    seen.rng = FixedDice()
+    seen.year(powers, places, year, events, event)
+    return {"year": year, "sites": [list(site) for site in sites], "mass": [list(m) for m in world.mass],
+            "mourning": places.index(mourning), "second": second.index, "second_population": second.population,
+            "hidden": [[h.x, h.y, h.metal, h.ready, h.died, h.dead] for h in world.hidden],
+            "mines": [[d.x, d.y, d.metal, d.first, d.owner, d.name] for d in deposits],
+            "memory": sorted([a, b, v] for (a, b), v in memory.items()),
+            "beliefs": [f.belief for f in factions],
+            "lasting": {str(t): [list(e) for e in entries] for t, entries in sorted(seen.lasting.items())},
+            "events": events, "dice_used": dice.at}
+
+
 MARK_YEARS = 5
 
 
@@ -833,6 +928,7 @@ def main(generator):
     expected["attunement"] = attunement_years(world.data)
     expected["great_ritual"] = great_ritual(world.data)
     expected["offshoots"] = offshoots(world.data)
+    expected["death"] = god_of_death(world.data)
     (HERE / "expected.json").write_text(json.dumps(expected, separators=(",", ":")), encoding="utf-8")
 
     grid = [[(x * x * 7 + y * 31 + (x ^ y) * 13) % 256 for x in range(24)] for y in range(20)]
