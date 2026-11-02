@@ -169,8 +169,13 @@ public class LearningTests
     public void A_hybrid_is_told_once_when_its_halves_first_come_together()
     {
         var game = WithSettings((learning, _) => NoChances(learning));
-        int f = Enumerable.Range(0, game.Factions.Count).First(i => game.Factions[i].People > 0
-                                                                     && game.Factions[i].Path == "handcraft");
+        // A living faction that holds no attunement, made a handcraft one, then given attunement.
+        int f = Enumerable.Range(0, game.Factions.Count).First(i => game.Factions[i].People > 0 && game.Factions[i].Held != null
+                                                                     && game.Factions[i].Path != "attunement"
+                                                                     && !game.Factions[i].Held!.Contains("attunement"));
+        game.Factions[f].Path = "handcraft";
+        game.Factions[f].Held!.Remove("handcraft");
+        Learning.Year(game, Learning.Remember(game), new List<(string, int, int, double)>(), 300);
         game.Factions[f].Held!.Add("attunement");
         Learning.Year(game, Learning.Remember(game), new List<(string, int, int, double)>(), 301);
         bool Runecarving(GameEvent e) => e.What == "hybrid_unlocked" && e.Facts["hybrid"] == "runecarving";

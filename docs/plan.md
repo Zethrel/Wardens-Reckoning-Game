@@ -21,7 +21,8 @@ October 2026"). Each step has its own tests and a lesson in `docs/lessons/`.
 | 8b | Great rituals in war: the strike, the dead and the mark; the crater does not reshape the land (decided 1 November) | 2 Nov |
 | 8c | Offshoot paths: a faction that breaks away founding a path of its own, stances, a path's ritual factor | 2 Nov |
 | 9a | The god of death (death sites, hidden metal and finds, beliefs, anger at digging) and her signs | 2 Nov |
-| 9 | The rest, decided 2 November: 9b threats (and rituals against them), 9c happenings and eras, 9d and 9e chokepoints (until then, the game's trade feeds towns the generator's chokepoints cut off, so it has fewer famines) | |
+| 9b | Named threats: lairs, waking and sleeping, moving, raids, rising; great rituals against a threat | 2 Nov |
+| 9 | The rest, decided 2 November: 9c happenings and eras, 9d and 9e chokepoints (until then, the game's trade feeds towns the generator's chokepoints cut off, so it has fewer famines) | |
 | 10 | The chronicle as it happens | |
 | | Then the Wardens: the player's decisions, the legacy number, losing when the Wardens fall | |
 

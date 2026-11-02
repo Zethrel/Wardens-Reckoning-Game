@@ -548,7 +548,8 @@ def migration_year(data):
 def learning_and_capitals(data):
     """Learning and capitals (the game's step 7) by the generator's own learning.Learning and capitals.Capitals on
     the export, with every chance 0 or 1 so that no dice decide: one year of trade (its deals), an alliance of the
-    first two living factions, and the first held town taken by the next living faction; then a year of learning
+    first two living factions, and the first held town taken by the first other living faction that lacks a path
+    its holder holds; then a year of learning
     with LEARN_BY_TRADE, _ALLIANCE, _BORDER and _CONQUEST at 1, LEARN_BY_EFFORT at 0 and FORGET_CHANCE at 1; each
     faction's held paths, skills (in order) and hybrids after it, and its events. Then capitals with CAPITAL_CHOICE
     "largest": the conquered town's old holder loses it if it was its capital, and with CAPITAL_MOVE_CHANCE 1 every
@@ -582,7 +583,12 @@ def learning_and_capitals(data):
     allied = (alive[0], alive[1])
     taken = next(t for t, p in enumerate(places) if not p.ruined and p.culture is not None)
     loser = places[taken].culture
-    winner = next(i for i in alive if i != loser)
+
+    def holding(f):
+        return {factions[f].path} | getattr(factions[f], "held", set())
+
+    # The first living faction that lacks a path the loser holds (so it has something to learn by conquest).
+    winner = next(i for i in alive if i != loser and holding(loser) - holding(i))
     places[taken].culture, places[taken].conquered_in = winner, 301
     events = []
 
@@ -849,6 +855,7 @@ def god_of_death(data):
     table = {"black_birds": {"chance": 1.0, "dead": 100, "reach": 30, "belief": ["fear", 1.0], "harvest": 0.5,
                              "years": 3}}
     seen = signs.Signs(table, 1, columns)
+    seen.lasting = {int(town): [tuple(e) for e in entries] for town, entries in going["underworld"]["lasting"].items()}
     seen.rng = FixedDice()
     seen.year(powers, places, year, events, event)
     return {"year": year, "sites": [list(site) for site in sites], "mass": [list(m) for m in world.mass],
@@ -859,6 +866,119 @@ def god_of_death(data):
             "beliefs": [f.belief for f in factions],
             "lasting": {str(t): [list(e) for e in entries] for t, entries in sorted(seen.lasting.items())},
             "events": events, "dice_used": dice.at}
+
+
+# The kinds of threat added for the threats' years (the game's step 9b), to the export's own.
+THREAT_TEST_KINDS = {
+    "wyrm": {"weight": 20, "strength": [1500, 4000], "reach": 60, "raid": 0.6, "deaths": [0.1, 0.3], "harvest": 0.5,
+             "slain": 0.5, "move": 0.4, "sleep": 0.002, "sleep_years": [1, 2], "fade": 0.0003,
+             "names": ["Old Smoulder"]},
+    "ghast": {"undead": True, "weight": 20, "strength": 50, "reach": 40, "raid": 0.8, "deaths": 0.05, "slain": 0.3,
+              "fade": 0.001},
+}
+THREAT_YEARS = 12
+
+
+class ThreatDice(FixedDice):
+    """FixedDice with the rest of what the threats roll: choices (as Python's random.choices), randint
+    (low + int(random() * (high - low + 1))) and sample (as Python's random.sample for a short list), each
+    with random() alone."""
+
+    def choices(self, items, weights):
+        import bisect
+        import itertools
+        totals = list(itertools.accumulate(weights))
+        return [items[bisect.bisect(totals, self.random() * totals[-1], 0, len(items) - 1)]]
+
+    def randint(self, low, high):
+        return low + int(self.random() * (high - low + 1))
+
+    def sample(self, items, count):
+        pool, chosen, n = list(items), [], len(items)
+        for i in range(count):
+            j = int(self.random() * (n - i))
+            chosen.append(pool[j])
+            pool[j] = pool[n - i - 1]
+        return chosen
+
+
+def threat_years(data):
+    """THREAT_YEARS years of named threats (the game's step 9b) by the generator's own threats.Threats.year and
+    rituals.year_of_threat_rituals, with ThreatDice for their dice: the export's threats and kinds, and
+    THREAT_TEST_KINDS before them (the wyrm's first name is the first town's, which is taken), RISE_CHANCE 1, every faction
+    fully armed, RITUAL_DESPERATION 0 and RITUAL_CHANCE 0.5. A listed name is taken when no town, faction or threat
+    has it (the game's rule). Everything after: the threats, the names given, the spoiled harvests, every town's
+    harvest factor each year, the towns' people, the dead, the mines' metal, the marks and the events."""
+    from types import SimpleNamespace
+    from north import export, rituals, threats
+    year_data = trade_year(data)
+    places, going, settings = year_data.places, year_data.going, year_data.settings
+    factor = data["history_factor"]
+    for place in places:
+        place.x, place.y = place.x // factor, place.y // factor
+    factions = [SimpleNamespace(index=i, name=f["name"], path=f["path"], population=f["population"],
+                                people=f["people"], government=f["government"],
+                                ruler=None if f["ruler"] is None else SimpleNamespace(traits=f["ruler"]["traits"]))
+                for i, f in enumerate(data["factions"])]
+    columns, rows = going["grid"]["columns"], going["grid"]["rows"]
+
+    def unrun(runs):
+        flat = []
+        for value, count in zip(runs[::2], runs[1::2]):
+            flat += [value] * count
+        return [flat[r * columns:(r + 1) * columns] for r in range(rows)]
+
+    owner = [[None if v < 0 else v for v in row] for row in unrun(going["grid"]["owner"])]
+    biomes = [[None if v < 0 else {"name": data["biomes"][v]} for v in row] for row in unrun(going["land"]["biome"])]
+    kinds = {name: dict(about) for name, about in THREAT_TEST_KINDS.items()}
+    kinds["wyrm"]["names"] = [places[0].name] + kinds["wyrm"]["names"]
+    kinds.update(settings["threats"]["THREAT_KINDS"])
+    threatened = threats.Threats(kinds, 0, 1.0, 1, places, owner, biomes, columns, None, factions)
+    threatened.rng = ThreatDice()
+    used = {}
+
+    class Namer:
+        """The export's names in turn, as the game gives them; `used`, every name a town, faction or threat has."""
+        def __init__(self):
+            self.used = {p.name for p in places} | {f.name for f in factions}
+
+        def name(self, people, kind):
+            listed = going["names"][kind][people]
+            n = used.get((kind, people), 0)
+            used[(kind, people)] = n + 1
+            return listed[n % len(listed)] + ("" if n < len(listed) else " %d" % (n // len(listed) + 1))
+
+    threatened.namer = Namer()
+    for t in going["threats"]["threats"]:
+        threat = threats.Threat(t["name"], t["kind"], t["x"], t["y"], t["strength"], t["risen"], t["asleep_until"],
+                                t["ended"], t["end"], t["raids"], t["beaten"], t["dead"], {f: v for f, v in t["harm"]},
+                                set(t["rituals"]), [tuple(lair) for lair in t["lairs"]])
+        threatened.threats.append(threat)
+        threatened.namer.used.add(threat.name)
+    threatened.given.update(going["threats"]["given"])
+    threatened.spoiled = {int(town): tuple(entry) for town, entry in going["threats"]["spoiled"].items()}
+    powers = SimpleNamespace(factions=factions, deposits=year_data.deposits, marks=marks_of(going), deaths=[],
+                             rituals=[])
+    threatened.marks, threatened.strong = powers.marks, settings["attunement"]["STRONG"]
+    attuning = SimpleNamespace(**dict(settings["attunement"], RITUAL_DESPERATION=0.0, RITUAL_CHANCE=0.5))
+    people = [town["people"] for town in going["towns"]]
+    supply = [{} for _ in factions]
+    war_settings = SimpleNamespace(**settings["war"])
+    events, factors = [], []
+
+    def event(y, kind, text, what, facts):
+        return [text, what]
+
+    first = data["years"]
+    for year in range(first + 1, first + THREAT_YEARS + 1):
+        factors.append([threatened.factor(i, year) for i in range(len(places))])
+        threatened.year(powers, people, supply, settings["leaders"]["GOVERNMENTS"], war_settings, year, events, event)
+        rituals.year_of_threat_rituals(powers, places, threatened, attuning, year, events, event, columns)
+    state = export.threats_state(SimpleNamespace(threats=threatened))
+    return {"kinds": THREAT_TEST_KINDS, "first_name": places[0].name, "years": THREAT_YEARS, "threats": state,
+            "factors": factors, "people": people, "deaths": [list(d) for d in powers.deaths],
+            "metal": [d.metal for d in year_data.deposits], "marks": export.marks_state(powers), "events": events,
+            "dice_used": threatened.rng.at}
 
 
 MARK_YEARS = 5
@@ -929,6 +1049,7 @@ def main(generator):
     expected["great_ritual"] = great_ritual(world.data)
     expected["offshoots"] = offshoots(world.data)
     expected["death"] = god_of_death(world.data)
+    expected["threats"] = threat_years(world.data)
     (HERE / "expected.json").write_text(json.dumps(expected, separators=(",", ":")), encoding="utf-8")
 
     grid = [[(x * x * 7 + y * 31 + (x ^ y) * 13) % 256 for x in range(24)] for y in range(20)]

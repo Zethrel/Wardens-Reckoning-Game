@@ -11,9 +11,7 @@ namespace WardensReckoning.Sim;
 ///
 /// War and alliance come between the opinions and the rulers (War.cs, step 5).
 ///
-/// Not yet in the game, and so not in its years: splits and migration (6), paths and learning (7),
-/// attunement (8), happenings, threats, signs and chokepoints (9), and death's other ways (mass death, the god's
-/// finds).
+/// Not yet in the game, and so not in its years: happenings and eras (9c), and chokepoints (9d, 9e).
 /// </summary>
 public static class YearCore
 {
@@ -61,6 +59,10 @@ public static class YearCore
 
         // Attunement's mark: marking, spreading, fading, rifts, and what the mark does to the towns (step 8).
         Attunement.Year(game, markets, hardship, blame, year);
+
+        // The named threats: waking, sleeping, moving, raiding, and a new one rising (step 9b).
+        if (settings.ThreatKinds.Count > 0)
+            Threats.Year(game, game.DiceFor("threats").Random, Opinions.Supplies(game, markets), year);
 
         for (int i = 0; i < game.Towns.Count; i++)
         {
@@ -132,6 +134,8 @@ public static class YearCore
         Splits.UpdateEmpires(game);                 // who holds together this year, before the wars
         War.Year(game, markets, hardship, year);
         Rituals.WarYear(game, year);                // desperate attunement factions strike their enemies (step 8)
+        if (settings.ThreatKinds.Count > 0)
+            Rituals.ThreatYear(game, game.DiceFor("threats").Random, year);   // or a threat that harms them (step 9b)
         // The god of death: metal where many died, beliefs that shift, and her signs (step 9a).
         var deathDice = game.DiceFor("death");
         Death.Year(game, deathDice.Random, year);
@@ -282,6 +286,7 @@ public static class YearCore
         var gambled = Rituals.HarvestYear(game, weather, year);
         for (int i = 0; i < harvests.Count; i++)
         {
+            harvests[i] *= Threats.Factor(game, i, year);               // a threat's raid last year (step 9b)
             harvests[i] *= Signs.Factor(game, i, year);                 // a sign's lasting harvest (step 9a)
             if (game.Towns[i].Holder is int gambler && gambled.TryGetValue(gambler, out double factor))
                 harvests[i] *= factor;

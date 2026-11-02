@@ -369,6 +369,44 @@ public sealed class GameSettings
                               double Harvest, int Years);
     public IReadOnlyList<Sign> Signs { get; }
 
+    /// <summary>
+    /// One kind of named threat (threat_settings.py THREAT_KINDS, step 9b), with threats.DEFAULTS for every key it
+    /// leaves out: how likely it is against the others ("weight"); the biomes its lair may be in (none: any land);
+    /// its strength and the share of a town's people it kills (each a number, or a range drawn each time); how far
+    /// it raids, in cells of a 256 map ("reach"); the chances a year that it raids, moves, sleeps or fades; how long
+    /// it sleeps; the raided town's harvest the next year as a factor; the chance it is slain when beaten off; the
+    /// names it is given in turn; and whether it is undead (it rises where magic's mark is strong, if it can).
+    /// </summary>
+    public sealed record ThreatKind(string Name, double Weight, IReadOnlyList<string> Biomes,
+                                    (double Low, double High, bool IsRange) Strength, double Reach, double Raid,
+                                    (double Low, double High, bool IsRange) Deaths, double Harvest, double Slain,
+                                    double Move, double Sleep, (int Low, int High) SleepYears, double Fade,
+                                    IReadOnlyList<string> Names, bool Undead);
+    /// <summary>The kinds of threat, in your order (a new threat's kind is drawn by their weights).</summary>
+    public IReadOnlyList<ThreatKind> ThreatKinds { get; }
+    /// <summary>threat_settings.py RISE_CHANCE: the chance a year that a new threat rises.</summary>
+    public double RiseChance { get; }
+
+    /// <summary>The kind of threat named `name`.</summary>
+    public ThreatKind KindOf(string name) => ThreatKinds.First(kind => kind.Name == name);
+
+    static ThreatKind ReadThreatKind(string name, JsonNode? about)
+    {
+        // threats.DEFAULTS: weight 1, any land, strength 1000, reach 30, raid 0.1, deaths 0.1, harvest 1, slain 0.2,
+        // move 0, sleep 0, sleep_years 20 to 60, fade 0, no names, not undead.
+        var sleepYears = about?["sleep_years"] as JsonArray;
+        return new ThreatKind(name, (double?)about?["weight"] ?? 1.0,
+            (about?["biomes"] as JsonArray)?.Select(b => (string)b!).ToList() ?? new List<string>(),
+            about?["strength"] == null ? (1000.0, 1000.0, false) : Setting(about["strength"]),
+            (double?)about?["reach"] ?? 30, (double?)about?["raid"] ?? 0.1,
+            about?["deaths"] == null ? (0.1, 0.1, false) : Setting(about["deaths"]),
+            (double?)about?["harvest"] ?? 1.0, (double?)about?["slain"] ?? 0.2, (double?)about?["move"] ?? 0.0,
+            (double?)about?["sleep"] ?? 0.0, sleepYears == null ? (20, 60) : ((int)sleepYears[0]!, (int)sleepYears[1]!),
+            (double?)about?["fade"] ?? 0.0,
+            (about?["names"] as JsonArray)?.Select(n => (string)n!).ToList() ?? new List<string>(),
+            (bool?)about?["undead"] ?? false);
+    }
+
     static (double, double, bool) Setting(JsonNode? value) => value switch
     {
         JsonArray pair => ((double)pair[0]!, (double)pair[1]!, true),
@@ -565,6 +603,10 @@ public sealed class GameSettings
                 (double?)p.Value["reach"] ?? 20, p.Value["belief"] is JsonArray b ? ((string)b[0]!, (double)b[1]!) : null,
                 (double?)p.Value["harvest"] ?? 1.0, (int?)p.Value["years"] ?? 5)).ToList()
             : new List<Sign>();
+        var threats = settings["threats"] as JsonObject ?? new JsonObject();
+        ThreatKinds = threats["THREAT_KINDS"] is JsonObject kinds
+            ? kinds.Select(p => ReadThreatKind(p.Key, p.Value)).ToList() : new List<ThreatKind>();
+        RiseChance = (double?)threats["RISE_CHANCE"] ?? 0.0;
         var attuning = settings["attunement"] as JsonObject;
         Attuning = attuning != null;
         attuning ??= new JsonObject();

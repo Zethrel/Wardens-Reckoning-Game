@@ -116,9 +116,10 @@ public class WarTests
         File.WriteAllText(Path.Combine(folder, "world.json"), data.ToJsonString());
         var game = new Game(ExportedWorld.Read(folder), 1);
         var supply = Opinions.Supplies(game, OneYearOfTrade(game));
-        int a = 0, b = Enumerable.Range(1, game.Factions.Count - 1).First(f => game.Factions[f].Belief == "worship");
+        int a = 0, b = 1;
+        game.Factions[b].Belief = "worship";
         Assert.Equal(0.5, War.Reasons(game, a, b, supply).Single(r => r.Reason == "belief").Value, 12);
-        b = Enumerable.Range(1, game.Factions.Count - 1).First(f => game.Factions[f].Belief != "worship");
+        game.Factions[b].Belief = "deny";
         Assert.Equal(0.0, War.Reasons(game, a, b, supply).Single(r => r.Reason == "belief").Value, 12);
     }
 

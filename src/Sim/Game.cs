@@ -190,6 +190,17 @@ public sealed class Game
     public List<List<string>> MineNames { get; }
     public int[] MineNamesUsed { get; set; }
 
+    /// <summary>
+    /// The named threats (step 9b), in the order they rose: those of the history and those risen since; how many of
+    /// each kind's names are given; each town's spoiled harvest after a raid (the year it falls in, and its factor);
+    /// and names for the threats that rise among each people (the export's, in turn), and how many are used.
+    /// </summary>
+    public List<Threat> Threats { get; set; } = new();
+    public Dictionary<string, int> ThreatNamesGiven { get; } = new();
+    public Dictionary<int, (int Year, double Factor)> Spoiled { get; } = new();
+    public List<List<string>> ThreatNames { get; }
+    public int[] ThreatNamesUsed { get; set; }
+
     /// <summary>The factions that founded a path of their own (newcomers.founders): one may take a stance.</summary>
     public HashSet<int> Founders { get; } = new();
     /// <summary>How many towns were taken in battle, and how many rose back, in the game's years.</summary>
@@ -328,6 +339,18 @@ public sealed class Game
         if (listed.Count == 0)
             return "the find of " + year;
         int used = folk < MineNamesUsed.Length ? MineNamesUsed[folk]++ : 0;
+        string name = listed[used % listed.Count];
+        return used < listed.Count ? name : name + " " + (used / listed.Count + 1);
+    }
+
+    /// <summary>The next name for a threat that rises near people `folk`: the export's names in turn, then numbered;
+    /// null without names.</summary>
+    public string? NextThreatName(int folk)
+    {
+        var listed = folk < ThreatNames.Count ? ThreatNames[folk] : new List<string>();
+        if (listed.Count == 0)
+            return null;
+        int used = folk < ThreatNamesUsed.Length ? ThreatNamesUsed[folk]++ : 0;
         string name = listed[used % listed.Count];
         return used < listed.Count ? name : name + " " + (used / listed.Count + 1);
     }
@@ -471,6 +494,17 @@ public sealed class Game
         MineNames = (going["names"]?["mine"] as JsonArray)?.Select(list => list!.AsArray().Select(n => (string)n!).ToList()).ToList()
                     ?? new List<List<string>>();
         MineNamesUsed = new int[MineNames.Count];
+        // An export older than step 9b has no threats in "continue": then the history's threats are gone.
+        ThreatNames = (going["names"]?["threat"] as JsonArray)?.Select(list => list!.AsArray().Select(n => (string)n!).ToList()).ToList()
+                      ?? new List<List<string>>();
+        ThreatNamesUsed = new int[ThreatNames.Count];
+        Threats = Sim.Threats.Read(going["threats"]?["threats"]);
+        if (going["threats"]?["given"] is JsonObject threatsGiven)
+            foreach (var (kind, count) in threatsGiven)
+                ThreatNamesGiven[kind] = (int)count!;
+        if (going["threats"]?["spoiled"] is JsonObject spoiled)
+            foreach (var (town, entry) in spoiled)
+                Spoiled[int.Parse(town)] = ((int)entry![0]!, (double)entry[1]!);
         Hidden = Sim.Death.Read(going["underworld"]?["hidden"]);
         if (going["underworld"]?["lasting"] is JsonObject lasting)
             foreach (var (town, entries) in lasting)

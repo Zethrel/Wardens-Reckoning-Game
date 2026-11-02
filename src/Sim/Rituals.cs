@@ -129,6 +129,56 @@ public static class Rituals
         }
     }
 
+    /// <summary>
+    /// This year's great rituals against threats (rituals.year_of_threat_rituals, step 9b), with the threats' own dice:
+    /// for every threat awake, in the order they rose, every faction it has harmed, in order, that works rituals, has
+    /// people and has not worked one against it, and has lost at least RITUAL_DESPERATION of its people to it (of
+    /// those it has and those it lost), works one with RITUAL_CHANCE, twice that for the most reckless ruler, if it
+    /// has metal and a town. It spends RITUAL_METAL of its metal; the threat is slain, and the land within
+    /// CRATER_RADIUS of its lair is marked for good. No one else dies.
+    /// </summary>
+    public static void ThreatYear(Game game, Func<double> random, int year)
+    {
+        var settings = game.Settings;
+        if (!settings.Attuning || settings.ThreatKinds.Count == 0)
+            return;
+        double scale = game.Grid.Columns / 256.0;
+        foreach (var threat in Threats.Awake(game))
+            foreach (int f in threat.Harm.Keys.Order().ToList())
+            {
+                var faction = game.Factions[f];
+                if (threat.Ended != null || threat.Rituals.Contains(f))
+                    continue;
+                if (!settings.PathCan(faction.Path, "works_rituals") || faction.People <= 0)
+                    continue;
+                double lost = threat.Harm[f];
+                if (lost / (faction.People + lost) < settings.RitualDesperation)
+                    continue;
+                if (random() >= ByPath(game, settings.RitualChance * 2 * Recklessness(faction.Ruler), faction))
+                    continue;
+                double left = MetalOf(game, f);
+                var mine = Enumerable.Range(0, game.Towns.Count)
+                                     .Where(i => game.Towns[i].Holder == f && !game.Towns[i].Ruined).ToList();
+                if (left <= 0 || mine.Count == 0)
+                    continue;
+                // The town nearest the lair (the first by number on a tie, as Python's min).
+                int source = mine.MinBy(i => Migration.Hypot(game.Towns[i].HX - threat.X, game.Towns[i].HY - threat.Y));
+                foreach (var held in game.Mines)
+                    if (held.Owner == f)
+                        held.Metal -= held.Metal * settings.RitualMetal;
+                threat.Rituals.Add(f);
+                (threat.Ended, threat.End) = (year, "ritual");
+                Scar(game, threat.X, threat.Y, settings.CraterRadius * scale, f);
+                string from = game.World.Towns[source].Name;
+                game.Record(new GameEvent(year, "ritual", "threat_ritual",
+                    "the " + faction.Name + " of " + from + " work a great ritual against " + threat.Name
+                    + ", and the land at its lair is torn open", new[] { f }, new Dictionary<string, string>
+                    {
+                        ["faction"] = faction.Name, ["source"] = from, ["threat"] = threat.Name, ["kind"] = threat.Kind,
+                    }));
+            }
+    }
+
     /// <summary>How weary a faction's side of a war is, if it is losing (wearier than the other side), else 0: each
     /// side's dead over its people and dead (rituals.losing).</summary>
     public static double Losing(Game game, WarNow war, int faction)

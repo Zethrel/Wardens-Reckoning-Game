@@ -104,6 +104,14 @@ public static class SaveFile
                 ["name"] = m.Name, ["x"] = m.X, ["y"] = m.Y, ["hx"] = m.HX, ["hy"] = m.HY,
             }).ToArray()),
             ["mine_first"] = new JsonArray(game.Mines.Select(m => (JsonNode)m.First).ToArray()),
+            // The named threats (step 9b): every threat, the names given from each kind's list, the spoiled
+            // harvests, and the threat names used.
+            ["threats"] = Threats.Write(game.Threats),
+            ["threat_names_given"] = new JsonObject(game.ThreatNamesGiven.OrderBy(p => p.Key, StringComparer.Ordinal)
+                .Select(p => KeyValuePair.Create(p.Key, (JsonNode?)p.Value))),
+            ["spoiled"] = new JsonObject(game.Spoiled.OrderBy(p => p.Key).Select(p => KeyValuePair.Create(
+                p.Key.ToString(), (JsonNode?)new JsonArray(p.Value.Year, p.Value.Factor)))),
+            ["threat_names_used"] = Numbers(game.ThreatNamesUsed),
             ["marks"] = game.Marks?.Write(),
             ["moving"] = new JsonObject
             {
@@ -400,6 +408,23 @@ public static class SaveFile
         }
         if (save["mine_names_used"] is JsonArray minesUsed)
             game.MineNamesUsed = minesUsed.Select(n => (int)n!).ToArray();
+        // A save from before step 9b keeps the export's threats.
+        if (save["threats"] is JsonArray threats)
+            game.Threats = Threats.Read(threats);
+        if (save["threat_names_given"] is JsonObject namesGiven)
+        {
+            game.ThreatNamesGiven.Clear();
+            foreach (var (kind, count) in namesGiven)
+                game.ThreatNamesGiven[kind] = (int)count!;
+        }
+        if (save["spoiled"] is JsonObject spoiled)
+        {
+            game.Spoiled.Clear();
+            foreach (var (town, entry) in spoiled)
+                game.Spoiled[int.Parse(town)] = ((int)entry![0]!, (double)entry[1]!);
+        }
+        if (save["threat_names_used"] is JsonArray threatsUsed)
+            game.ThreatNamesUsed = threatsUsed.Select(n => (int)n!).ToArray();
         var landTowns = save["mine_land_towns"]!.AsArray();
         for (int k = 0; k < game.Mines.Count; k++)
             game.Mines[k].LandTown = (int?)landTowns[k];
