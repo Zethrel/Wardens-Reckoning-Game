@@ -13,7 +13,8 @@ namespace WardensReckoning.Sim;
 ///    from other factions, fewer rituals. The year after, because a year's shortage is known only once its trade is done.
 /// 3. **Embargo and resentment** (`Refuses`, `AfterTrade`): a faction will not sell a needed good to a faction it
 ///    thinks less of than EMBARGO_OPINION (and lifts it only when it thinks LIFT_MARGIN better); a faction short of a
-///    good blames those who refused it, and neighbours who had some to spare (RESENTMENT).
+///    good blames those who refused it, and those it suspects (Suspicion: near towns with some to spare, and those it
+///    usually buys it from), by RESENTMENT.
 /// 4. **Stand-ins** (Trade.StandIn): a town still short of a good after trade buys what stands in for it.
 /// 5. **Smugglers**: towns of the SMUGGLERS hand goods on to anyone, and goods passing through them slip past an
 ///    embargo.
@@ -191,16 +192,15 @@ public static class Chokepoints
     /// After the year's trade (chokepoints.after_trade): this year's shortages (for next year), resentment into
     /// `blame`, the news of embargoes begun and lifted; then part 2 (step 9e): the tech leak and debasement (with
     /// `rng`, the chokepoints' dice), and supply contracts, sabotage, labour displacement, secrets and legitimacy
-    /// (with `dice`, their own).
+    /// (with `dice`, their own). `suspicion` is suspicion's dice (the game's "suspicion" when not given).
     /// </summary>
     public static void AfterTrade(Game game, Market[] markets, List<(string Good, int Seller, int Buyer, double Amount)> deals,
-                                  Dictionary<(int, int), double> blame, int year, Func<double> rng, Func<double> dice)
+                                  Dictionary<(int, int), double> blame, int year, Func<double> rng, Func<double> dice,
+                                  Func<double>? suspicion = null)
     {
         game.Short.Clear();
-        var lacking = new Dictionary<int, Dictionary<string, double[]>>();
-        var lackingOrder = new List<int>();
-        var spare = new Dictionary<int, Dictionary<string, double>>();
-        var chokeGoods = game.Settings.Needs.Select(n => n.Good).Distinct().OrderBy(g => g, StringComparer.Ordinal).ToList();
+        var lacking = new SortedDictionary<int, SortedDictionary<string, double[]>>(); // in order: as the generator
+        var shortTowns = new Dictionary<(int, string), List<int>>();       // the faction's towns short of the good
         for (int i = 0; i < markets.Length; i++)
         {
             var town = game.Towns[i];
@@ -208,8 +208,6 @@ public static class Chokepoints
                 continue;
             var market = markets[i];
             var mine = new Dictionary<string, double>();
-            // In the generator this walks a set of names, whose order changes from run to run; the game takes them in
-            // order of name, so the blame below is added up in one order every time.
             foreach (var good in market.Needs.OrderBy(g => g, StringComparer.Ordinal))
             {
                 double need = market.Needed.GetValueOrDefault(good);
@@ -217,11 +215,14 @@ public static class Chokepoints
                     continue;
                 double missing = market.Shortage(good);
                 mine[good] = missing / need;
-                if (!lacking.TryGetValue(f, out var goods))
+                if (missing > 0)
                 {
-                    lacking[f] = goods = new Dictionary<string, double[]>();
-                    lackingOrder.Add(f);
+                    if (!shortTowns.TryGetValue((f, good), out var where))
+                        shortTowns[(f, good)] = where = new List<int>();
+                    where.Add(i);
                 }
+                if (!lacking.TryGetValue(f, out var goods))
+                    lacking[f] = goods = new SortedDictionary<string, double[]>(StringComparer.Ordinal);
                 if (!goods.TryGetValue(good, out var entry))
                     goods[good] = entry = new double[2];
                 entry[0] += missing;
@@ -229,18 +230,8 @@ public static class Chokepoints
             }
             if (mine.Count > 0)
                 game.Short[i] = mine;
-            foreach (var good in chokeGoods)
-            {
-                double left = market.Made.GetValueOrDefault(good) - market.Needed.GetValueOrDefault(good) - market.Sold.GetValueOrDefault(good);
-                if (left > 1e-9)
-                {
-                    if (!spare.TryGetValue(f, out var theirs))
-                        spare[f] = theirs = new Dictionary<string, double>();
-                    theirs[good] = theirs.GetValueOrDefault(good) + left;
-                }
-            }
         }
-        Resent(game, lacking, lackingOrder, spare, blame);
+        Resent(game, lacking, shortTowns, markets, blame, suspicion ?? game.DiceFor("suspicion").Random);
         TellEmbargoes(game, year);
         Leak(game, markets, rng, year);
         Debase(game, deals, blame, rng, year);
@@ -616,28 +607,30 @@ public static class Chokepoints
         }
     }
 
-    /// <summary>A faction short of a good blames (RESENTMENT times how short) every living faction that refused it,
-    /// and every neighbour with some to spare (chokepoints.resent).</summary>
-    static void Resent(Game game, Dictionary<int, Dictionary<string, double[]>> lacking, List<int> order,
-                       Dictionary<int, Dictionary<string, double>> spare, Dictionary<(int, int), double> blame)
+    /// <summary>A faction short of a needed good blames, RESENTMENT times how short, every living faction that refused
+    /// it and its suspects (Suspicion: near towns with some to spare, and those it usually buys it from, drawn by
+    /// weight); in order of faction, then of good (chokepoints.resent).</summary>
+    static void Resent(Game game, SortedDictionary<int, SortedDictionary<string, double[]>> lacking,
+                       Dictionary<(int, string), List<int>> shortTowns, Market[] markets, Dictionary<(int, int), double> blame,
+                       Func<double> suspicion)
     {
         double rate = game.Settings.Resentment;
         if (rate <= 0)
             return;
-        foreach (int wanting in order)
-            foreach (var (good, entry) in lacking[wanting])
+        foreach (var (wanting, goods) in lacking)
+            foreach (var (good, entry) in goods)
             {
                 double missing = entry[0], need = entry[1];
                 if (missing <= 0 || need <= 0)
                     continue;
                 double share = missing / need;
+                var suspects = Suspicion.Suspects(game, wanting, good, shortTowns.GetValueOrDefault((wanting, good)) ?? new List<int>(),
+                                                  markets, suspicion).ToHashSet();
                 for (int holder = 0; holder < game.Factions.Count; holder++)
                 {
                     if (holder == wanting || game.Factions[holder].People <= 0)
                         continue;
-                    bool refused = game.Refused.Contains((holder, wanting, good));
-                    bool neighbour = game.Factions[wanting].Border.GetValueOrDefault(holder) > 0;
-                    if (refused || (neighbour && (spare.GetValueOrDefault(holder)?.GetValueOrDefault(good) ?? 0.0) > 0))
+                    if (game.Refused.Contains((holder, wanting, good)) || suspects.Contains(holder))
                         blame[(wanting, holder)] = blame.GetValueOrDefault((wanting, holder)) + rate * share;
                 }
             }

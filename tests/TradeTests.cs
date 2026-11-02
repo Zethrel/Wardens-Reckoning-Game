@@ -148,7 +148,17 @@ public class TradeTests
     [Fact]
     public void Trade_warms_the_memories_of_those_who_trade()
     {
-        var (game, markets, deals) = OneYear();
+        // Every faction willing to trade, so that some trade between factions (the test world's are bitter).
+        var game = NewGame();
+        foreach (var faction in game.Factions)
+            foreach (int other in Enumerable.Range(0, game.Factions.Count))
+                faction.Opinions[other] = 1.0;
+        var markets = Trade.MakeMarkets(game, Enumerable.Range(0, game.Towns.Count).Select(i =>
+        {
+            var faction = game.Towns[i].Holder is int h ? game.Factions[h] : null;
+            return YearCore.PathHarvest(1.0, faction?.Path, game.Settings) * YearCore.RulerFactor(faction, game.Settings);
+        }).ToList());
+        var deals = Trade.TradeGoods(game, markets);
         var pair = deals.Select(d => (game.Towns[d.Seller].Holder, game.Towns[d.Buyer].Holder))
                         .First(p => p.Item1 != null && p.Item2 != null && p.Item1 != p.Item2);
         var key = (pair.Item1!.Value, pair.Item2!.Value);

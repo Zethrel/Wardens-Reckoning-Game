@@ -68,6 +68,12 @@ public sealed class GameSettings
     /// <summary>history_settings.py MEMORY_HALF_LIFE and TRADE_WARMTH: how fast memories fade, and how much trade
     /// warms them.</summary>
     public double MemoryHalfLife { get; }
+    /// <summary>history_settings.py, suspicion: how many routes away a shortage's suspects are looked for
+    /// (SUSPECT_REACH), how many are drawn at most (SUSPECTS_MOST), and how fast what a faction remembers buying
+    /// fades (TRADE_MEMORY_HALF_LIFE, years).</summary>
+    public int SuspectReach { get; }
+    public int SuspectsMost { get; }
+    public double TradeMemoryHalfLife { get; }
     public double TradeWarmth { get; }
     /// <summary>The staple foods (any of them fills a stomach) and the extra foods (each needed on its own), by name.</summary>
     public IReadOnlyList<string> Staples { get; }
@@ -587,6 +593,10 @@ public sealed class GameSettings
         TradeHands = trading["TRADE_HANDS"] is JsonValue hands && hands.TryGetValue(out int h) ? h : 0;
         TradeReach = (double?)trading["TRADE_REACH"] ?? double.PositiveInfinity;
         MemoryHalfLife = (double)history["MEMORY_HALF_LIFE"]!;
+        // suspicion.from_settings's defaults: 3 routes, 3 suspects, 10 years.
+        SuspectReach = (int?)history["SUSPECT_REACH"] ?? 3;
+        SuspectsMost = (int?)history["SUSPECTS_MOST"] ?? 3;
+        TradeMemoryHalfLife = (double?)history["TRADE_MEMORY_HALF_LIFE"] ?? 10.0;
         TradeWarmth = (double)history["TRADE_WARMTH"]!;
 
         var factions = settings["factions"]!.AsObject();

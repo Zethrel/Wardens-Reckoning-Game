@@ -286,7 +286,7 @@ public class AttunementTests
     [Fact]
     public void A_game_with_marks_plays_on_the_same_from_a_save()
     {
-        var game = new Game(ExportedWorld.Read(Path.Combine(Fixtures, "world-7")), 5);
+        var game = new Game(ExportedWorld.Read(Path.Combine(Fixtures, "world-7")), 3);   // a seed that founds a colony
         for (int i = 0; i < 20; i++)
             YearCore.RunYear(game);
         string path = Path.Combine(Scratch.Root, "wr-attunement-" + Guid.NewGuid().ToString("N") + ".json");

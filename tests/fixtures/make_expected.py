@@ -891,7 +891,7 @@ def god_of_death(data):
 # The kinds of threat added for the threats' years (the game's step 9b), to the export's own.
 THREAT_TEST_KINDS = {
     "wyrm": {"weight": 20, "strength": [1500, 4000], "reach": 60, "raid": 0.6, "deaths": [0.1, 0.3], "harvest": 0.5,
-             "slain": 0.5, "move": 0.4, "sleep": 0.002, "sleep_years": [1, 2], "fade": 0.0003,
+             "slain": 0.5, "move": 0.4, "sleep": 0.002, "sleep_years": [1, 2], "fade": 0.0006,
              "names": ["Old Smoulder"]},
     "ghast": {"undead": True, "weight": 20, "strength": 50, "reach": 40, "raid": 0.8, "deaths": 0.05, "slain": 0.3,
               "fade": 0.001},
@@ -1113,6 +1113,8 @@ def choke_years(data):
         choke.smuggled = kept["smuggled"]
         choke.contracts = {(buyer, good): maker for buyer, good, maker in kept["contracts"]}
         choke.sabotaged = {int(t): tuple(e) for t, e in kept["sabotaged"].items()}
+        choke.suspicion = suspicion_of(data, FixedDice())
+        choke.suspicion.rng = ThreatDice()
         for buyer, good, maker in contracts or []:
             choke.contracts[(buyer, good)] = maker
         for town, good, until in sabotaged or []:
@@ -1147,7 +1149,7 @@ def choke_years(data):
                          "embargoes": [list(e) for e in sorted(choke.embargoes)],
                          "contracts": [[b, g, m] for (b, g), m in sorted(choke.contracts.items())],
                          "blame": sorted([a, b, v] for (a, b), v in blame.items()),
-                         "smuggled": choke.smuggled, "events": events})
+                         "smuggled": choke.smuggled, "events": events, "suspicion_used": choke.suspicion.rng.at})
             if number == 0:
                 for holder, buyer, _good in sorted(choke.embargoes):
                     factions[holder].opinions[buyer] = 1.0
@@ -1194,6 +1196,58 @@ def choke_years(data):
 CHOKE2_YEARS = 3
 
 
+def suspicion_of(data, dice):
+    """The generator's suspicion.Suspicion on an export: its settings, the routes, the export's trade memory, and
+    `dice` for its dice."""
+    from types import SimpleNamespace
+    from north import suspicion, trade
+    going = data["continue"]
+    settings = going["settings"]
+    trading = SimpleNamespace(**settings["trade"])
+    routes = [trade.Route(r["a"], r["b"], [], r["cost"]) for r in data["routes"]]
+    found = suspicion.from_settings(SimpleNamespace(**settings["history"]), 1, routes, trade.staple_goods(trading),
+                                    trade.extra_goods(trading))
+    found.bought = {(b, g, seller): amount for b, g, seller, amount in going["suspicion"]["bought"]}
+    found.rng = dice
+    return found
+
+
+def suspects_of(data):
+    """Suspicion (decided 2 November 2026) by the generator's own suspicion.suspects, with ChokeDice, after a plain
+    year's trade on the export: for every lived-in town short of food, the factions its faction suspects; then for
+    every faction and good it needs that it ran short of, from all its towns short of it."""
+    from north import suspicion
+    year = trade_year(data)
+    places, markets = year.places, year.markets
+    factor = data["history_factor"]
+    for place in places:
+        place.x, place.y = place.x // factor, place.y // factor
+    factions = year.factions
+    for f, d in zip(factions, data["factions"]):
+        f.population = d["population"]
+    dice = ChokeDice()
+    found = suspicion_of(data, dice)
+    food = []
+    for town, (place, market) in enumerate(zip(places, markets)):
+        if place.ruined or place.culture is None:
+            continue
+        if market.pooled_shortage(found.staples) + sum(market.shortage(g) for g in found.extras) > 0:
+            food.append([town, found.suspects(place.culture, suspicion.FOOD, [town], places, markets, factions)])
+    goods = []
+    short = {}
+    for town, (place, market) in enumerate(zip(places, markets)):
+        if place.ruined or place.culture is None:
+            continue
+        for good in sorted(market.needs):
+            if market.shortage(good) > 0:
+                short.setdefault((place.culture, good), []).append(town)
+    for (faction, good), towns in sorted(short.items()):
+        goods.append([faction, good, towns, found.suspects(faction, good, towns, places, markets, factions)])
+    return {"food": food, "goods": goods, "dice_used": dice.at}
+
+
+
+
 class ChokeDice(ThreatDice):
     """ThreatDice with random.choice as items[int(random() * len(items))]."""
 
@@ -1207,10 +1261,10 @@ def choke_part2(data):
     and state, with chances made likely and goods the test world trades: CONTRACT_CHANCE 0.5 at CONTRACT_OPINION -1,
     SABOTAGE_CHANCE 0.5 for 1 to 2 years, LEAK_CHANCE 1 from the good the mechanism factions have most of, the
     first faction at war as DEBASER of the good it makes most of (not the secret) (DEBASE_CHANCE 0.5), SECRETS the good most bought
-    from another faction (SECRET_CHANCE 1000, so that how well its need was met does not matter; DOUBLE_SALE 0.9,
+    from another faction (or any good but metal at all, if none is) (SECRET_CHANCE 1000, so that how well its need was met does not matter; DOUBLE_SALE 0.9,
     BETRAYAL 0.9), LEGITIMACY_GOOD the needed good most
-    bought, CONSTRUCTS the good the displaced paths' towns have most of (neither). A war between the two largest living
-    factions, and every two living factions allies. Each year: begin_year, the markets, the trade, after_trade.
+    bought, CONSTRUCTS the good the displaced paths' towns have most of (neither). A war between the largest living faction
+    and the largest other that makes a needed good, and every two living factions allies. Each year: begin_year, the markets, the trade, after_trade.
     After each: the contracts, sabotage, debased coin, leaks, learned goods, alliances, the growth and grievance
     factors, the blame, the counts and the events."""
     import copy
@@ -1219,14 +1273,22 @@ def choke_part2(data):
     going, settings = data["continue"], data["continue"]["settings"]
     factions_data = data["factions"]
     alive = [i for i, f in enumerate(factions_data) if f["population"] > 0]
-    largest = sorted(alive, key=lambda i: -factions_data[i]["population"])[:2]
     staples = set(trade.staple_goods(SimpleNamespace(**settings["trade"])))
 
     # A trial year, to pick goods the test world makes and trades.
     trial = trade_year(data)
     towns = [p.culture for p in trial.places]
-    bought, made_by = {}, {}
+    # The war: the largest living faction against the largest other that makes a needed good (something to wreck).
+    needed = {n["good"] for n in settings["chokepoints"]["NEEDS"]}
+    by_size = sorted(alive, key=lambda i: -factions_data[i]["population"])
+    makers = [f for f in by_size[1:] if any(towns[t] == f and not trial.places[t].ruined
+                                           and any(m.made.get(g, 0.0) > 0 for g in needed)
+                                           for t, m in enumerate(trial.markets))]
+    largest = [by_size[0], (makers or by_size[1:])[0]]
+    bought, anyone = {}, {}   # goods (not staples) bought from another faction; and any good (not metal) bought at all
     for good, seller, buyer, amount in trial.deals:
+        if good != trade.METAL:
+            anyone[good] = anyone.get(good, 0.0) + amount
         if good not in staples and good != trade.METAL and towns[seller] != towns[buyer]:
             bought[good] = bought.get(good, 0.0) + amount
     needed_goods = {n["good"] for n in settings["chokepoints"]["NEEDS"]}
@@ -1235,16 +1297,18 @@ def choke_part2(data):
         return max(sorted(table), key=lambda g: table[g])
 
     def made_in(test):
+        """What the towns of the factions that pass `test` make: goods that are not staples if any, else any but
+        metal (the test world may make little else)."""
         table = {}
         for t, market in enumerate(trial.markets):
             if towns[t] is not None and not trial.places[t].ruined and test(trial.factions[towns[t]]):
                 for good, amount in market.made.items():
-                    if good not in staples and good != trade.METAL and amount > 0:
+                    if good != trade.METAL and amount > 0:
                         table[good] = table.get(good, 0.0) + amount
-        return table
+        return {g: v for g, v in table.items() if g not in staples} or table
 
     debaser = largest[0]
-    secret = most(bought)
+    secret = most(bought or anyone)
     debased = most({g: v for g, v in made_in(lambda f: f.index == debaser).items() if g != secret})
     construct = most({g: v for g, v in made_in(lambda f: f.path in ("handcraft", "mechanism")
                                               and f.lineage != settings["chokepoints"]["CONSTRUCT_MAKER"]).items()
@@ -1254,7 +1318,7 @@ def choke_part2(data):
                  LEAK_FROM=most(made_in(lambda f: f.path == "mechanism")), DEBASER=factions_data[debaser]["lineage"],
                  DEBASED_GOOD=debased, DEBASE_CHANCE=0.5, SECRETS=[secret],
                  SECRET_CHANCE=1000.0, DOUBLE_SALE=0.9, BETRAYAL=0.9,
-                 LEGITIMACY_GOOD=most({g: v for g, v in bought.items() if g in needed_goods} or bought),
+                 LEGITIMACY_GOOD=most({g: v for g, v in bought.items() if g in needed_goods} or bought or anyone),
                  CONSTRUCTS={construct: 1.0})
     part2["LEAK_GOOD"] = settings["chokepoints"]["LEAK_GOOD"]
 
@@ -1275,6 +1339,7 @@ def choke_part2(data):
     choke.sabotaged = {int(t): tuple(e) for t, e in kept["sabotaged"].items()}
     choke.counts = dict(kept["counts"])
     choke.rng, choke.dice = ChokeDice(), ChokeDice()
+    choke.suspicion = suspicion_of(data, ChokeDice())
     base = history.ruled_harvests(history.path_harvests([1.0] * len(places), places, factions, SimpleNamespace(
         PATH_HARVEST=settings["factions"]["PATH_HARVEST"], PATH_STEADINESS=settings["factions"]["PATH_STEADINESS"])),
         places, factions, settings["leaders"]["GOVERNMENTS"])
@@ -1300,7 +1365,7 @@ def choke_part2(data):
                       "blame": sorted([a, b, v] for (a, b), v in blame.items()),
                       "counts": dict(choke.counts), "events": events})
     return {"settings": part2, "war": largest, "alive": alive, "years": years,
-            "dice_used": [choke.rng.at, choke.dice.at]}
+            "dice_used": [choke.rng.at, choke.dice.at, choke.suspicion.rng.at]}
 
 
 MARK_YEARS = 5
@@ -1375,6 +1440,7 @@ def main(generator):
     expected["happenings"] = happening_years(world.data)
     expected["chokepoints"] = choke_years(world.data)
     expected["chokepoints2"] = choke_part2(world.data)
+    expected["suspicion"] = suspects_of(world.data)
     (HERE / "expected.json").write_text(json.dumps(expected, separators=(",", ":")), encoding="utf-8")
 
     grid = [[(x * x * 7 + y * 31 + (x ^ y) * 13) % 256 for x in range(24)] for y in range(20)]

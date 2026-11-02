@@ -198,6 +198,8 @@ public sealed class Game
     /// and this year's ritual factor of each faction short of what its rituals need.
     /// </summary>
     public Dictionary<int, Dictionary<string, double>> Short { get; } = new();
+    /// <summary>The trade memory (suspicion): (buyer faction, good or "food", seller faction) → what is remembered.</summary>
+    public Dictionary<(int Buyer, string Good, int Seller), double> Bought { get; } = new();
     public HashSet<(int Holder, int Buyer, string Good)> Refused { get; } = new();
     public HashSet<(int Holder, int Buyer, string Good)> Embargoes { get; } = new();
     public Dictionary<int, double> Debased { get; } = new();
@@ -532,6 +534,8 @@ public sealed class Game
         MineNames = (going["names"]?["mine"] as JsonArray)?.Select(list => list!.AsArray().Select(n => (string)n!).ToList()).ToList()
                     ?? new List<List<string>>();
         MineNamesUsed = new int[MineNames.Count];
+        // An export from before suspicion has no trade memory: then no one has bought from anyone yet.
+        Sim.Suspicion.Read(this, going["suspicion"]);
         // An export older than step 9d has no chokepoints in "continue": then no town was short last year.
         Sim.Chokepoints.Read(this, going["chokepoints"]);
         // An export older than step 9c has no happenings in "continue": then nothing lasts and the eras start again.

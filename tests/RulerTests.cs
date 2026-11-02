@@ -31,16 +31,17 @@ public class RulerTests
         // fixtures/make_expected.py: factions.opinion for every pair with people, after one year's trade (for envy).
         var game = NewGame();
         var supply = Opinions.Supplies(game, OneYearOfTrade(game));
-        int free = 0;
+        int free = 0, all = 0;
         foreach (var node in Expected["opinions"]!.AsArray())
         {
             int a = (int)node![0]!, b = (int)node[1]!;
             double want = (double)node[2]!;
             double got = Opinions.Opinion(game, a, b, game.Memory.GetValueOrDefault((a, b)), Opinions.Covet(supply, a, b));
             Assert.True(Math.Abs(want - got) < 1e-6, $"{a} of {b}: {want} but {got}");
+            all++;
             if (Math.Abs(want) < 1) free++;
         }
-        Assert.True(free > 20, "most opinions are not at an end, so each part of them is checked");
+        Assert.True(free * 2 > all, "most opinions are not at an end, so each part of them is checked");
     }
 
     [Fact]

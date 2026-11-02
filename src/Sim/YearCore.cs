@@ -57,10 +57,10 @@ public static class YearCore
                 Happenings.ScaleTrade(markets[i], Happenings.Factor(game, i, year, "trade"));
         var deals = Trade.TradeGoods(game, markets);
         Trade.Dig(game, markets, year);
+        Suspicion.Remember(game, deals);           // who bought what from whom, for suspicion
 
-        // Who has food to spare (a hungry town's people may blame them), what each faction's people go through this
-        // year (for grievance: rulers), and how much each faction blames each other (souring its memory).
-        var spare = FoodToSpare(game, markets);
+        // What each faction's people go through this year (for grievance: rulers), and how much each faction blames
+        // each other (souring its memory).
         var hardship = game.Factions.Select(_ => new Hardship()).ToList();   // a list: a faction founded this year adds its own
         var massLosses = new Dictionary<int, double>();
         var blame = new Dictionary<(int, int), double>();
@@ -113,7 +113,7 @@ public static class YearCore
             if (settings.Choking)
                 growth *= Chokepoints.GrowthFactor(game, i);                // constructs displace labour (step 9e)
             town.People = Grow(town.People, Capacity(i, game), fed, settings, growth);
-            Rules.SettlementRules(game, i, view, spare, blame, year);
+            Rules.SettlementRules(game, i, view, markets, blame, year);
             // Many dead at once, to hunger or a rule: a site of the god of death's (step 9a), and a loss its people feel.
             double massLost = Death.MassDeathOf(before, town.People);
             if (massLost > 0 && town.Holder is int mourner)

@@ -25,6 +25,7 @@ October 2026"). Each step has its own tests and a lesson in `docs/lessons/`.
 | 9c | Happenings (spreading, striking, what lasts), tempers and eras; a faction's fertility in growth (left out until now) | 2 Nov |
 | 9d | Chokepoints, part 1: needs, a shortage's effects the year after, embargoes and resentment, stand-ins, smugglers (and the history's contracts, sabotage and debased coin kept and traded by) | 2 Nov |
 | 9e | Chokepoints, part 2: new supply contracts, sabotage, labour displacement, secrets, legitimacy, the tech leak, debased coin (every system of the generator's history is now in the game) | 2 Nov |
+| 9f | Suspicion (the maintainer's idea): a shortage is blamed on near producers and regular traders, drawn by weight, in the generator and the game | 2 Nov |
 | 10 | The chronicle as it happens | |
 | | Then the Wardens: the player's decisions, the legacy number, losing when the Wardens fall | |
 

@@ -111,6 +111,8 @@ public static class SaveFile
             ["happenings"] = Happenings.Write(game),
             // The chokepoints (step 9d).
             ["chokepoints"] = Chokepoints.Write(game),
+            // The trade memory (suspicion).
+            ["suspicion"] = Suspicion.Write(game),
             ["threat_names_given"] = new JsonObject(game.ThreatNamesGiven.OrderBy(p => p.Key, StringComparer.Ordinal)
                 .Select(p => KeyValuePair.Create(p.Key, (JsonNode?)p.Value))),
             ["spoiled"] = new JsonObject(game.Spoiled.OrderBy(p => p.Key).Select(p => KeyValuePair.Create(
@@ -412,6 +414,9 @@ public static class SaveFile
         }
         if (save["mine_names_used"] is JsonArray minesUsed)
             game.MineNamesUsed = minesUsed.Select(n => (int)n!).ToArray();
+        // A save from before suspicion keeps the export's trade memory.
+        if (save["suspicion"] is JsonObject suspected)
+            Suspicion.Read(game, suspected);
         // A save from before step 9d keeps the export's chokepoints.
         if (save["chokepoints"] is JsonObject choked)
             Chokepoints.Read(game, choked);

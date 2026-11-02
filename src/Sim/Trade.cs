@@ -536,10 +536,11 @@ public static class Trade
     /// count together; each extra on its own. history.py fed_share.</summary>
     public static double FedShare(Market market, IReadOnlyList<string> staples, IReadOnlyList<string> extras)
     {
-        double needed = staples.Concat(extras).Sum(g => market.Needed.GetValueOrDefault(g));
+        // Added up as Python's sum() adds decimals (Py.Sum), as history.fed_share.
+        double needed = Py.Sum(staples.Concat(extras).Select(g => market.Needed.GetValueOrDefault(g)));
         if (needed <= 0)
             return 1.0;
-        double missing = market.PooledShortage(staples) + extras.Sum(market.Shortage);
+        double missing = market.PooledShortage(staples) + Py.Sum(extras.Select(market.Shortage));
         return (needed - missing) / needed;
     }
 }

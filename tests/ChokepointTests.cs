@@ -48,6 +48,8 @@ public class ChokepointTests
     {
         var game = TestGame();
         var years = Expected["years"]!.AsArray();
+        int suspicionAt = 0;
+        double Suspicion() => FixedDice[suspicionAt++ % FixedDice.Length];
         for (int y = 0; y < years.Count; y++)
         {
             var want = years[y]!;
@@ -62,7 +64,8 @@ public class ChokepointTests
             }).ToList();
             var markets = Trade.MakeMarkets(game, harvest);
             var deals = Trade.TradeGoods(game, markets);
-            Chokepoints.AfterTrade(game, markets, blame, year);
+            Chokepoints.AfterTrade(game, markets, deals, blame, year, game.DiceFor("chokepoints").Random,
+                                   game.DiceFor("chokepoint parts").Random, Suspicion);
 
             string at = "year " + year;
             Json.Same(want["factors"], new JsonArray(factors.Select(f => (JsonNode)f).ToArray()), at + " factors");
@@ -87,6 +90,7 @@ public class ChokepointTests
             Json.Same(want["embargoes"], Chokepoints.Write(game)["embargoes"], at + " embargoes");
             Json.Same(want["contracts"], Chokepoints.Write(game)["contracts"], at + " contracts");
             Assert.Equal((double)want["smuggled"]!, game.Smuggled);
+            Assert.Equal((int)want["suspicion_used"]!, suspicionAt);
             // The blame of a shortage is added up over the goods; in the generator their order changes from run to run
             // (a set of names), so the last digits may differ.
             var wantBlame = want["blame"]!.AsArray();
@@ -124,7 +128,8 @@ public class ChokepointTests
             foreach (int y in alive)
                 if (x < y)
                     game.Alliances.Add((x, y));
-        int rngUsed = 0, diceUsed = 0, rngAt = 0, diceAt = 0;
+        int rngUsed = 0, diceUsed = 0, rngAt = 0, diceAt = 0, suspicionAt = 0;
+        double Suspicion() => FixedDice[suspicionAt++ % FixedDice.Length];
         double Rng() { rngUsed++; return FixedDice[rngAt++ % FixedDice.Length]; }
         double Dice() { diceUsed++; return FixedDice[diceAt++ % FixedDice.Length]; }
         var years = part2["years"]!.AsArray();
@@ -143,7 +148,7 @@ public class ChokepointTests
             }).ToList();
             var markets = Trade.MakeMarkets(game, harvest);
             var deals = Trade.TradeGoods(game, markets);
-            Chokepoints.AfterTrade(game, markets, deals, blame, year, Rng, Dice);
+            Chokepoints.AfterTrade(game, markets, deals, blame, year, Rng, Dice, Suspicion);
 
             var kept = Chokepoints.Write(game);
             Json.Same(want["contracts"], kept["contracts"], at + " contracts");
@@ -168,6 +173,7 @@ public class ChokepointTests
         }
         Assert.Equal((int)part2["dice_used"]![0]!, rngUsed);
         Assert.Equal((int)part2["dice_used"]![1]!, diceUsed);
+        Assert.Equal((int)part2["dice_used"]![2]!, suspicionAt);
         var all = game.Events.Select(e => e.What).ToHashSet();
         foreach (var what in new[] { "tech_leak", "debased", "contract", "contract_ended", "sabotage", "secret", "secret_betrayal" })
             Assert.Contains(what, all);
@@ -394,20 +400,25 @@ public class ChokepointTests
     }
 
     [Fact]
-    public void A_faction_short_of_a_good_blames_the_living_who_refused_it_and_a_neighbour_with_some_to_spare()
+    public void A_faction_short_of_a_good_blames_the_living_who_refused_it_and_a_near_town_with_some_to_spare()
     {
         var game = TestGame();
+        game.Bought.Clear();                                                // no regular traders: only the near count
         var alive = Enumerable.Range(0, game.Factions.Count).Where(f => game.Factions[f].People > 0).ToList();
-        int wanting = alive[0], refuser = alive[1], neighbour = alive[2];
+        int wanting = alive[0];
+        int home = TownOf(game, wanting);
+        // A town of another living faction a few routes away, the only one with crystals to spare: the suspect.
+        int near = Suspicion.Within(game, new[] { home }).Keys.Order()
+                            .First(t => game.Towns[t].Holder is int h && h != wanting && game.Factions[h].People > 0);
+        int neighbour = game.Towns[near].Holder!.Value;
+        int refuser = alive.First(f => f != wanting && f != neighbour);
         int dead = Enumerable.Range(0, game.Factions.Count).First(f => game.Factions[f].People <= 0);
         var markets = Empty(game);
-        var mine = markets[TownOf(game, wanting)];
+        var mine = markets[home];
         mine.Needs.Add("crystals");
         mine.Needed["crystals"] = 10.0;
         mine.Made["crystals"] = 4.0;                                        // six tenths short
-        markets[TownOf(game, neighbour)].Made["crystals"] = 3.0;            // three to spare
-        game.Factions[wanting].Border.Clear();
-        game.Factions[wanting].Border[neighbour] = 5;
+        markets[near].Made["crystals"] = 3.0;                               // three to spare
         game.Refused.Add((refuser, wanting, "crystals"));
         game.Refused.Add((dead, wanting, "crystals"));
         var blame = new Dictionary<(int, int), double>();
@@ -547,7 +558,7 @@ public class ChokepointTests
     [Fact]
     public void The_export_s_chokepoints_are_read_exactly_and_a_save_plays_on_the_same()
     {
-        var game = new Game(ExportedWorld.Read(Path.Combine(Fixtures, "world-7")), 2);
+        var game = new Game(ExportedWorld.Read(Path.Combine(Fixtures, "world-7")), 3);   // a seed with chokepoint news
         var data = JsonNode.Parse(File.ReadAllText(Path.Combine(Fixtures, "world-7", "world.json")))!;
         Json.Same(data["continue"]!["chokepoints"], Chokepoints.Write(game), "chokepoints");
         for (int i = 0; i < 20; i++)

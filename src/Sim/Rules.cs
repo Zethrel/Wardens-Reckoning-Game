@@ -12,7 +12,7 @@ public sealed record PlaceView(string Name, string Size, int Population, double 
 }
 
 /// <summary>What a rule returns: a share of the people gained or lost, and how much the faction's memory of every
-/// faction with food to spare sours (0 to 1).</summary>
+/// faction it suspects of keeping food from it sours (0 to 1).</summary>
 public sealed record RuleEffect(double Population = 0, double Blame = 0);
 
 /// <summary>
@@ -45,9 +45,10 @@ public static class Rules
 
     /// <summary>
     /// Runs every settlement rule on town `index` (history.run_years): a population effect changes its people at once
-    /// (so the next rule sees it); blame sours its faction's memory of every other faction with food to spare.
+    /// (so the next rule sees it); blame sours its faction's memory of the factions it suspects of keeping food from
+    /// this town (Suspicion: near towns with food to spare, and those it usually buys food from, drawn by weight).
     /// </summary>
-    public static void SettlementRules(Game game, int index, PlaceView view, HashSet<int> spare,
+    public static void SettlementRules(Game game, int index, PlaceView view, Market[] markets,
                                        Dictionary<(int, int), double> blame, int year)
     {
         var dice = game.DiceFor("rules");
@@ -67,7 +68,8 @@ public static class Rules
             }
             if (effect.Blame != 0 && town.Holder is int faction)
             {
-                var blamed = spare.Where(f => f != faction).OrderBy(f => f).ToList();
+                var blamed = Suspicion.Suspects(game, faction, Suspicion.Food, new[] { index }, markets,
+                                                game.DiceFor("suspicion").Random);
                 foreach (int other in blamed)
                     blame[(faction, other)] = Math.Max(blame.GetValueOrDefault((faction, other)), effect.Blame);
                 if (blamed.Count > 0)
