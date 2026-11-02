@@ -23,7 +23,8 @@ October 2026"). Each step has its own tests and a lesson in `docs/lessons/`.
 | 9a | The god of death (death sites, hidden metal and finds, beliefs, anger at digging) and her signs | 2 Nov |
 | 9b | Named threats: lairs, waking and sleeping, moving, raids, rising; great rituals against a threat | 2 Nov |
 | 9c | Happenings (spreading, striking, what lasts), tempers and eras; a faction's fertility in growth (left out until now) | 2 Nov |
-| 9 | The rest, decided 2 November: 9d and 9e chokepoints (until then, the game's trade feeds towns the generator's chokepoints cut off, so it has fewer famines) | |
+| 9d | Chokepoints, part 1: needs, a shortage's effects the year after, embargoes and resentment, stand-ins, smugglers (and the history's contracts, sabotage and debased coin kept and traded by) | 2 Nov |
+| 9e | Chokepoints, part 2: new supply contracts, sabotage, labour displacement, secrets, legitimacy, the tech leak, debased coin | |
 | 10 | The chronicle as it happens | |
 | | Then the Wardens: the player's decisions, the legacy number, losing when the Wardens fall | |
 

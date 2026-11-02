@@ -431,6 +431,35 @@ public sealed class GameSettings
             LastingEffects.Where(key => effects[key] != null).Select(key => (key, (double)effects[key]!)).ToList());
     }
 
+    /// <summary>
+    /// One need (chokepoint_settings.py NEEDS, step 9d): who needs it ("all", a path or a faction's key, its lineage),
+    /// the good, how much (for every thousand people), and what running short of it hinders the year after: the
+    /// harvest, the trade with other factions, the rituals (each a share lost when wholly short), and what its towns
+    /// craft (good → share lost).
+    /// </summary>
+    public sealed record Need(string Who, string Good, double Amount, double Harvest, double Trade, double Rituals,
+                              IReadOnlyDictionary<string, double> Craft)
+    {
+        /// <summary>need.get(effect, 0.0): how much a shortage hinders "harvest", "trade" or "rituals".</summary>
+        public double Of(string effect) => effect switch
+        {
+            "harvest" => Harvest, "trade" => Trade, "rituals" => Rituals, _ => 0.0,
+        };
+    }
+    /// <summary>NEEDS in your order; STAND_INS, the goods that stand in for others (good → others, in order);
+    /// SMUGGLERS, the factions (by key) whose towns hand goods on to anyone; EMBARGO_OPINION, how little a faction
+    /// must think of a buyer to refuse it a needed good; RESENTMENT, how much a faction short of a good blames those
+    /// who refused it or had some to spare next door.</summary>
+    public IReadOnlyList<Need> Needs { get; }
+    public IReadOnlyList<(string Good, IReadOnlyList<string> Others)> StandIns { get; }
+    public IReadOnlySet<string> Smugglers { get; }
+    public double EmbargoOpinion { get; }
+    public double Resentment { get; }
+    /// <summary>DEBASED_GOOD: the coin a debasing faction makes less of (its debasement comes with step 9e).</summary>
+    public string? DebasedGood { get; }
+    /// <summary>Whether there are chokepoints at all (chokepoints.from_settings): some NEEDS or STAND_INS.</summary>
+    public bool Choking => Needs.Count > 0 || StandIns.Count > 0;
+
     /// <summary>The kind of threat named `name`.</summary>
     public ThreatKind KindOf(string name) => ThreatKinds.First(kind => kind.Name == name);
 
@@ -647,6 +676,19 @@ public sealed class GameSettings
                 (double?)p.Value["reach"] ?? 20, p.Value["belief"] is JsonArray b ? ((string)b[0]!, (double)b[1]!) : null,
                 (double?)p.Value["harvest"] ?? 1.0, (int?)p.Value["years"] ?? 5)).ToList()
             : new List<Sign>();
+        var choke = settings["chokepoints"] as JsonObject ?? new JsonObject();
+        Needs = (choke["NEEDS"] as JsonArray)?.Select(n => new Need((string)n!["who"]!, (string)n["good"]!,
+                    (double)n["amount"]!, (double?)n["harvest"] ?? 0.0, (double?)n["trade"] ?? 0.0, (double?)n["rituals"] ?? 0.0,
+                    (n["craft"] as JsonObject)?.ToDictionary(c => c.Key, c => (double)c.Value!) ?? new Dictionary<string, double>()))
+                .ToList() ?? new List<Need>();
+        // sorted(STAND_INS.items()), as trade.trade_goods walks them.
+        StandIns = (choke["STAND_INS"] as JsonObject)?.OrderBy(p => p.Key, StringComparer.Ordinal)
+                       .Select(p => (p.Key, (IReadOnlyList<string>)p.Value!.AsArray().Select(o => (string)o!).ToList())).ToList()
+                   ?? new List<(string, IReadOnlyList<string>)>();
+        Smugglers = (choke["SMUGGLERS"] as JsonArray)?.Select(x => (string)x!).ToHashSet() ?? new HashSet<string>();
+        EmbargoOpinion = (double?)choke["EMBARGO_OPINION"] ?? -2.0;
+        Resentment = (double?)choke["RESENTMENT"] ?? 0.0;
+        DebasedGood = (string?)choke["DEBASED_GOOD"];
         var happening = settings["happenings"] as JsonObject ?? new JsonObject();
         Happenings = happening["HAPPENINGS"] is JsonObject table
             ? table.Select(p => ReadHappening(p.Key, p.Value)).ToList() : new List<Happening>();

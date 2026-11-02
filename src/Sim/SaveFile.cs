@@ -109,6 +109,8 @@ public static class SaveFile
             ["threats"] = Threats.Write(game.Threats),
             // The happenings and eras (step 9c).
             ["happenings"] = Happenings.Write(game),
+            // The chokepoints (step 9d).
+            ["chokepoints"] = Chokepoints.Write(game),
             ["threat_names_given"] = new JsonObject(game.ThreatNamesGiven.OrderBy(p => p.Key, StringComparer.Ordinal)
                 .Select(p => KeyValuePair.Create(p.Key, (JsonNode?)p.Value))),
             ["spoiled"] = new JsonObject(game.Spoiled.OrderBy(p => p.Key).Select(p => KeyValuePair.Create(
@@ -410,6 +412,9 @@ public static class SaveFile
         }
         if (save["mine_names_used"] is JsonArray minesUsed)
             game.MineNamesUsed = minesUsed.Select(n => (int)n!).ToArray();
+        // A save from before step 9d keeps the export's chokepoints.
+        if (save["chokepoints"] is JsonObject choked)
+            Chokepoints.Read(game, choked);
         // A save from before step 9c keeps the export's happenings and eras.
         if (save["happenings"] is JsonObject happened)
             Happenings.Read(game, happened);

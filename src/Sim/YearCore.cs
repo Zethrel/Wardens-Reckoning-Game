@@ -11,7 +11,8 @@ namespace WardensReckoning.Sim;
 ///
 /// War and alliance come between the opinions and the rulers (War.cs, step 5).
 ///
-/// Not yet in the game, and so not in its years: chokepoints (9d, 9e).
+/// Not yet in the game, and so not in its years: the chokepoints' contracts, sabotage, labour displacement, secrets,
+/// legitimacy, tech leak and debased coin (9e).
 /// </summary>
 public static class YearCore
 {
@@ -65,6 +66,9 @@ public static class YearCore
         var massLosses = new Dictionary<int, double>();
         var blame = new Dictionary<(int, int), double>();
         var food = settings.Staples.Concat(settings.Extras).ToList();
+        // This year's shortages (for next year), resentment and embargoes (chokepoints, step 9d).
+        if (settings.Choking)
+            Chokepoints.AfterTrade(game, markets, blame, year);
 
         // Attunement's mark: marking, spreading, fading, rifts, and what the mark does to the towns (step 8).
         Attunement.Year(game, markets, hardship, blame, year);
@@ -301,6 +305,8 @@ public static class YearCore
     /// </summary>
     public static List<double> Harvests(Game game, int year)
     {
+        // Last year's shortages: each town's harvest, and each faction's rituals (chokepoints, step 9d).
+        var choked = game.Settings.Choking ? Chokepoints.BeginYear(game) : null;
         var weather = Enumerable.Range(0, game.Towns.Count)
                                 .Select(i => Weather(game, game.World.Towns[i].X, game.World.Towns[i].Y, year)).ToList();
         var harvests = Enumerable.Range(0, game.Towns.Count)
@@ -308,6 +314,8 @@ public static class YearCore
         var gambled = Rituals.HarvestYear(game, weather, year);
         for (int i = 0; i < harvests.Count; i++)
         {
+            if (choked != null)
+                harvests[i] *= choked[i];                                   // short of what its harvest needs (step 9d)
             if (game.Settings.Happenings.Count > 0)
                 harvests[i] *= Happenings.Factor(game, i, year, "harvest");   // a happening's lasting harvest (step 9c)
             harvests[i] *= Threats.Factor(game, i, year);               // a threat's raid last year (step 9b)

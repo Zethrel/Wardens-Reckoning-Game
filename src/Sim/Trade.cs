@@ -13,23 +13,29 @@ public sealed class Market
     public Dictionary<string, double> CraftingMetal { get; } = new();
     /// <summary>Goods wanted, not needed: a shortage of one is no hardship.</summary>
     public HashSet<string> Wanted { get; } = new();
+    /// <summary>The goods this town's faction needs (chokepoints, step 9d); how much of each good other goods stood
+    /// in for; and how much of what it wants it may buy from other factions this year (1: all).</summary>
+    public HashSet<string> Needs { get; } = new();
+    public Dictionary<string, double> StoodIn { get; } = new();
+    public double TradeFactor { get; set; } = 1.0;
 
     static double Get(Dictionary<string, double> table, string good) => table.GetValueOrDefault(good);
 
     public double Surplus(string good) => Get(Made, good) - Get(Needed, good);
 
-    /// <summary>What is still missing of a good after trading.</summary>
+    /// <summary>What is still missing of a good after trading (what stood in for it counts as it).</summary>
     public double Shortage(string good) =>
-        Math.Max(0.0, Get(Needed, good) - (Get(Made, good) + Get(Bought, good) - Get(Sold, good)));
+        Math.Max(0.0, Get(Needed, good) - (Get(Made, good) + Get(Bought, good) - Get(Sold, good) + Get(StoodIn, good)));
 
-    /// <summary>The surplus of several goods that stand in for each other (the staples), counted as one.</summary>
-    public double PooledSurplus(IReadOnlyList<string> goods) => goods.Sum(Surplus);
+    /// <summary>The surplus of several goods that stand in for each other (the staples), counted as one; added up as
+    /// Python's sum() adds decimals (Py.Sum).</summary>
+    public double PooledSurplus(IReadOnlyList<string> goods) => Py.Sum(goods.Select(Surplus));
 
     /// <summary>What is still missing of several goods that stand in for each other.</summary>
     public double PooledShortage(IReadOnlyList<string> goods)
     {
-        double have = goods.Sum(g => Get(Made, g) + Get(Bought, g) - Get(Sold, g));
-        return Math.Max(0.0, goods.Sum(g => Get(Needed, g)) - have);
+        double have = Py.Sum(goods.Select(g => Get(Made, g) + Get(Bought, g) - Get(Sold, g)));
+        return Math.Max(0.0, Py.Sum(goods.Select(g => Get(Needed, g))) - have);
     }
 
     public void Add(Dictionary<string, double> table, string good, double amount) =>
@@ -46,7 +52,8 @@ public sealed class Market
 /// buyer needs. With TRADE_HANDS set (the generator's default), goods go hand to hand: along at most TRADE_HANDS
 /// routes, none longer than TRADE_REACH, between towns whose factions will trade.
 ///
-/// Not yet in the game's trade: the chokepoints' embargoes, smugglers, stand-ins and supply contracts (step 9).
+/// With chokepoints (step 9d): what factions need, embargoes on it, smugglers, stand-ins, how much a town may buy
+/// from other factions, and supply contracts first.
 /// </summary>
 public static class Trade
 {
@@ -83,6 +90,8 @@ public static class Trade
         }
 
         var goods = PresentGoods(game);
+        var present = goods.Select(g => g.Name).ToHashSet();
+        bool choking = settings.Choking;
         for (int i = 0; i < towns.Count; i++)
         {
             var town = towns[i];
@@ -99,6 +108,8 @@ public static class Trade
                 if (good.Wanted)
                     market.Wanted.Add(good.Name);
             }
+            if (choking)                                                         // what its faction needs (step 9d)
+                Chokepoints.AddNeeds(game, market, town, holder, present);
             market.Needed[Metal] = path != null ? thousands * settings.MetalNeed.GetValueOrDefault(path) : 0.0;
             string? root = path == null ? null : settings.PathRoot.GetValueOrDefault(path, path);
             foreach (var good in goods)
@@ -121,6 +132,8 @@ public static class Trade
                 }
             }
         }
+        if (choking)                                    // what last year's shortages hinder this year (step 9d)
+            Chokepoints.Adjust(game, markets);
         return markets;
     }
 
@@ -219,6 +232,10 @@ public static class Trade
         Craft(markets);
         foreach (var good in craftedGoods)
             Match(game, new[] { good }, markets, journeys, deals, local);
+        if (settings.Choking)                           // what stands in for a good still short (step 9d)
+            foreach (var (good, others) in settings.StandIns)
+                foreach (var other in others)
+                    StandIn(game, good, other, markets, journeys, deals, local);
         if (staples.Count > 0)
             Match(game, staples, markets, journeys, deals, local);
         return deals;
@@ -248,7 +265,7 @@ public static class Trade
                 will = WillTrade(game, a, b);
                 willing[pair] = willing[(b.Holder, a.Holder)] = will;
             }
-            if (will)
+            if (will || (game.Settings.Choking && (Chokepoints.SmugglerTown(game, a) || Chokepoints.SmugglerTown(game, b))))
             {
                 links[route.A].Add((route.B, route));
                 links[route.B].Add((route.A, route));
@@ -332,11 +349,12 @@ public static class Trade
     static void Match(Game game, IReadOnlyList<string> goods, Market[] markets, List<Journeys> journeys,
                       List<(string, int, int, double)> deals, bool local)
     {
-        double Spare(Market m) => m.PooledSurplus(goods) - goods.Sum(g => m.Sold.GetValueOrDefault(g));
-        double Wanted(Market m) => -m.PooledSurplus(goods) - goods.Sum(g => m.Bought.GetValueOrDefault(g));
+        double Spare(Market m) => m.PooledSurplus(goods) - Py.Sum(goods.Select(g => m.Sold.GetValueOrDefault(g)));
+        double Wanted(Market m) => -m.PooledSurplus(goods) - Py.Sum(goods.Select(g => m.Bought.GetValueOrDefault(g)));
 
+        bool choking = game.Settings.Choking;
         var surplus = markets.Select(m => m.PooledSurplus(goods)).ToArray();
-        var offers = new List<(double Cost, int Seller, int Buyer)>();
+        var offers = new List<(int First, double Cost, int Seller, int Buyer)>();
         for (int seller = 0; seller < markets.Length; seller++)
         {
             if (surplus[seller] <= 0)
@@ -344,14 +362,31 @@ public static class Trade
             foreach (var (buyer, cost) in journeys[seller].Cost)
                 if (buyer != seller && surplus[buyer] < 0
                     && (local || WillTrade(game, game.Towns[seller], game.Towns[buyer])))
-                    offers.Add((cost, seller, buyer));
+                {
+                    // Supply contracts go first (chokepoints, step 9e keeps them; the history may leave some).
+                    bool first = choking && Chokepoints.ContractFirst(game, game.Towns[seller], game.Towns[buyer], goods);
+                    offers.Add((first ? 0 : 1, cost, seller, buyer));
+                }
         }
-        offers.Sort();                       // cheapest journey first; then by seller, then buyer (as Python sorts tuples)
-        foreach (var (_, seller, buyer) in offers)
+        offers.Sort();                       // contracts first, cheapest journey next; then by seller, then buyer
+        // The most each town may buy from other factions: its TradeFactor of what it wanted (chokepoints, step 9d).
+        var most = new Dictionary<int, double>();
+        for (int buyer = 0; buyer < markets.Length; buyer++)
+            if (surplus[buyer] < 0 && markets[buyer].TradeFactor < 1.0)
+                most[buyer] = markets[buyer].TradeFactor * -surplus[buyer];
+        var fromOthers = new Dictionary<int, double>();
+        foreach (var (_, _, seller, buyer) in offers)
         {
             double amount = Math.Min(Spare(markets[seller]), Wanted(markets[buyer]));
+            bool foreign = game.Towns[seller].Holder != game.Towns[buyer].Holder;
+            if (foreign && most.TryGetValue(buyer, out double cap))
+                amount = Math.Min(amount, cap - fromOthers.GetValueOrDefault(buyer));
             if (amount <= 1e-9)
                 continue;
+            if (choking && Embargoed(game, goods, seller, buyer, amount, markets, journeys))
+                continue;
+            if (foreign)
+                fromOthers[buyer] = fromOthers.GetValueOrDefault(buyer) + amount;
             foreach (var route in journeys[seller].Used[buyer])
                 route.Volume += amount;
             var stock = markets[seller];
@@ -371,6 +406,63 @@ public static class Trade
                 if (amount <= 1e-9)
                     break;
             }
+        }
+    }
+
+    /// <summary>Whether a journey passes through a smuggler's town between the seller and the buyer
+    /// (trade.passes_smugglers).</summary>
+    static bool PassesSmugglers(Game game, List<Route> journey, int seller, int buyer)
+    {
+        if (game.Settings.Smugglers.Count == 0)
+            return false;
+        var between = journey.SelectMany(r => new[] { r.A, r.B }).ToHashSet();
+        between.Remove(seller);
+        between.Remove(buyer);
+        return between.Any(t => Chokepoints.SmugglerTown(game, game.Towns[t]));
+    }
+
+    /// <summary>Whether an embargo stops this sale (trade.embargoed); a sale that slips past through smugglers is
+    /// counted as smuggled.</summary>
+    static bool Embargoed(Game game, IReadOnlyList<string> goods, int seller, int buyer, double amount, Market[] markets,
+                          List<Journeys> journeys)
+    {
+        bool smuggled = PassesSmugglers(game, journeys[seller].Used[buyer], seller, buyer);
+        string? answer = Chokepoints.Refuses(game, game.Towns[seller], game.Towns[buyer], goods, smuggled, markets[buyer].Needs);
+        if (answer == "smuggled")
+            game.Smuggled += amount;
+        return answer == "refused";
+    }
+
+    /// <summary>
+    /// Towns still short of `good` buy `other` in its place, where someone has it to spare (trade.stand_in): as Match,
+    /// cheapest journeys first; what is bought counts as `good` for the buyer (StoodIn) and as sold `other` for the
+    /// seller.
+    /// </summary>
+    static void StandIn(Game game, string good, string other, Market[] markets, List<Journeys> journeys,
+                        List<(string, int, int, double)> deals, bool local)
+    {
+        double Spare(Market m) => m.Made.GetValueOrDefault(other) - m.Needed.GetValueOrDefault(other) - m.Sold.GetValueOrDefault(other);
+        var offers = new List<(double Cost, int Seller, int Buyer)>();
+        for (int seller = 0; seller < markets.Length; seller++)
+        {
+            if (Spare(markets[seller]) <= 1e-9)
+                continue;
+            foreach (var (buyer, cost) in journeys[seller].Cost)
+                if (buyer != seller && markets[buyer].Shortage(good) > 1e-9
+                    && (local || WillTrade(game, game.Towns[seller], game.Towns[buyer])))
+                    offers.Add((cost, seller, buyer));
+        }
+        offers.Sort();
+        foreach (var (_, seller, buyer) in offers)
+        {
+            double amount = Math.Min(Spare(markets[seller]), markets[buyer].Shortage(good));
+            if (amount <= 1e-9 || Embargoed(game, new[] { good }, seller, buyer, amount, markets, journeys))
+                continue;
+            foreach (var route in journeys[seller].Used[buyer])
+                route.Volume += amount;
+            markets[seller].Add(markets[seller].Sold, other, amount);
+            markets[buyer].Add(markets[buyer].StoodIn, good, amount);
+            deals.Add((other, seller, buyer, amount));
         }
     }
 

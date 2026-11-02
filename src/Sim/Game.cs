@@ -191,6 +191,24 @@ public sealed class Game
     public int[] MineNamesUsed { get; set; }
 
     /// <summary>
+    /// The chokepoints (step 9d): how short each town was last year of each good its faction needs (0 to 1), the
+    /// embargoes in force and those refused this year (holder, buyer, good), each faction's debased coin, all the goods
+    /// smuggled past an embargo, the leaks (year, faction name), the supply contracts ((buyer, good) → maker), the
+    /// sabotaged towns (good, the last year it makes none), the counts of contracts, sabotage, secrets and betrayals,
+    /// and this year's ritual factor of each faction short of what its rituals need.
+    /// </summary>
+    public Dictionary<int, Dictionary<string, double>> Short { get; } = new();
+    public HashSet<(int Holder, int Buyer, string Good)> Refused { get; } = new();
+    public HashSet<(int Holder, int Buyer, string Good)> Embargoes { get; } = new();
+    public Dictionary<int, double> Debased { get; } = new();
+    public double Smuggled { get; set; }
+    public List<(int Year, string Faction)> Leaks { get; } = new();
+    public Dictionary<(int Buyer, string Good), int> Contracts { get; } = new();
+    public Dictionary<int, (string Good, int Until)> Sabotaged { get; } = new();
+    public Dictionary<string, int> ChokeCounts { get; } = new();
+    public Dictionary<int, double> RitualsHindered { get; } = new();
+
+    /// <summary>
     /// The happenings (step 9c): each town's lasting effects (happening, first year, last year, its factors), the year
     /// each happening last struck each town, where those that spread along the routes struck last year (town, the
     /// faction it started in, outbreak) by happening, the towns each outbreak has struck while it spreads, the next
@@ -510,6 +528,8 @@ public sealed class Game
         MineNames = (going["names"]?["mine"] as JsonArray)?.Select(list => list!.AsArray().Select(n => (string)n!).ToList()).ToList()
                     ?? new List<List<string>>();
         MineNamesUsed = new int[MineNames.Count];
+        // An export older than step 9d has no chokepoints in "continue": then no town was short last year.
+        Sim.Chokepoints.Read(this, going["chokepoints"]);
         // An export older than step 9c has no happenings in "continue": then nothing lasts and the eras start again.
         Sim.Happenings.Read(this, going["happenings"]);
         // An export older than step 9b has no threats in "continue": then the history's threats are gone.

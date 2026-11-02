@@ -283,10 +283,12 @@ public static class Rituals
     }
 
     /// <summary>A ritual's chance for a faction, times its path's ritual factor (an offshoot's; 1 for your own paths).
-    /// rituals.by_path, without the chokepoints' part, which comes with step 9.</summary>
+    /// rituals.by_path, and less when its towns ran short of what its rituals need (chokepoints).</summary>
     public static double ByPath(Game game, double chance, FactionNow faction)
     {
-        double factor = game.Settings.RitualFactor(faction.Path);
+        // Times how well its towns are supplied with what its rituals need (chokepoints, step 9d).
+        int index = game.Factions.IndexOf(faction);
+        double factor = game.Settings.RitualFactor(faction.Path) * game.RitualsHindered.GetValueOrDefault(index, 1.0);
         return factor == 1.0 ? chance : chance * factor;
     }
 

@@ -112688,6 +112688,344 @@
     ]
    ]
   },
+  "chokepoints": {
+   "short": {
+    "0": {
+     "crystals": 0.0,
+     "minted_currency": 1.0,
+     "mirrorglass": 1.0,
+     "notarial_seals": 1.0
+    },
+    "1": {
+     "crystals": 0.0,
+     "minted_currency": 1.0,
+     "mirrorglass": 1.0,
+     "notarial_seals": 1.0
+    },
+    "2": {
+     "minted_currency": 1.0,
+     "nitre_fertilizer": 1.0,
+     "notarial_seals": 1.0
+    },
+    "4": {
+     "minted_currency": 1.0,
+     "nitre_fertilizer": 1.0,
+     "notarial_seals": 1.0
+    },
+    "7": {
+     "crystals": 0.0,
+     "minted_currency": 1.0,
+     "mirrorglass": 1.0,
+     "notarial_seals": 1.0
+    },
+    "8": {
+     "artifact_cores": 1.0,
+     "minted_currency": 1.0,
+     "mirrorglass": 1.0,
+     "notarial_seals": 1.0
+    },
+    "9": {
+     "artifact_cores": 1.0,
+     "minted_currency": 1.0,
+     "mirrorglass": 1.0,
+     "notarial_seals": 1.0
+    },
+    "10": {
+     "minted_currency": 1.0,
+     "nitre_fertilizer": 1.0,
+     "notarial_seals": 1.0
+    },
+    "11": {
+     "minted_currency": 1.0,
+     "nitre_fertilizer": 1.0,
+     "notarial_seals": 1.0
+    },
+    "12": {
+     "artifact_cores": 1.0,
+     "minted_currency": 1.0,
+     "mirrorglass": 1.0,
+     "notarial_seals": 1.0
+    },
+    "13": {
+     "artifact_cores": 1.0,
+     "minted_currency": 1.0,
+     "mirrorglass": 1.0,
+     "notarial_seals": 1.0
+    },
+    "14": {
+     "artifact_cores": 1.0,
+     "minted_currency": 1.0,
+     "mirrorglass": 1.0,
+     "notarial_seals": 1.0
+    },
+    "15": {
+     "artifact_cores": 1.0,
+     "minted_currency": 1.0,
+     "mirrorglass": 1.0,
+     "notarial_seals": 1.0
+    },
+    "16": {
+     "minted_currency": 1.0,
+     "nitre_fertilizer": 1.0,
+     "notarial_seals": 1.0
+    },
+    "17": {
+     "artifact_cores": 1.0,
+     "minted_currency": 1.0,
+     "mirrorglass": 1.0,
+     "notarial_seals": 1.0
+    },
+    "18": {
+     "minted_currency": 1.0,
+     "nitre_fertilizer": 1.0,
+     "notarial_seals": 1.0
+    },
+    "19": {
+     "crystals": 0.0,
+     "minted_currency": 1.0,
+     "mirrorglass": 1.0,
+     "notarial_seals": 1.0
+    },
+    "20": {
+     "minted_currency": 1.0,
+     "notarial_seals": 1.0,
+     "rock_salt": 0.0
+    },
+    "21": {
+     "minted_currency": 1.0,
+     "nitre_fertilizer": 1.0,
+     "notarial_seals": 1.0
+    },
+    "22": {
+     "minted_currency": 1.0,
+     "nitre_fertilizer": 1.0,
+     "notarial_seals": 1.0
+    },
+    "24": {
+     "artifact_cores": 1.0,
+     "minted_currency": 1.0,
+     "mirrorglass": 1.0,
+     "notarial_seals": 1.0
+    },
+    "25": {
+     "minted_currency": 1.0,
+     "notarial_seals": 1.0,
+     "rock_salt": 0.0
+    },
+    "26": {
+     "minted_currency": 1.0,
+     "nitre_fertilizer": 1.0,
+     "notarial_seals": 1.0
+    },
+    "27": {
+     "crystals": 0.0,
+     "minted_currency": 1.0,
+     "mirrorglass": 1.0,
+     "notarial_seals": 1.0
+    },
+    "28": {
+     "minted_currency": 1.0,
+     "nitre_fertilizer": 1.0,
+     "notarial_seals": 1.0
+    },
+    "29": {
+     "crystals": 0.0,
+     "minted_currency": 1.0,
+     "mirrorglass": 1.0,
+     "notarial_seals": 1.0
+    },
+    "30": {
+     "minted_currency": 1.0,
+     "nitre_fertilizer": 1.0,
+     "notarial_seals": 1.0
+    },
+    "31": {
+     "minted_currency": 1.0,
+     "nitre_fertilizer": 1.0,
+     "notarial_seals": 1.0
+    },
+    "32": {
+     "minted_currency": 1.0,
+     "nitre_fertilizer": 1.0,
+     "notarial_seals": 1.0
+    },
+    "33": {
+     "minted_currency": 1.0,
+     "nitre_fertilizer": 1.0,
+     "notarial_seals": 1.0
+    },
+    "34": {
+     "minted_currency": 1.0,
+     "nitre_fertilizer": 1.0,
+     "notarial_seals": 1.0
+    },
+    "35": {
+     "minted_currency": 1.0,
+     "nitre_fertilizer": 1.0,
+     "notarial_seals": 1.0
+    },
+    "36": {
+     "minted_currency": 1.0,
+     "nitre_fertilizer": 1.0,
+     "notarial_seals": 1.0
+    },
+    "37": {
+     "minted_currency": 1.0,
+     "nitre_fertilizer": 1.0,
+     "notarial_seals": 1.0
+    },
+    "38": {
+     "minted_currency": 1.0,
+     "nitre_fertilizer": 1.0,
+     "notarial_seals": 1.0
+    },
+    "39": {
+     "minted_currency": 1.0,
+     "nitre_fertilizer": 1.0,
+     "notarial_seals": 1.0
+    },
+    "40": {
+     "minted_currency": 1.0,
+     "nitre_fertilizer": 1.0,
+     "notarial_seals": 1.0
+    },
+    "41": {
+     "minted_currency": 1.0,
+     "nitre_fertilizer": 1.0,
+     "notarial_seals": 1.0
+    },
+    "42": {
+     "artifact_cores": 1.0,
+     "minted_currency": 1.0,
+     "mirrorglass": 1.0,
+     "notarial_seals": 1.0
+    },
+    "43": {
+     "artifact_cores": 1.0,
+     "minted_currency": 1.0,
+     "mirrorglass": 1.0,
+     "notarial_seals": 1.0
+    },
+    "44": {
+     "artifact_cores": 1.0,
+     "minted_currency": 1.0,
+     "mirrorglass": 1.0,
+     "notarial_seals": 1.0
+    },
+    "45": {
+     "artifact_cores": 1.0,
+     "minted_currency": 1.0,
+     "mirrorglass": 1.0,
+     "notarial_seals": 1.0
+    },
+    "48": {
+     "artifact_cores": 1.0,
+     "minted_currency": 1.0,
+     "mirrorglass": 1.0,
+     "notarial_seals": 1.0
+    },
+    "49": {
+     "artifact_cores": 1.0,
+     "clockparts": 1.0,
+     "crystals": 1.0,
+     "minted_currency": 1.0,
+     "mirrorglass": 1.0,
+     "notarial_seals": 1.0
+    },
+    "50": {
+     "minted_currency": 1.0,
+     "nitre_fertilizer": 1.0,
+     "notarial_seals": 1.0
+    },
+    "51": {
+     "artifact_cores": 1.0,
+     "minted_currency": 1.0,
+     "mirrorglass": 1.0,
+     "notarial_seals": 1.0
+    },
+    "53": {
+     "minted_currency": 1.0,
+     "nitre_fertilizer": 1.0,
+     "notarial_seals": 1.0
+    },
+    "54": {
+     "minted_currency": 1.0,
+     "nitre_fertilizer": 1.0,
+     "notarial_seals": 1.0
+    },
+    "56": {
+     "minted_currency": 1.0,
+     "notarial_seals": 1.0
+    },
+    "57": {
+     "artifact_cores": 1.0,
+     "minted_currency": 1.0,
+     "mirrorglass": 1.0,
+     "notarial_seals": 1.0
+    },
+    "58": {
+     "artifact_cores": 1.0,
+     "minted_currency": 1.0,
+     "mirrorglass": 1.0,
+     "notarial_seals": 1.0
+    },
+    "59": {
+     "artifact_cores": 1.0,
+     "minted_currency": 1.0,
+     "mirrorglass": 1.0,
+     "notarial_seals": 1.0
+    },
+    "60": {
+     "artifact_cores": 1.0,
+     "minted_currency": 1.0,
+     "mirrorglass": 1.0,
+     "notarial_seals": 1.0
+    },
+    "61": {
+     "minted_currency": 1.0,
+     "nitre_fertilizer": 1.0,
+     "notarial_seals": 1.0
+    },
+    "62": {
+     "minted_currency": 1.0,
+     "nitre_fertilizer": 1.0,
+     "notarial_seals": 1.0
+    },
+    "63": {
+     "minted_currency": 1.0,
+     "nitre_fertilizer": 1.0,
+     "notarial_seals": 1.0
+    },
+    "64": {
+     "artifact_cores": 1.0,
+     "minted_currency": 1.0,
+     "mirrorglass": 1.0,
+     "notarial_seals": 1.0
+    },
+    "65": {
+     "minted_currency": 1.0,
+     "nitre_fertilizer": 1.0,
+     "notarial_seals": 1.0
+    },
+    "66": {
+     "minted_currency": 1.0,
+     "nitre_fertilizer": 1.0,
+     "notarial_seals": 1.0
+    }
+   },
+   "embargoes": [],
+   "debased": {},
+   "smuggled": 0.0,
+   "leaks": [],
+   "contracts": [],
+   "sabotaged": {},
+   "counts": {
+    "contracts": 0,
+    "sabotage": 18,
+    "secrets": 0,
+    "betrayals": 0
+   }
+  },
   "waiting": [
    [
     "deephands",
