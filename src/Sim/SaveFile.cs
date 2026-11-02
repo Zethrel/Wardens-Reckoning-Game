@@ -107,6 +107,8 @@ public static class SaveFile
             // The named threats (step 9b): every threat, the names given from each kind's list, the spoiled
             // harvests, and the threat names used.
             ["threats"] = Threats.Write(game.Threats),
+            // The happenings and eras (step 9c).
+            ["happenings"] = Happenings.Write(game),
             ["threat_names_given"] = new JsonObject(game.ThreatNamesGiven.OrderBy(p => p.Key, StringComparer.Ordinal)
                 .Select(p => KeyValuePair.Create(p.Key, (JsonNode?)p.Value))),
             ["spoiled"] = new JsonObject(game.Spoiled.OrderBy(p => p.Key).Select(p => KeyValuePair.Create(
@@ -408,6 +410,9 @@ public static class SaveFile
         }
         if (save["mine_names_used"] is JsonArray minesUsed)
             game.MineNamesUsed = minesUsed.Select(n => (int)n!).ToArray();
+        // A save from before step 9c keeps the export's happenings and eras.
+        if (save["happenings"] is JsonObject happened)
+            Happenings.Read(game, happened);
         // A save from before step 9b keeps the export's threats.
         if (save["threats"] is JsonArray threats)
             game.Threats = Threats.Read(threats);

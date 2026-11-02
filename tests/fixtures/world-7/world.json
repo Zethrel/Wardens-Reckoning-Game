@@ -112393,6 +112393,301 @@
    },
    "spoiled": {}
   },
+  "happenings": {
+   "lasting": {
+    "9": [
+     [
+      "Routes_turn_to_mud",
+      25,
+      26,
+      {
+       "trade": 0.4
+      }
+     ],
+     [
+      "Routes_turn_to_mud",
+      41,
+      42,
+      {
+       "trade": 0.4
+      }
+     ]
+    ],
+    "11": [
+     [
+      "Routes_turn_to_mud",
+      77,
+      78,
+      {
+       "trade": 0.4
+      }
+     ]
+    ],
+    "12": [
+     [
+      "Routes_turn_to_mud",
+      50,
+      51,
+      {
+       "trade": 0.4
+      }
+     ]
+    ],
+    "13": [
+     [
+      "Routes_turn_to_mud",
+      60,
+      61,
+      {
+       "trade": 0.4
+      }
+     ]
+    ],
+    "14": [
+     [
+      "Routes_turn_to_mud",
+      41,
+      42,
+      {
+       "trade": 0.4
+      }
+     ]
+    ],
+    "17": [
+     [
+      "Routes_turn_to_mud",
+      88,
+      89,
+      {
+       "trade": 0.4
+      }
+     ]
+    ],
+    "20": [
+     [
+      "Routes_turn_to_mud",
+      26,
+      27,
+      {
+       "trade": 0.4
+      }
+     ],
+     [
+      "Routes_turn_to_mud",
+      40,
+      41,
+      {
+       "trade": 0.4
+      }
+     ]
+    ],
+    "24": [
+     [
+      "Routes_turn_to_mud",
+      40,
+      41,
+      {
+       "trade": 0.4
+      }
+     ]
+    ],
+    "25": [
+     [
+      "Routes_turn_to_mud",
+      41,
+      42,
+      {
+       "trade": 0.4
+      }
+     ]
+    ],
+    "42": [
+     [
+      "Routes_turn_to_mud",
+      40,
+      41,
+      {
+       "trade": 0.4
+      }
+     ]
+    ],
+    "43": [
+     [
+      "Routes_turn_to_mud",
+      37,
+      38,
+      {
+       "trade": 0.4
+      }
+     ]
+    ],
+    "44": [
+     [
+      "Routes_turn_to_mud",
+      9,
+      10,
+      {
+       "trade": 0.4
+      }
+     ]
+    ],
+    "45": [
+     [
+      "Routes_turn_to_mud",
+      38,
+      39,
+      {
+       "trade": 0.4
+      }
+     ]
+    ],
+    "46": [
+     [
+      "Routes_turn_to_mud",
+      39,
+      40,
+      {
+       "trade": 0.4
+      }
+     ]
+    ],
+    "51": [
+     [
+      "Routes_turn_to_mud",
+      36,
+      37,
+      {
+       "trade": 0.4
+      }
+     ]
+    ],
+    "54": [
+     [
+      "Routes_turn_to_mud",
+      42,
+      43,
+      {
+       "trade": 0.4
+      }
+     ]
+    ],
+    "57": [
+     [
+      "Routes_turn_to_mud",
+      41,
+      42,
+      {
+       "trade": 0.4
+      }
+     ]
+    ],
+    "58": [
+     [
+      "Routes_turn_to_mud",
+      42,
+      43,
+      {
+       "trade": 0.4
+      }
+     ]
+    ],
+    "59": [
+     [
+      "Routes_turn_to_mud",
+      42,
+      43,
+      {
+       "trade": 0.4
+      }
+     ]
+    ]
+   },
+   "last": {
+    "4": {
+     "the_plague_of_stalled_breath": 14
+    },
+    "9": {
+     "Routes_turn_to_mud": 40
+    },
+    "11": {
+     "Routes_turn_to_mud": 76
+    },
+    "12": {
+     "Routes_turn_to_mud": 49
+    },
+    "13": {
+     "Routes_turn_to_mud": 59
+    },
+    "14": {
+     "Routes_turn_to_mud": 40
+    },
+    "15": {
+     "the_plague_of_stalled_breath": 54
+    },
+    "17": {
+     "Routes_turn_to_mud": 87
+    },
+    "20": {
+     "Routes_turn_to_mud": 39
+    },
+    "24": {
+     "Routes_turn_to_mud": 39
+    },
+    "25": {
+     "Routes_turn_to_mud": 40
+    },
+    "37": {
+     "the_plague_of_stalled_breath": 16
+    },
+    "42": {
+     "Routes_turn_to_mud": 39
+    },
+    "43": {
+     "Routes_turn_to_mud": 36,
+     "the_plague_of_stalled_breath": 39
+    },
+    "44": {
+     "Routes_turn_to_mud": 8
+    },
+    "45": {
+     "Routes_turn_to_mud": 37
+    },
+    "46": {
+     "Routes_turn_to_mud": 38
+    },
+    "51": {
+     "Routes_turn_to_mud": 35
+    },
+    "52": {
+     "the_plague_of_stalled_breath": 18
+    },
+    "54": {
+     "Routes_turn_to_mud": 41
+    },
+    "55": {
+     "the_plague_of_stalled_breath": 32
+    },
+    "57": {
+     "Routes_turn_to_mud": 40
+    },
+    "58": {
+     "Routes_turn_to_mud": 41
+    },
+    "59": {
+     "Routes_turn_to_mud": 41
+    }
+   },
+   "frontier": {},
+   "outbreaks": {},
+   "next_outbreak": 7,
+   "eras": [
+    [
+     "steady",
+     1,
+     107
+    ]
+   ]
+  },
   "waiting": [
    [
     "deephands",

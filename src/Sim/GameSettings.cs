@@ -387,6 +387,50 @@ public sealed class GameSettings
     /// <summary>threat_settings.py RISE_CHANCE: the chance a year that a new threat rises.</summary>
     public double RiseChance { get; }
 
+    /// <summary>
+    /// One happening (happening_settings.py HAPPENINGS, step 9c), with happenings.DEFAULTS for every key it leaves out:
+    /// its chance a year (in each town, or for the whole world with reach "world"), its reach ("town", "region",
+    /// "routes" or "world"), the radius of a region in cells of a 256 map, the chance a year it spreads along each
+    /// route, and how many years its lasting effects last. What it does at once: a share of the people gained or lost
+    /// ("population"), a share driven off along the routes ("driven_off"), a belief its faction may come to
+    /// ([belief, chance]), and blame of the faction it started in. What lasts, in the generator's order (growth,
+    /// harvest, trade, war): a factor for each. A "when" rule is Python code, so it cannot be exported: the game has none.
+    /// </summary>
+    public sealed record Happening(string Name, double Chance, string Reach, double Radius, double Spread, int Years,
+                                   double Population, double DrivenOff, (string Belief, double Chance)? Belief, double Blame,
+                                   IReadOnlyList<(string Key, double Factor)> Lasting);
+    /// <summary>The happenings, in your order (the order they roll in).</summary>
+    public IReadOnlyList<Happening> Happenings { get; }
+
+    /// <summary>A temper (TEMPERS): how likely it is drawn when an era begins ("weight"), and in its eras every
+    /// happening's chance times "chance" (and some happenings' once more, "happenings"), every faction's readiness for
+    /// war times "war", and every faction's chance of breaking apart times "splits".</summary>
+    public sealed record Temper(string Name, double Weight, double Chance, IReadOnlyDictionary<string, double> Moods,
+                                double War, double Splits);
+    /// <summary>The tempers in your order (happenings.STEADY when you give none); ERA_YEARS, how long an era lasts;
+    /// ERA_END_CHANCE and ERA_ENDERS, the events that may end an era early.</summary>
+    public IReadOnlyList<Temper> Tempers { get; }
+    public (int Low, int High) EraYears { get; }
+    public double EraEndChance { get; }
+    public IReadOnlySet<string> EraEnders { get; }
+
+    /// <summary>The temper named `name`.</summary>
+    public Temper TemperOf(string name) => Tempers.First(t => t.Name == name);
+
+    /// <summary>happenings.LASTING: the effects that last, in this order.</summary>
+    public static readonly string[] LastingEffects = { "growth", "harvest", "trade", "war" };
+
+    static Happening ReadHappening(string name, JsonNode? about)
+    {
+        // happenings.DEFAULTS: chance 0, reach "town", radius 20, spread 0.3, years 1, no effects.
+        var effects = about?["effects"] as JsonObject ?? new JsonObject();
+        return new Happening(name, (double?)about?["chance"] ?? 0.0, (string?)about?["reach"] ?? "town",
+            (double?)about?["radius"] ?? 20, (double?)about?["spread"] ?? 0.3, (int?)about?["years"] ?? 1,
+            (double?)effects["population"] ?? 0.0, (double?)effects["driven_off"] ?? 0.0,
+            effects["belief"] is JsonArray b ? ((string)b[0]!, (double)b[1]!) : null, (double?)effects["blame"] ?? 0.0,
+            LastingEffects.Where(key => effects[key] != null).Select(key => (key, (double)effects[key]!)).ToList());
+    }
+
     /// <summary>The kind of threat named `name`.</summary>
     public ThreatKind KindOf(string name) => ThreatKinds.First(kind => kind.Name == name);
 
@@ -603,6 +647,19 @@ public sealed class GameSettings
                 (double?)p.Value["reach"] ?? 20, p.Value["belief"] is JsonArray b ? ((string)b[0]!, (double)b[1]!) : null,
                 (double?)p.Value["harvest"] ?? 1.0, (int?)p.Value["years"] ?? 5)).ToList()
             : new List<Sign>();
+        var happening = settings["happenings"] as JsonObject ?? new JsonObject();
+        Happenings = happening["HAPPENINGS"] is JsonObject table
+            ? table.Select(p => ReadHappening(p.Key, p.Value)).ToList() : new List<Happening>();
+        // happenings.STEADY when there are no tempers: one, at chance 1.
+        Tempers = happening["TEMPERS"] is JsonObject tempers && tempers.Count > 0
+            ? tempers.Select(p => new Temper(p.Key, (double?)p.Value?["weight"] ?? 1.0, (double?)p.Value?["chance"] ?? 1.0,
+                  p.Value?["happenings"] is JsonObject moods ? moods.ToDictionary(m => m.Key, m => (double)m.Value!)
+                                                             : new Dictionary<string, double>(),
+                  (double?)p.Value?["war"] ?? 1.0, (double?)p.Value?["splits"] ?? 1.0)).ToList()
+            : new List<Temper> { new("steady", 1.0, 1.0, new Dictionary<string, double>(), 1.0, 1.0) };
+        EraYears = happening["ERA_YEARS"] is JsonArray years ? ((int)years[0]!, (int)years[1]!) : (40, 120);
+        EraEndChance = (double?)happening["ERA_END_CHANCE"] ?? 0.0;
+        EraEnders = (happening["ERA_ENDERS"] as JsonArray)?.Select(e => (string)e!).ToHashSet() ?? new HashSet<string>();
         var threats = settings["threats"] as JsonObject ?? new JsonObject();
         ThreatKinds = threats["THREAT_KINDS"] is JsonObject kinds
             ? kinds.Select(p => ReadThreatKind(p.Key, p.Value)).ToList() : new List<ThreatKind>();

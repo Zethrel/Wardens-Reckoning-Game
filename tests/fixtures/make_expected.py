@@ -981,6 +981,80 @@ def threat_years(data):
             "dice_used": threatened.rng.at}
 
 
+# The happenings and tempers of the happenings' years (the game's step 9c): the test tempers come before the export's.
+HAPPENING_TEST = {
+    "HAPPENINGS": {
+        "blight": {"chance": 0.003, "reach": "routes", "spread": 0.5, "years": 3,
+                   "effects": {"population": -0.05, "harvest": 0.7, "growth": 0.5}},
+        "exodus": {"chance": 0.001, "reach": "town", "years": 2,
+                   "effects": {"driven_off": 0.2, "belief": ["worship", 0.6], "war": 1.5}},
+        "quake": {"chance": 0.0015, "reach": "region", "radius": 30, "years": 4,
+                  "effects": {"population": -0.1, "blame": 0.3, "trade": 0.5}},
+        "boom": {"chance": 0.004, "reach": "world", "years": 2, "effects": {"population": 0.05, "war": 0.5}},
+    },
+    "TEMPERS": {"calm": {"weight": 1, "chance": 0.5, "war": 0.5, "splits": 0.5},
+                "wild": {"weight": 2, "chance": 3.0, "happenings": {"quake": 2.0}, "war": 1.5}},
+    "ERA_YEARS": [3, 6], "ERA_END_CHANCE": 0.5, "ERA_ENDERS": ["quake", "belief_after_happening"],
+}
+HAPPENING_YEARS = 8
+
+
+def happening_years(data):
+    """HAPPENING_YEARS years of happenings and eras (the game's step 9c) by the generator's own happenings.Happenings,
+    with ThreatDice for both its dice: HAPPENING_TEST's happenings, its tempers before the export's, its era settings;
+    the export's lasting effects, frontier, outbreaks and eras to start from. Each year: the era begins, every town's
+    factors (growth, harvest, trade, war), the happenings strike, the towns' populations are rounded (as the history's
+    year does), the war factors, then the era may end. Everything after: the people, the beliefs, the blame, what each
+    year killed, the state as the export holds it and the events."""
+    from types import SimpleNamespace
+    from north import export, happenings, history
+    year_data = trade_year(data)
+    places, going, settings = year_data.places, year_data.going, year_data.settings
+    factor = data["history_factor"]
+    for place in places:
+        place.x, place.y = place.x // factor, place.y // factor
+    factions = [SimpleNamespace(index=i, name=f["name"], belief=f["belief"], traits=f["traits"])
+                for i, f in enumerate(data["factions"])]
+    tempers = dict(HAPPENING_TEST["TEMPERS"])
+    tempers.update(settings["happenings"]["TEMPERS"])
+    happen = happenings.Happenings(HAPPENING_TEST["HAPPENINGS"], 1, year_data.routes, going["history_columns"], tempers,
+                                   HAPPENING_TEST["ERA_YEARS"], HAPPENING_TEST["ERA_END_CHANCE"],
+                                   HAPPENING_TEST["ERA_ENDERS"])
+    happen.rng, happen.era_rng = ThreatDice(), ThreatDice()
+    kept = going["happenings"]
+    happen.lasting = {int(t): [(n, a, b, dict(e)) for n, a, b, e in entries] for t, entries in kept["lasting"].items()}
+    happen.last = {int(t): dict(struck) for t, struck in kept["last"].items()}
+    happen.frontier = {name: [tuple(e) for e in entries] for name, entries in kept["frontier"].items()}
+    happen.outbreaks = {int(o): set(towns) for o, towns in kept["outbreaks"].items()}
+    happen.next_outbreak = kept["next_outbreak"]
+    happen.eras = [tuple(era) for era in kept["eras"]]
+    if happen.eras:
+        happen.take_temper(tempers[happen.eras[-1][0]])
+    people = [town["people"] for town in going["towns"]]
+    events, blame, killed, factors, war = [], {}, [], [], []
+
+    def event(y, kind, text, what, facts):
+        return [text, what]
+
+    first = data["years"]
+    for year in range(first + 1, first + HAPPENING_YEARS + 1):
+        start = len(events)
+        happen.begin_year(year, events, event)
+        factors.append([[happen.factor(i, year, key) for key in ("growth", "harvest", "trade", "war")]
+                        for i in range(len(places))])
+        hit = happen.year(places, factions, None, None, year, people, events, event, blame, history.add_blame)
+        killed.append(sorted([town, dead] for town, dead in hit.items()))
+        for place, count in zip(places, people):
+            place.population = round(count)
+        war.append(sorted([f, value] for f, value in happen.war_factors(places, year).items()))
+        happen.end_year(year, [SimpleNamespace(what=e[1]) for e in events[start:]])
+    return {"test": HAPPENING_TEST, "years": HAPPENING_YEARS, "people": people,
+            "beliefs": [f.belief for f in factions], "blame": sorted([a, b, v] for (a, b), v in blame.items()),
+            "killed": killed, "factors": factors, "war": war, "splits": happen.splits,
+            "state": export.happenings_state(SimpleNamespace(happenings=happen)), "events": events,
+            "dice_used": [happen.rng.at, happen.era_rng.at]}
+
+
 MARK_YEARS = 5
 
 
@@ -1050,6 +1124,7 @@ def main(generator):
     expected["offshoots"] = offshoots(world.data)
     expected["death"] = god_of_death(world.data)
     expected["threats"] = threat_years(world.data)
+    expected["happenings"] = happening_years(world.data)
     (HERE / "expected.json").write_text(json.dumps(expected, separators=(",", ":")), encoding="utf-8")
 
     grid = [[(x * x * 7 + y * 31 + (x ^ y) * 13) % 256 for x in range(24)] for y in range(20)]

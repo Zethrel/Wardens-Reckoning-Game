@@ -11,7 +11,7 @@ namespace WardensReckoning.Sim;
 ///
 /// War and alliance come between the opinions and the rulers (War.cs, step 5).
 ///
-/// Not yet in the game, and so not in its years: happenings and eras (9c), and chokepoints (9d, 9e).
+/// Not yet in the game, and so not in its years: chokepoints (9d, 9e).
 /// </summary>
 public static class YearCore
 {
@@ -39,6 +39,12 @@ public static class YearCore
         // Who holds which paths and towns as the year begins (for learning at its end).
         var learningStart = Learning.Remember(game);
 
+        // A new era, if the last is over (step 9c): its temper sets how often the happenings come.
+        int firstEvent = game.Events.Count;
+        bool happening = settings.Happenings.Count > 0;
+        if (happening)
+            Happenings.BeginYear(game, game.DiceFor("eras").Random, year);
+
         // Every town fed by the people holding it now (tastes): worked out again where its holder changed.
         Feeding.Refresh(game);
 
@@ -46,6 +52,9 @@ public static class YearCore
         // towns, and the metal dug (make_markets, trade_goods, dig).
         var harvests = Harvests(game, year);
         var markets = Trade.MakeMarkets(game, harvests);
+        if (happening)                              // a happening's "trade": what each town makes and crafts
+            for (int i = 0; i < markets.Length; i++)
+                Happenings.ScaleTrade(markets[i], Happenings.Factor(game, i, year, "trade"));
         var deals = Trade.TradeGoods(game, markets);
         Trade.Dig(game, markets, year);
 
@@ -59,6 +68,11 @@ public static class YearCore
 
         // Attunement's mark: marking, spreading, fading, rifts, and what the mark does to the towns (step 8).
         Attunement.Year(game, markets, hardship, blame, year);
+
+        // The happenings: spreading, starting and striking (step 9c). Those they killed count as the towns' people
+        // before their year, for a mass death.
+        var killed = happening ? Happenings.Year(game, game.DiceFor("happenings").Random, year, blame)
+                               : new Dictionary<int, double>();
 
         // The named threats: waking, sleeping, moving, raiding, and a new one rising (step 9b).
         if (settings.ThreatKinds.Count > 0)
@@ -87,8 +101,12 @@ public static class YearCore
             var view = new PlaceView(record.Name, settings.SizeNames[town.Size], town.Population, Capacity(i, game), fed,
                                      town.Hungry, Shortages(markets[i], settings.Staples), faction?.Name ?? "",
                                      faction?.Path ?? "", new Dictionary<string, double>(faction?.Traits ?? new()));
-            double before = town.People;
-            town.People = Grow(town.People, Capacity(i, game), fed, settings);
+            double before = town.People + killed.GetValueOrDefault(i);
+            // Growth: times a happening's "growth" (step 9c) and the faction's fertility (2 x fertility; 1 without).
+            double growth = happening ? Happenings.Factor(game, i, year, "growth") : 1.0;
+            if (faction != null && faction.Traits.TryGetValue("fertility", out double fertility))
+                growth *= 2 * fertility;
+            town.People = Grow(town.People, Capacity(i, game), fed, settings, growth);
             Rules.SettlementRules(game, i, view, spare, blame, year);
             // Many dead at once, to hunger or a rule: a site of the god of death's (step 9a), and a loss its people feel.
             double massLost = Death.MassDeathOf(before, town.People);
@@ -132,6 +150,8 @@ public static class YearCore
         var people = UpdateFactions(game, markets, deals, year, blame);
         Opinions.Year(game, markets, year);
         Splits.UpdateEmpires(game);                 // who holds together this year, before the wars
+        // How ready each faction is for war: a happening's "war" and the era's temper (step 9c).
+        game.WarReadiness = happening ? Happenings.WarFactors(game, year) : new Dictionary<int, double>();
         War.Year(game, markets, hardship, year);
         Rituals.WarYear(game, year);                // desperate attunement factions strike their enemies (step 8)
         if (settings.ThreatKinds.Count > 0)
@@ -148,6 +168,8 @@ public static class YearCore
         Drift.Year(game, year);
         Capitals.Mend(game, year, moving: true);    // and perhaps a capital moved
         Learning.Year(game, learningStart, deals, year);
+        if (happening)                              // a big event may end the era early (step 9c)
+            Happenings.EndYear(game, game.DiceFor("eras").Random, year, game.Events.Skip(firstEvent));
 
         world.AddYear(game.Towns.Select(t => t.Ruined ? 0 : t.Population).ToList(),
                       game.Towns.Select(t => t.Holder).ToList(),
@@ -286,6 +308,8 @@ public static class YearCore
         var gambled = Rituals.HarvestYear(game, weather, year);
         for (int i = 0; i < harvests.Count; i++)
         {
+            if (game.Settings.Happenings.Count > 0)
+                harvests[i] *= Happenings.Factor(game, i, year, "harvest");   // a happening's lasting harvest (step 9c)
             harvests[i] *= Threats.Factor(game, i, year);               // a threat's raid last year (step 9b)
             harvests[i] *= Signs.Factor(game, i, year);                 // a sign's lasting harvest (step 9a)
             if (game.Towns[i].Holder is int gambler && gambled.TryGetValue(gambler, out double factor))

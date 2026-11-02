@@ -141,7 +141,9 @@ public static class Splits
                             .OrderByDescending(t => distances.GetValueOrDefault(t)).ThenBy(t => t).ToList();
             string? cause = null;
             int start = -1;
-            double fragile = Fragility(faction) * faction.Hold;
+            // The era's temper makes every faction more or less brittle (step 9c), with happenings on.
+            double temper = settings.Happenings.Count > 0 ? Happenings.TemperNow(game).Splits : 1.0;
+            double fragile = Fragility(faction) * temper * faction.Hold;
             if (faction.SplitPending)
             {
                 faction.SplitPending = false;

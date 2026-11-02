@@ -215,6 +215,8 @@ public static class War
         var weighed = Reasons(game, a, b, supply)
             .Select(r => (r.Reason, Value: settings.WarWeights.GetValueOrDefault(r.Reason) * r.Value)).ToList();
         double ready = game.Factions[a].Belief == "worship" ? WorshipWar : 1.0;
+        if (game.WarReadiness.TryGetValue(a, out double stirred))   // happenings and the era's temper (step 9c)
+            ready *= stirred;
         string reason = weighed.OrderBy(w => w.Reason, StringComparer.Ordinal)
                                .Aggregate((best, w) => w.Value > best.Value ? w : best).Reason;
         return (settings.Warlike * ready * weighed.Sum(w => w.Value), reason);

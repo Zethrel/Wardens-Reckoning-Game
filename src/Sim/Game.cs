@@ -191,6 +191,22 @@ public sealed class Game
     public int[] MineNamesUsed { get; set; }
 
     /// <summary>
+    /// The happenings (step 9c): each town's lasting effects (happening, first year, last year, its factors), the year
+    /// each happening last struck each town, where those that spread along the routes struck last year (town, the
+    /// faction it started in, outbreak) by happening, the towns each outbreak has struck while it spreads, the next
+    /// outbreak's number, and every era so far (temper, first year, last year).
+    /// </summary>
+    public Dictionary<int, List<HappeningLasting>> HappeningsLasting { get; } = new();
+    public Dictionary<int, Dictionary<string, int>> HappeningsLast { get; } = new();
+    public Dictionary<string, List<(int Town, int Source, int Outbreak)>> Frontier { get; } = new();
+    public Dictionary<int, HashSet<int>> Outbreaks { get; } = new();
+    public int NextOutbreak { get; set; }
+    public List<(string Temper, int First, int Last)> Eras { get; } = new();
+    /// <summary>This year's readiness for war by faction, from the happenings' "war" and the era's temper (worked out
+    /// before the wars, Happenings.WarFactors); a faction not in it is as ready as ever.</summary>
+    public Dictionary<int, double> WarReadiness { get; set; } = new();
+
+    /// <summary>
     /// The named threats (step 9b), in the order they rose: those of the history and those risen since; how many of
     /// each kind's names are given; each town's spoiled harvest after a raid (the year it falls in, and its factor);
     /// and names for the threats that rise among each people (the export's, in turn), and how many are used.
@@ -494,6 +510,8 @@ public sealed class Game
         MineNames = (going["names"]?["mine"] as JsonArray)?.Select(list => list!.AsArray().Select(n => (string)n!).ToList()).ToList()
                     ?? new List<List<string>>();
         MineNamesUsed = new int[MineNames.Count];
+        // An export older than step 9c has no happenings in "continue": then nothing lasts and the eras start again.
+        Sim.Happenings.Read(this, going["happenings"]);
         // An export older than step 9b has no threats in "continue": then the history's threats are gone.
         ThreatNames = (going["names"]?["threat"] as JsonArray)?.Select(list => list!.AsArray().Select(n => (string)n!).ToList()).ToList()
                       ?? new List<List<string>>();
