@@ -132,7 +132,11 @@ public sealed class Route
 /// <summary>One thing that happened in a year the game ran: as the generator's history.Event, plus the factions
 /// it concerns by number, so the book can show a faction its own entries.</summary>
 public sealed record GameEvent(int Year, string Kind, string What, string Text, IReadOnlyList<int> Factions,
-                               IReadOnlyDictionary<string, string> Facts);
+                               IReadOnlyDictionary<string, string> Facts)
+{
+    /// <summary>The chronicle's sentence for it, once its era has ended and the chronicle tells it (step 10).</summary>
+    public string? Told { get; init; }
+}
 
 /// <summary>
 /// A game: an exported world and the years run on from its end. Everything that changes from year to year is
@@ -421,7 +425,15 @@ public sealed class Game
     public void Record(GameEvent happened)
     {
         Events.Add(happened);
-        BookEntries.Add(new BookEntry(happened.Year, happened.What, happened.Text, null, happened.Factions));
+        BookEntries.Add(new BookEntry(happened.Year, happened.What, happened.Text, happened.Told, happened.Factions));
+    }
+
+    /// <summary>The chronicle tells game event `index` (in Events) with `sentence`: in Events and in the book.</summary>
+    public void Tell(int index, string sentence)
+    {
+        Events[index] = Events[index] with { Told = sentence };
+        int entry = BookEntries.Count - Events.Count + index;      // the game's entries follow the export's
+        BookEntries[entry] = BookEntries[entry] with { Told = sentence };
     }
 
     public Game(ExportedWorld world, long seed)

@@ -506,6 +506,19 @@ public sealed class GameSettings
     /// <summary>Whether there are chokepoints at all (chokepoints.from_settings): some NEEDS or STAND_INS.</summary>
     public bool Choking => Needs.Count > 0 || StandIns.Count > 0;
 
+    /// <summary>
+    /// The chronicle (chronicle_settings.py, step 10): how many years an era is (ERA_YEARS; 0 without the chronicle's
+    /// settings, and then nothing is told), how many events of an era are told at most (MOST_PER_ERA), how much more
+    /// an event counts for every ten times as many people it touched (DEAD_BONUS), how much each repeat of a kind
+    /// fades (REPEAT_FADE), how notable each kind of event is (NOTABLE), and your sentences for each (TEMPLATES).
+    /// </summary>
+    public int ChronicleEraYears { get; }
+    public int MostPerEra { get; }
+    public double DeadBonus { get; }
+    public double RepeatFade { get; }
+    public IReadOnlyDictionary<string, double> Notable { get; }
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> Templates { get; }
+
     /// <summary>The kind of threat named `name`.</summary>
     public ThreatKind KindOf(string name) => ThreatKinds.First(kind => kind.Name == name);
 
@@ -726,6 +739,17 @@ public sealed class GameSettings
                 (double?)p.Value["reach"] ?? 20, p.Value["belief"] is JsonArray b ? ((string)b[0]!, (double)b[1]!) : null,
                 (double?)p.Value["harvest"] ?? 1.0, (int?)p.Value["years"] ?? 5)).ToList()
             : new List<Sign>();
+        // The chronicle; chronicle.py's defaults for DEAD_BONUS (a third) and REPEAT_FADE (1).
+        var told = settings["chronicle"] as JsonObject ?? new JsonObject();
+        ChronicleEraYears = (int?)told["ERA_YEARS"] ?? 0;
+        MostPerEra = (int?)told["MOST_PER_ERA"] ?? 0;
+        DeadBonus = (double?)told["DEAD_BONUS"] ?? 1.0 / 3;
+        RepeatFade = (double?)told["REPEAT_FADE"] ?? 1.0;
+        Notable = (told["NOTABLE"] as JsonObject)?.ToDictionary(p => p.Key, p => (double)p.Value!) ?? new Dictionary<string, double>();
+        // A kind's sentences: a list, or one string (a list of one).
+        Templates = (told["TEMPLATES"] as JsonObject)?.ToDictionary(p => p.Key, p => p.Value is JsonArray list
+                        ? (IReadOnlyList<string>)list.Select(t => (string)t!).ToList() : new List<string> { (string)p.Value! })
+                    ?? new Dictionary<string, IReadOnlyList<string>>();
         var choke = settings["chokepoints"] as JsonObject ?? new JsonObject();
         Needs = (choke["NEEDS"] as JsonArray)?.Select(n => new Need((string)n!["who"]!, (string)n["good"]!,
                     (double)n["amount"]!, (double?)n["harvest"] ?? 0.0, (double?)n["trade"] ?? 0.0, (double?)n["rituals"] ?? 0.0,

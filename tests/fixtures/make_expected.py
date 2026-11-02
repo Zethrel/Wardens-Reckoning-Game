@@ -1368,6 +1368,27 @@ def choke_part2(data):
             "dice_used": [choke.rng.at, choke.dice.at, choke.suspicion.rng.at]}
 
 
+def chronicle_of(data):
+    """The chronicle (the game's step 10) by the generator's own chronicle.told, on the export's events and with the
+    export's chronicle settings, ChokeDice for its choice of sentence: every era of the history, and for each the
+    events it tells (by their place in the export's events) and their sentences."""
+    from types import SimpleNamespace
+    from north import chronicle, history
+    settings = SimpleNamespace(**data["continue"]["settings"]["chronicle"])
+    events = [history.Event(e["year"], e["kind"], e["text"], e["what"], e["facts"]) for e in data["events"]]
+    place = {id(event): number for number, event in enumerate(events)}
+    dice = ChokeDice()
+    real = chronicle.random.Random
+    chronicle.random.Random = lambda _seed: dice
+    try:
+        chapters, _waiting = chronicle.told(events, data["years"], settings, data["history_seed"])
+    finally:
+        chronicle.random.Random = real
+    return {"chapters": [[start, end, [[place[id(event)], sentence] for event, sentence in told]]
+                         for start, end, told in chapters],
+            "dice_used": dice.at, "slots": {what: list(slots) for what, slots in chronicle.SLOTS.items()}}
+
+
 MARK_YEARS = 5
 
 
@@ -1441,6 +1462,7 @@ def main(generator):
     expected["chokepoints"] = choke_years(world.data)
     expected["chokepoints2"] = choke_part2(world.data)
     expected["suspicion"] = suspects_of(world.data)
+    expected["chronicle"] = chronicle_of(world.data)
     (HERE / "expected.json").write_text(json.dumps(expected, separators=(",", ":")), encoding="utf-8")
 
     grid = [[(x * x * 7 + y * 31 + (x ^ y) * 13) % 256 for x in range(24)] for y in range(20)]

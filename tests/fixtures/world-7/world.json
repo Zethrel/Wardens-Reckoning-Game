@@ -52586,6 +52586,151 @@
      ]
     }
    },
+   "chronicle": {
+    "DEAD_BONUS": 0.33,
+    "ERA_TITLE": "Years {start} to {end}",
+    "ERA_YEARS": 50,
+    "MOST_PER_ERA": 12,
+    "NOTABLE": {
+     "war_declared": 2,
+     "conquest": 2,
+     "peace": 1,
+     "rebellion": 1,
+     "revolution": 2,
+     "great_ritual": 3,
+     "rift": 2,
+     "faction_fell": 3,
+     "split_division": 2,
+     "split_distance": 2,
+     "split_in_peace": 2,
+     "split_leader": 2,
+     "merge": 1,
+     "ruin": 1,
+     "crater_lake": 1,
+     "embargo": 1,
+     "tech_leak": 3,
+     "debased": 2,
+     "contract": 1,
+     "sabotage": 2,
+     "secret_betrayal": 2,
+     "joins_empire": 2,
+     "the_great_dying": 3,
+     "the_long_winter": 1,
+     "path_learned_trade": 1,
+     "path_learned_alliance": 1,
+     "path_learned_border": 1,
+     "path_learned_conquest": 2,
+     "path_learned_effort": 2,
+     "path_forgotten": 1,
+     "hybrid_unlocked": 3,
+     "new_capital": 2,
+     "capital_moved": 2
+    },
+    "REPEAT_FADE": 0.5,
+    "TEMPLATES": {
+     "war_declared": [
+      "In {year}, {attacker} declared war on {defender}."
+     ],
+     "conquest": [
+      "After a long battle in {year}, {winner} conquered {loser}."
+     ],
+     "peace": [
+      "In {year}, {attacker} made peace with {defender}."
+     ],
+     "rebellion": [
+      "In {year}, {place} led a rebellion against {place}. {conqueror} raised up the rebels... with {dead} unfortunate casualties."
+     ],
+     "revolution": [
+      "In {year}, {faction}, overthrew {ruler} after {years} years of oppression. {successor} now rules."
+     ],
+     "great_ritual": [
+      "In {year}, a great ritual was performed by {faction}."
+     ],
+     "rift": [
+      "In {year}, a rift opened in the land near {place}."
+     ],
+     "faction_fell": [
+      "In {year}, the faction of {faction} faded into nothingness."
+     ],
+     "split_division": [
+      "In {year}, the faction of {faction} split into two divisions."
+     ],
+     "split_distance": [
+      "In {year}, the faction of {faction} split apart over distance."
+     ],
+     "split_in_peace": [
+      "In {year}, the faction of {faction} split while at peace."
+     ],
+     "split_leader": [
+      "In {year}, the faction of {faction} split over leadership."
+     ],
+     "merge": [
+      "In {year}, the factions of {smaller} and {larger} joined together."
+     ],
+     "ruin": [
+      "In {year}, the settlement of {place} fell into ruin."
+     ],
+     "crater_lake": [
+      "In {year}, a crater lake, {lake}, formed after a disaster near {faction}."
+     ],
+     "embargo": [
+      "In {year}, the {holder} would sell no more {good} to the {buyer}.",
+      "From {year}, no {good} came to the {buyer} from the {holder}."
+     ],
+     "tech_leak": [
+      "In {year}, the {faction} took apart enough {source} to make {good} of their own, and the crystal-keepers' hold began to slip."
+     ],
+     "debased": [
+      "In {year}, the {faction} debased their {good} to pay for the war, and every purse grew lighter."
+     ],
+     "contract": [
+      "In {year}, the {buyer} bound the {maker} to sell them {good} before any other."
+     ],
+     "sabotage": [
+      "In {year}, agents of the {saboteur} wrecked the {good} works of {place}; for {years} years the {faction} went without."
+     ],
+     "secret_betrayal": [
+      "In {year}, the {seller} sold the same secret to the {first} and the {second}, and their alliance did not survive it."
+     ],
+     "joins_empire": [
+      "In {year}, the {smaller} gave themselves to the empire of the {larger}, without a blow."
+     ],
+     "the_great_dying": [
+      "In {year}, the great dying came to {place}, and almost no one there lived."
+     ],
+     "the_long_winter": [
+      "In {year}, the long winter reached {place}; the {faction} buried a third of their own."
+     ],
+     "path_learned_trade": [
+      "In {year}, merchants of the {teacher} taught the {faction} the ways of {path}."
+     ],
+     "path_learned_alliance": [
+      "In {year}, their allies the {teacher} shared the secrets of {path} with the {faction}."
+     ],
+     "path_learned_border": [
+      "In {year}, the ways of {path} crossed the border from the {teacher} to the {faction}."
+     ],
+     "path_learned_conquest": [
+      "In {year}, the {faction} took the craft of {path} along with the towns of the {teacher}."
+     ],
+     "path_learned_effort": [
+      "In {year}, after long years of trying, the {faction} found their own way to {path}."
+     ],
+     "path_forgotten": [
+      "By {year}, no one among the {faction} remembered the ways of {path}."
+     ],
+     "hybrid_unlocked": [
+      "In {year}, the {faction} joined {first} and {second}, and {hybrid} was born among them."
+     ],
+     "new_capital": [
+      "In {year}, with {old} lost, the {faction} raised {place} to be their capital."
+     ],
+     "capital_moved": [
+      "In {year}, the {faction} moved their seat of power from {old} to {place}."
+     ]
+    },
+    "TITLE": "World {seed}"
+   },
    "death": {
     "BELIEFS": {
      "hearthfall_commons": "deny",

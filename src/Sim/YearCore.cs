@@ -177,6 +177,8 @@ public static class YearCore
         if (happening)                              // a big event may end the era early (step 9c)
             Happenings.EndYear(game, game.DiceFor("eras").Random, year, game.Events.Skip(firstEvent));
 
+        Chronicle.YearEnds(game, year);             // an era ended: its notable events told (step 10)
+
         world.AddYear(game.Towns.Select(t => t.Ruined ? 0 : t.Population).ToList(),
                       game.Towns.Select(t => t.Holder).ToList(),
                       game.Towns.Select(t => t.Ruined).ToList(),

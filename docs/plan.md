@@ -26,7 +26,7 @@ October 2026"). Each step has its own tests and a lesson in `docs/lessons/`.
 | 9d | Chokepoints, part 1: needs, a shortage's effects the year after, embargoes and resentment, stand-ins, smugglers (and the history's contracts, sabotage and debased coin kept and traded by) | 2 Nov |
 | 9e | Chokepoints, part 2: new supply contracts, sabotage, labour displacement, secrets, legitimacy, the tech leak, debased coin (every system of the generator's history is now in the game) | 2 Nov |
 | 9f | Suspicion (the maintainer's idea): a shortage is blamed on near producers and regular traders, drawn by weight, in the generator and the game | 2 Nov |
-| 10 | The chronicle as it happens | |
+| 10 | The chronicle as it happens: each era's most notable game events told in your sentences when the era ends (on the history's grid) | 2 Nov |
 | | Then the Wardens: the player's decisions, the legacy number, losing when the Wardens fall | |
 
 For each step, the generator adds what that system carries from year to year
@@ -40,8 +40,8 @@ it, under a card with its path, ruler, belief, government, capital, people
 over time and where it came from. One list of events, two ways to read it; the
 game's own years add to the same list. Events carry the factions they concern
 by number, and the export's events the chronicle's sentence where it tells
-them; until the chronicle comes to the game (step 10), the game's own events
-show their plain text.
+them; the game's own events show their plain text until their era ends and the
+chronicle tells them (step 10).
 
 ## The colony, decided (maintainer, 1 November 2026)
 

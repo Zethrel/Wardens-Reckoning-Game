@@ -195,6 +195,7 @@ public static class SaveFile
                 ["year"] = e.Year, ["kind"] = e.Kind, ["what"] = e.What, ["text"] = e.Text,
                 ["factions"] = Numbers(e.Factions),
                 ["facts"] = new JsonObject(e.Facts.Select(p => KeyValuePair.Create(p.Key, (JsonNode?)p.Value))),
+                ["told"] = e.Told,
             }).ToArray()),
             ["years"] = years,
         };
@@ -518,7 +519,10 @@ public static class SaveFile
             var e = node!.AsObject();
             game.Record(new GameEvent((int)e["year"]!, (string)e["kind"]!, (string)e["what"]!, (string)e["text"]!,
                                           e["factions"]!.AsArray().Select(f => (int)f!).ToList(),
-                                          e["facts"]!.AsObject().ToDictionary(p => p.Key, p => (string?)p.Value ?? "")));
+                                          e["facts"]!.AsObject().ToDictionary(p => p.Key, p => (string?)p.Value ?? ""))
+            {
+                Told = (string?)e["told"],              // a save from before step 10 has none
+            });
         }
         game.CapitalsKnown.UnionWith(Enumerable.Range(0, game.Factions.Count));
         Learning.Settle(game);                      // the hybrids each faction holds, from the paths it holds
