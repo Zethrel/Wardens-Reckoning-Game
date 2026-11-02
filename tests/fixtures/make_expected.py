@@ -1191,6 +1191,118 @@ def choke_years(data):
     return {"settings": choke_settings, "contracts": contracts, "sabotaged": sabotaged, "years": years}
 
 
+CHOKE2_YEARS = 3
+
+
+class ChokeDice(ThreatDice):
+    """ThreatDice with random.choice as items[int(random() * len(items))]."""
+
+    def choice(self, items):
+        return items[int(self.random() * len(items))]
+
+
+def choke_part2(data):
+    """CHOKE2_YEARS years of chokepoints part 2 (the game's step 9e) by the generator's own chokepoints.Chokepoints,
+    trade.make_markets and trade.trade_goods, with ChokeDice for both its dice (rng and dice). The export's settings
+    and state, with chances made likely and goods the test world trades: CONTRACT_CHANCE 0.5 at CONTRACT_OPINION -1,
+    SABOTAGE_CHANCE 0.5 for 1 to 2 years, LEAK_CHANCE 1 from the good the mechanism factions have most of, the
+    first faction at war as DEBASER of the good it makes most of (not the secret) (DEBASE_CHANCE 0.5), SECRETS the good most bought
+    from another faction (SECRET_CHANCE 1000, so that how well its need was met does not matter; DOUBLE_SALE 0.9,
+    BETRAYAL 0.9), LEGITIMACY_GOOD the needed good most
+    bought, CONSTRUCTS the good the displaced paths' towns have most of (neither). A war between the two largest living
+    factions, and every two living factions allies. Each year: begin_year, the markets, the trade, after_trade.
+    After each: the contracts, sabotage, debased coin, leaks, learned goods, alliances, the growth and grievance
+    factors, the blame, the counts and the events."""
+    import copy
+    from types import SimpleNamespace
+    from north import chokepoints, history, trade
+    going, settings = data["continue"], data["continue"]["settings"]
+    factions_data = data["factions"]
+    alive = [i for i, f in enumerate(factions_data) if f["population"] > 0]
+    largest = sorted(alive, key=lambda i: -factions_data[i]["population"])[:2]
+    staples = set(trade.staple_goods(SimpleNamespace(**settings["trade"])))
+
+    # A trial year, to pick goods the test world makes and trades.
+    trial = trade_year(data)
+    towns = [p.culture for p in trial.places]
+    bought, made_by = {}, {}
+    for good, seller, buyer, amount in trial.deals:
+        if good not in staples and good != trade.METAL and towns[seller] != towns[buyer]:
+            bought[good] = bought.get(good, 0.0) + amount
+    needed_goods = {n["good"] for n in settings["chokepoints"]["NEEDS"]}
+
+    def most(table):
+        return max(sorted(table), key=lambda g: table[g])
+
+    def made_in(test):
+        table = {}
+        for t, market in enumerate(trial.markets):
+            if towns[t] is not None and not trial.places[t].ruined and test(trial.factions[towns[t]]):
+                for good, amount in market.made.items():
+                    if good not in staples and good != trade.METAL and amount > 0:
+                        table[good] = table.get(good, 0.0) + amount
+        return table
+
+    debaser = largest[0]
+    secret = most(bought)
+    debased = most({g: v for g, v in made_in(lambda f: f.index == debaser).items() if g != secret})
+    construct = most({g: v for g, v in made_in(lambda f: f.path in ("handcraft", "mechanism")
+                                              and f.lineage != settings["chokepoints"]["CONSTRUCT_MAKER"]).items()
+                      if g not in (secret, debased)})
+    part2 = dict(settings["chokepoints"], CONTRACT_CHANCE=0.5, CONTRACT_OPINION=-1.0, SABOTAGE_CHANCE=0.5,
+                 SABOTAGE_YEARS=[1, 2], LEAK_CHANCE=1.0, LEAK_PATH="mechanism",
+                 LEAK_FROM=most(made_in(lambda f: f.path == "mechanism")), DEBASER=factions_data[debaser]["lineage"],
+                 DEBASED_GOOD=debased, DEBASE_CHANCE=0.5, SECRETS=[secret],
+                 SECRET_CHANCE=1000.0, DOUBLE_SALE=0.9, BETRAYAL=0.9,
+                 LEGITIMACY_GOOD=most({g: v for g, v in bought.items() if g in needed_goods} or bought),
+                 CONSTRUCTS={construct: 1.0})
+    part2["LEAK_GOOD"] = settings["chokepoints"]["LEAK_GOOD"]
+
+    year_data = trade_year(data)
+    places, factions, powers, settled = year_data.places, year_data.factions, year_data.powers, year_data.settled
+    for f, d in zip(factions, factions_data):
+        f.population, f.hindered = d["population"], {}
+        f.border = {int(k): v for k, v in d["border"].items()}
+    war = SimpleNamespace(ended=None, sides=[{largest[0]}, {largest[1]}])
+    powers.fighting = SimpleNamespace(wars=[war], alliances={frozenset({a, b}) for a in alive for b in alive if a < b})
+    choke = chokepoints.Chokepoints(SimpleNamespace(**part2), 1)
+    kept = going["chokepoints"]
+    choke.short = {int(t): dict(goods) for t, goods in kept["short"].items()}
+    choke.embargoes = {tuple(e) for e in kept["embargoes"]}
+    choke.debased = {int(f): v for f, v in kept["debased"].items()}
+    choke.smuggled = kept["smuggled"]
+    choke.contracts = {(buyer, good): maker for buyer, good, maker in kept["contracts"]}
+    choke.sabotaged = {int(t): tuple(e) for t, e in kept["sabotaged"].items()}
+    choke.counts = dict(kept["counts"])
+    choke.rng, choke.dice = ChokeDice(), ChokeDice()
+    base = history.ruled_harvests(history.path_harvests([1.0] * len(places), places, factions, SimpleNamespace(
+        PATH_HARVEST=settings["factions"]["PATH_HARVEST"], PATH_STEADINESS=settings["factions"]["PATH_STEADINESS"])),
+        places, factions, settings["leaders"]["GOVERNMENTS"])
+    yields = [town["yields"] for town in going["towns"]]
+    years = []
+    for year in range(101, 101 + CHOKE2_YEARS):
+        events, blame = [], {}
+        factors = choke.begin_year(places, powers)
+        markets = trade.make_markets(places, settled, None, powers, settings["factions"]["METAL_NEED"],
+                                     year_data.trading, yields, [h * f for h, f in zip(base, factors)], choke)
+        routes = [trade.Route(r["a"], r["b"], [], r["cost"]) for r in data["routes"]]
+        deals = trade.trade_goods(places, routes, markets, powers, year_data.trading, None,
+                                  going["history_columns"] / 256, choke)
+        choke.after_trade(places, markets, powers, deals, blame, year, events, lambda y, k, text, what, f: [text, what])
+        years.append({"contracts": [[b, g, m] for (b, g), m in sorted(choke.contracts.items())],
+                      "sabotaged": {str(t): list(e) for t, e in sorted(choke.sabotaged.items())},
+                      "debased": {str(f): v for f, v in sorted(choke.debased.items())},
+                      "leaks": [list(leak) for leak in choke.leaks],
+                      "learned": [sorted(f.learned) for f in factions],
+                      "alliances": sorted(sorted(pair) for pair in powers.fighting.alliances),
+                      "growth": {str(t): v for t, v in sorted(choke.growth.items())},
+                      "grievance": [f.hindered.get("grievance") for f in factions],
+                      "blame": sorted([a, b, v] for (a, b), v in blame.items()),
+                      "counts": dict(choke.counts), "events": events})
+    return {"settings": part2, "war": largest, "alive": alive, "years": years,
+            "dice_used": [choke.rng.at, choke.dice.at]}
+
+
 MARK_YEARS = 5
 
 
@@ -1262,6 +1374,7 @@ def main(generator):
     expected["threats"] = threat_years(world.data)
     expected["happenings"] = happening_years(world.data)
     expected["chokepoints"] = choke_years(world.data)
+    expected["chokepoints2"] = choke_part2(world.data)
     (HERE / "expected.json").write_text(json.dumps(expected, separators=(",", ":")), encoding="utf-8")
 
     grid = [[(x * x * 7 + y * 31 + (x ^ y) * 13) % 256 for x in range(24)] for y in range(20)]

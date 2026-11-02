@@ -207,6 +207,10 @@ public sealed class Game
     public Dictionary<int, (string Good, int Until)> Sabotaged { get; } = new();
     public Dictionary<string, int> ChokeCounts { get; } = new();
     public Dictionary<int, double> RitualsHindered { get; } = new();
+    /// <summary>This year's growth factor of the towns where constructs displace labour (step 9e), and each
+    /// faction's grievance factor from legitimacy (worked out after the trade; 1 when missing).</summary>
+    public Dictionary<int, double> DisplacedGrowth { get; } = new();
+    public Dictionary<int, double> GrievanceHindered { get; } = new();
 
     /// <summary>
     /// The happenings (step 9c): each town's lasting effects (happening, first year, last year, its factors), the year

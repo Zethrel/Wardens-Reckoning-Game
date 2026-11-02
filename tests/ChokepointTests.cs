@@ -13,6 +13,9 @@ public class ChokepointTests
     static readonly JsonObject Expected =
         JsonNode.Parse(File.ReadAllText(Path.Combine(Fixtures, "expected.json")))!["chokepoints"]!.AsObject();
 
+    /// <summary>make_expected.py's FIXED_DICE, handed out in turn, over and over.</summary>
+    static readonly double[] FixedDice = { 0.2, 0.0005, 0.7, 0.35, 0.001, 0.9, 0.55, 0.003, 0.15, 0.8, 0.0002, 0.45 };
+
     /// <summary>A game on a copy of the fixture whose chokepoint settings are `settings`.</summary>
     static Game WithChokepoints(JsonNode settings)
     {
@@ -104,6 +107,212 @@ public class ChokepointTests
         foreach (var what in new[] { "embargo", "embargo_lifted", "contract_ended" })
             Assert.Contains(what, all);
         Assert.True(game.Smuggled > 0);
+    }
+
+    [Fact]
+    public void Three_years_of_chokepoints_part_2_agree_with_the_generator_s()
+    {
+        var part2 = JsonNode.Parse(File.ReadAllText(Path.Combine(Fixtures, "expected.json")))!["chokepoints2"]!.AsObject();
+        var game = WithChokepoints(part2["settings"]!);
+        // make_expected.py's war between the two largest living factions, and every two living factions allies.
+        int a = (int)part2["war"]![0]!, b = (int)part2["war"]![1]!;
+        game.Wars.Clear();
+        game.Wars.Add(new WarNow { Attacker = a, Defender = b, Since = 100, LastBattle = 100, Sides = new[] { new HashSet<int> { a }, new HashSet<int> { b } } });
+        var alive = part2["alive"]!.AsArray().Select(f => (int)f!).ToList();
+        game.Alliances.Clear();
+        foreach (int x in alive)
+            foreach (int y in alive)
+                if (x < y)
+                    game.Alliances.Add((x, y));
+        int rngUsed = 0, diceUsed = 0, rngAt = 0, diceAt = 0;
+        double Rng() { rngUsed++; return FixedDice[rngAt++ % FixedDice.Length]; }
+        double Dice() { diceUsed++; return FixedDice[diceAt++ % FixedDice.Length]; }
+        var years = part2["years"]!.AsArray();
+        for (int y = 0; y < years.Count; y++)
+        {
+            var want = years[y]!;
+            int year = 101 + y;
+            string at = "year " + year;
+            int events = game.Events.Count;
+            var blame = new Dictionary<(int, int), double>();
+            var factors = Chokepoints.BeginYear(game);
+            var harvest = Enumerable.Range(0, game.Towns.Count).Select(i =>
+            {
+                var faction = game.Towns[i].Holder is int h ? game.Factions[h] : null;
+                return YearCore.PathHarvest(1.0, faction?.Path, game.Settings) * YearCore.RulerFactor(faction, game.Settings) * factors[i];
+            }).ToList();
+            var markets = Trade.MakeMarkets(game, harvest);
+            var deals = Trade.TradeGoods(game, markets);
+            Chokepoints.AfterTrade(game, markets, deals, blame, year, Rng, Dice);
+
+            var kept = Chokepoints.Write(game);
+            Json.Same(want["contracts"], kept["contracts"], at + " contracts");
+            Json.Same(want["sabotaged"], kept["sabotaged"], at + " sabotaged");
+            Json.Same(want["debased"], kept["debased"], at + " debased");
+            Json.Same(want["leaks"], kept["leaks"], at + " leaks");
+            Json.Same(want["counts"], kept["counts"], at + " counts");
+            Assert.Equal(want["learned"]!.AsArray().Select(l => string.Join(",", l!.AsArray().Select(g => (string)g!))),
+                         game.Factions.Select(f => string.Join(",", f.Learned.OrderBy(g => g, StringComparer.Ordinal))));
+            Assert.Equal(want["alliances"]!.AsArray().Select(p => ((int)p![0]!, (int)p[1]!)), game.Alliances.Order());
+            Json.Same(want["growth"], new JsonObject(game.DisplacedGrowth.OrderBy(p => p.Key)
+                .Select(p => KeyValuePair.Create(p.Key.ToString(), (JsonNode?)p.Value))), at + " growth");
+            Json.Same(want["grievance"], new JsonArray(Enumerable.Range(0, game.Factions.Count)
+                .Select(f => (JsonNode?)(game.GrievanceHindered.TryGetValue(f, out double g) ? g : null)).ToArray()), at + " grievance");
+            var wantBlame = want["blame"]!.AsArray();
+            var gotBlame = blame.OrderBy(p => p.Key.Item1).ThenBy(p => p.Key.Item2).ToList();
+            Assert.Equal(wantBlame.Select(w => ((int)w![0]!, (int)w[1]!)), gotBlame.Select(p => p.Key));
+            for (int k = 0; k < gotBlame.Count; k++)
+                Assert.Equal((double)wantBlame[k]![2]!, gotBlame[k].Value, 1e-12);
+            Assert.Equal(want["events"]!.AsArray().Select(e => ((string)e![0]!, (string)e[1]!)),
+                         game.Events.Skip(events).Select(e => (e.Text, e.What)));
+        }
+        Assert.Equal((int)part2["dice_used"]![0]!, rngUsed);
+        Assert.Equal((int)part2["dice_used"]![1]!, diceUsed);
+        var all = game.Events.Select(e => e.What).ToHashSet();
+        foreach (var what in new[] { "tech_leak", "debased", "contract", "contract_ended", "sabotage", "secret", "secret_betrayal" })
+            Assert.Contains(what, all);
+        Assert.NotEmpty(game.DisplacedGrowth);
+    }
+
+    /// <summary>A game with the chokepoint settings given as JSON (and none other), no wars and no alliances.</summary>
+    static Game Part2(string settings)
+    {
+        var game = WithChokepoints(JsonNode.Parse(settings)!);
+        game.Wars.Clear();
+        game.Alliances.Clear();
+        return game;
+    }
+
+    static void After(Game game, Market[] markets, List<(string, int, int, double)> deals, Dictionary<(int, int), double> blame,
+                      double rng = 0.0, double dice = 0.0) =>
+        Chokepoints.AfterTrade(game, markets, deals, blame, 101, () => rng, () => dice);
+
+    static List<int> Living(Game game) =>
+        Enumerable.Range(0, game.Factions.Count).Where(f => game.Factions[f].People > 0 && game.Towns.Any(t => t.Holder == f && !t.Ruined)).ToList();
+
+    [Fact]
+    public void The_leak_s_chance_is_less_the_less_of_what_it_takes_apart_a_faction_has()
+    {
+        var game = Part2("""{"LEAK_CHANCE": 0.5, "LEAK_PATH": "mechanism", "LEAK_FROM": "gears", "LEAK_GOOD": "engines"}""");
+        int f = Living(game)[0];
+        game.Factions[f].Path = "mechanism";
+        game.Factions[f].Learned.Remove("engines");
+        var markets = Empty(game);
+        markets[TownOf(game, f)].Made["gears"] = 1.0;
+        markets[TownOf(game, f)].Needed["gears"] = 4.0;                 // a quarter: 0.5 x 0.25 = 0.125
+        After(game, markets, new(), new(), rng: 0.2);
+        Assert.DoesNotContain("engines", game.Factions[f].Learned);
+        After(game, markets, new(), new(), rng: 0.1);
+        Assert.Contains("engines", game.Factions[f].Learned);
+    }
+
+    [Fact]
+    public void Coin_is_debased_only_at_war_at_most_nine_tenths_and_recovers_until_it_is_gone()
+    {
+        var game = Part2("""{"DEBASER": "x", "DEBASED_GOOD": "coin", "DEBASE_CHANCE": 1.0, "DEBASE_STEP": 0.2, "DEBASE_RECOVERY": 0.05}""");
+        var living = Living(game);
+        int f = living[0];
+        game.Factions[f].Lineage = "x";
+        After(game, Empty(game), new(), new());
+        Assert.False(game.Debased.ContainsKey(f));                         // at peace
+        game.Wars.Add(new WarNow { Attacker = f, Defender = living[1], Sides = new[] { new HashSet<int> { f }, new HashSet<int> { living[1] } } });
+        game.Debased[f] = 0.85;
+        After(game, Empty(game), new(), new());
+        Assert.Equal(0.9, game.Debased[f]);                                // 0.85 recovers to 0.8075, + 0.2: at most 0.9
+        game.Wars.Clear();
+        game.Debased[f] = 0.0105;                                         // recovers to 0.009975: gone
+        After(game, Empty(game), new(), new());
+        Assert.False(game.Debased.ContainsKey(f));
+    }
+
+    [Fact]
+    public void A_contract_is_signed_with_the_maker_of_most_and_never_twice()
+    {
+        var game = Part2("""{"NEEDS": [{"who": "all", "good": "salt", "amount": 0.1}], "CONTRACT_CHANCE": 1.0, "CONTRACT_OPINION": 0.5}""");
+        var living = Living(game);
+        int buyer = living[0], small = living[1], large = living[2];
+        foreach (int x in living)
+            foreach (int y in living)
+                game.Factions[x].Opinions[y] = 1.0;
+        var markets = Empty(game);
+        markets[TownOf(game, small)].Made["salt"] = 5.0;
+        markets[TownOf(game, large)].Made["salt"] = 10.0;
+        After(game, markets, new(), new());
+        Assert.Equal(large, game.Contracts[(buyer, "salt")]);
+        game.Contracts[(buyer, "salt")] = small;                          // held already: not signed again
+        After(game, markets, new(), new());
+        Assert.Equal(small, game.Contracts[(buyer, "salt")]);
+    }
+
+    [Fact]
+    public void A_town_wrecked_already_is_not_wrecked_again()
+    {
+        var game = Part2("""{"NEEDS": [{"who": "all", "good": "salt", "amount": 0.1}], "SABOTAGE_CHANCE": 1.0, "SABOTAGE_YEARS": [3, 3]}""");
+        var living = Living(game);
+        int a = living[0], b = living[1];
+        game.Wars.Add(new WarNow { Attacker = a, Defender = b, Sides = new[] { new HashSet<int> { a }, new HashSet<int> { b } } });
+        var markets = Empty(game);
+        int target = TownOf(game, b);
+        markets[target].Made["salt"] = 5.0;
+        game.Sabotaged[target] = ("salt", 500);
+        After(game, markets, new(), new());
+        Assert.Equal(("salt", 500), game.Sabotaged[target]);
+        Assert.DoesNotContain(game.Events, e => e.What == "sabotage");
+    }
+
+    [Fact]
+    public void The_constructs_maker_is_not_displaced_by_its_own()
+    {
+        var game = Part2("""{"CONSTRUCTS": {"gears": 1.0}, "CONSTRUCT_MAKER": "maker", "DISPLACED_PATHS": ["handcraft"], "DISPLACE_FULL": 0.5, "DISPLACE_GROWTH": 0.3}""");
+        var living = Living(game);
+        int own = living[0], other = living[1];
+        game.Factions[own].Path = game.Factions[other].Path = "handcraft";
+        game.Factions[own].Lineage = "maker";
+        var markets = Empty(game);
+        markets[TownOf(game, own)].Made["gears"] = 100.0;
+        markets[TownOf(game, other)].Made["gears"] = 100.0;
+        After(game, markets, new(), new());
+        Assert.False(game.DisplacedGrowth.ContainsKey(TownOf(game, own)));
+        Assert.Equal(0.7, game.DisplacedGrowth[TownOf(game, other)], 12);  // wholly displaced: 1 - 0.3
+    }
+
+    [Fact]
+    public void A_secret_is_bought_from_the_lowest_numbered_seller()
+    {
+        var game = Part2("""{"SECRETS": ["whispers"], "SECRET_CHANCE": 1.0}""");
+        var living = Living(game);
+        int buyer = living[0], low = living[1], high = living[2];
+        var deals = new List<(string, int, int, double)>
+        {
+            ("whispers", TownOf(game, high), TownOf(game, buyer), 1.0), ("whispers", TownOf(game, low), TownOf(game, buyer), 1.0),
+        };
+        After(game, Empty(game), deals, new(), dice: 0.0);
+        var secret = game.Events.Single(e => e.What == "secret");
+        Assert.Equal(game.Factions[low].Name, secret.Facts["seller"]);
+    }
+
+    [Fact]
+    public void Displaced_labour_slows_a_played_year_s_growth_and_legitimacy_its_grievance()
+    {
+        var part2 = JsonNode.Parse(File.ReadAllText(Path.Combine(Fixtures, "expected.json")))!["chokepoints2"]!["settings"]!.AsObject();
+        Game Played(double growth, double legitimacy)
+        {
+            var settings = part2.DeepClone().AsObject();
+            settings["DISPLACE_GROWTH"] = growth;
+            settings["LEGITIMACY"] = legitimacy;
+            foreach (var key in new[] { "CONTRACT_CHANCE", "SABOTAGE_CHANCE", "LEAK_CHANCE", "DEBASE_CHANCE", "SECRET_CHANCE" })
+                settings[key] = 0.0;
+            var game = WithChokepoints(settings);
+            YearCore.RunYear(game);
+            return game;
+        }
+        var plain = Played(0.0, 0.0);
+        var slowed = Played(1.0, 0.0);
+        int town = slowed.DisplacedGrowth.First(p => p.Value < 1.0).Key;
+        Assert.True(slowed.Towns[town].People < plain.Towns[town].People);
+        var legitimate = Played(0.0, 0.9);
+        Assert.Contains(Enumerable.Range(0, plain.Factions.Count), f => plain.Factions[f].Ruler != null
+            && legitimate.GrievanceHindered.GetValueOrDefault(f, 1.0) < 1.0 && legitimate.Factions[f].Grievance < plain.Factions[f].Grievance);
     }
 
     [Fact]

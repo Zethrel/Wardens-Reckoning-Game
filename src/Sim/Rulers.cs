@@ -261,11 +261,16 @@ public static class Rulers
             }
             var government = settings.Governments[faction.Government];
             var hard = felt[index];
-            double weighed = settings.GrievanceWeights.GetValueOrDefault("hunger") * hard.Hunger
-                             + settings.GrievanceWeights.GetValueOrDefault("shortages") * hard.Shortages
-                             + settings.GrievanceWeights.GetValueOrDefault("losses") * hard.Losses
-                             + settings.GrievanceWeights.GetValueOrDefault("ruler_against_values") * AgainstValues(ruler, faction.Values);
+            // Added up as Python's sum() adds decimals (Py.Sum), in the order of GRIEVANCES.
+            double weighed = Py.Sum(new[]
+            {
+                settings.GrievanceWeights.GetValueOrDefault("hunger") * hard.Hunger,
+                settings.GrievanceWeights.GetValueOrDefault("shortages") * hard.Shortages,
+                settings.GrievanceWeights.GetValueOrDefault("losses") * hard.Losses,
+                settings.GrievanceWeights.GetValueOrDefault("ruler_against_values") * AgainstValues(ruler, faction.Values),
+            });
             weighed *= 1 - CharismaDamping * ruler.Traits["charisma"];
+            weighed *= game.GrievanceHindered.GetValueOrDefault(index, 1.0);   // legitimacy (chokepoints, step 9e)
             faction.Grievance = faction.Grievance * fade + (1 - fade) * weighed;
 
             Rules.FactionRules(game, index, hard, year);

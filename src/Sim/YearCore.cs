@@ -11,8 +11,7 @@ namespace WardensReckoning.Sim;
 ///
 /// War and alliance come between the opinions and the rulers (War.cs, step 5).
 ///
-/// Not yet in the game, and so not in its years: the chokepoints' contracts, sabotage, labour displacement, secrets,
-/// legitimacy, tech leak and debased coin (9e).
+/// Every system of the generator's history is in the game's years (step 9e completed them).
 /// </summary>
 public static class YearCore
 {
@@ -68,7 +67,8 @@ public static class YearCore
         var food = settings.Staples.Concat(settings.Extras).ToList();
         // This year's shortages (for next year), resentment and embargoes (chokepoints, step 9d).
         if (settings.Choking)
-            Chokepoints.AfterTrade(game, markets, blame, year);
+            Chokepoints.AfterTrade(game, markets, deals, blame, year, game.DiceFor("chokepoints").Random,
+                                   game.DiceFor("chokepoint parts").Random);
 
         // Attunement's mark: marking, spreading, fading, rifts, and what the mark does to the towns (step 8).
         Attunement.Year(game, markets, hardship, blame, year);
@@ -110,6 +110,8 @@ public static class YearCore
             double growth = happening ? Happenings.Factor(game, i, year, "growth") : 1.0;
             if (faction != null && faction.Traits.TryGetValue("fertility", out double fertility))
                 growth *= 2 * fertility;
+            if (settings.Choking)
+                growth *= Chokepoints.GrowthFactor(game, i);                // constructs displace labour (step 9e)
             town.People = Grow(town.People, Capacity(i, game), fed, settings, growth);
             Rules.SettlementRules(game, i, view, spare, blame, year);
             // Many dead at once, to hunger or a rule: a site of the god of death's (step 9a), and a loss its people feel.

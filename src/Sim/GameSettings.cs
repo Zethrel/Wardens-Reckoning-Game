@@ -455,8 +455,48 @@ public sealed class GameSettings
     public IReadOnlySet<string> Smugglers { get; }
     public double EmbargoOpinion { get; }
     public double Resentment { get; }
-    /// <summary>DEBASED_GOOD: the coin a debasing faction makes less of (its debasement comes with step 9e).</summary>
+    /// <summary>
+    /// Chokepoints, part 2 (step 9e). The tech leak: a LEAK_PATH faction with LEAK_FROM to take apart may learn
+    /// LEAK_GOOD with LEAK_CHANCE a year. Debasement: a DEBASER faction (by key) at war may debase its DEBASED_GOOD
+    /// with DEBASE_CHANCE, by DEBASE_STEP (at most 0.9); it recovers DEBASE_RECOVERY a year; buyers resent it
+    /// (DEBASE_RESENTMENT). Supply contracts: CONTRACT_CHANCE a year for each good a faction needs, with a maker both
+    /// think CONTRACT_OPINION of. Sabotage: at war, SABOTAGE_CHANCE a year, for SABOTAGE_YEARS, resented by
+    /// SABOTAGE_RESENTMENT. Labour displacement: the CONSTRUCTS (good → weight) of the CONSTRUCT_MAKER at work in
+    /// towns of the DISPLACED_PATHS (wholly at DISPLACE_FULL a thousand people) take DISPLACE_GROWTH of their growth;
+    /// DISPLACE_RESENTMENT and DISPLACE_KINSHIP. Secrets: the SECRETS goods, SECRET_CHANCE, SECRET_SOURING,
+    /// DOUBLE_SALE and BETRAYAL. Legitimacy: LEGITIMACY_GOOD lowers grievance by LEGITIMACY when supplied in full;
+    /// SOFT_POWER warms the buyers to the sellers.
+    /// </summary>
     public string? DebasedGood { get; }
+    public string? LeakPath { get; }
+    public string? LeakFrom { get; }
+    public string? LeakGood { get; }
+    public double LeakChance { get; }
+    public string? Debaser { get; }
+    public double DebaseChance { get; }
+    public double DebaseStep { get; }
+    public double DebaseRecovery { get; }
+    public double DebaseResentment { get; }
+    public double ContractChance { get; }
+    public double ContractOpinion { get; }
+    public double SabotageChance { get; }
+    public (int Low, int High) SabotageYears { get; }
+    public double SabotageResentment { get; }
+    public IReadOnlyList<(string Good, double Weight)> Constructs { get; }
+    public string? ConstructMaker { get; }
+    public IReadOnlySet<string> DisplacedPaths { get; }
+    public double DisplaceFull { get; }
+    public double DisplaceGrowth { get; }
+    public double DisplaceResentment { get; }
+    public double DisplaceKinship { get; }
+    public IReadOnlySet<string> Secrets { get; }
+    public double SecretChance { get; }
+    public double SecretSouring { get; }
+    public double DoubleSale { get; }
+    public double Betrayal { get; }
+    public string? LegitimacyGood { get; }
+    public double Legitimacy { get; }
+    public double SoftPower { get; }
     /// <summary>Whether there are chokepoints at all (chokepoints.from_settings): some NEEDS or STAND_INS.</summary>
     public bool Choking => Needs.Count > 0 || StandIns.Count > 0;
 
@@ -689,6 +729,38 @@ public sealed class GameSettings
         EmbargoOpinion = (double?)choke["EMBARGO_OPINION"] ?? -2.0;
         Resentment = (double?)choke["RESENTMENT"] ?? 0.0;
         DebasedGood = (string?)choke["DEBASED_GOOD"];
+        // Part 2, with chokepoints.py's own defaults where a setting is missing.
+        LeakPath = (string?)choke["LEAK_PATH"];
+        LeakFrom = (string?)choke["LEAK_FROM"];
+        LeakGood = (string?)choke["LEAK_GOOD"];
+        LeakChance = (double?)choke["LEAK_CHANCE"] ?? 0.0;
+        Debaser = (string?)choke["DEBASER"];
+        DebaseChance = (double?)choke["DEBASE_CHANCE"] ?? 0.0;
+        DebaseStep = (double?)choke["DEBASE_STEP"] ?? 0.0;
+        DebaseRecovery = (double?)choke["DEBASE_RECOVERY"] ?? 0.0;
+        DebaseResentment = (double?)choke["DEBASE_RESENTMENT"] ?? 0.0;
+        ContractChance = (double?)choke["CONTRACT_CHANCE"] ?? 0.0;
+        ContractOpinion = (double?)choke["CONTRACT_OPINION"] ?? 1.0;
+        SabotageChance = (double?)choke["SABOTAGE_CHANCE"] ?? 0.0;
+        SabotageYears = choke["SABOTAGE_YEARS"] is JsonArray sabotageYears
+            ? ((int)sabotageYears[0]!, (int)sabotageYears[1]!) : (3, 3);
+        SabotageResentment = (double?)choke["SABOTAGE_RESENTMENT"] ?? 0.0;
+        Constructs = (choke["CONSTRUCTS"] as JsonObject)?.Select(p => (p.Key, (double)p.Value!)).ToList()
+                     ?? new List<(string, double)>();
+        ConstructMaker = (string?)choke["CONSTRUCT_MAKER"];
+        DisplacedPaths = (choke["DISPLACED_PATHS"] as JsonArray)?.Select(x => (string)x!).ToHashSet() ?? new HashSet<string>();
+        DisplaceFull = (double?)choke["DISPLACE_FULL"] ?? 0.0;
+        DisplaceGrowth = (double?)choke["DISPLACE_GROWTH"] ?? 0.0;
+        DisplaceResentment = (double?)choke["DISPLACE_RESENTMENT"] ?? 0.0;
+        DisplaceKinship = (double?)choke["DISPLACE_KINSHIP"] ?? 0.0;
+        Secrets = (choke["SECRETS"] as JsonArray)?.Select(x => (string)x!).ToHashSet() ?? new HashSet<string>();
+        SecretChance = (double?)choke["SECRET_CHANCE"] ?? 0.0;
+        SecretSouring = (double?)choke["SECRET_SOURING"] ?? 0.0;
+        DoubleSale = (double?)choke["DOUBLE_SALE"] ?? 0.0;
+        Betrayal = (double?)choke["BETRAYAL"] ?? 0.0;
+        LegitimacyGood = (string?)choke["LEGITIMACY_GOOD"];
+        Legitimacy = (double?)choke["LEGITIMACY"] ?? 0.0;
+        SoftPower = (double?)choke["SOFT_POWER"] ?? 0.0;
         var happening = settings["happenings"] as JsonObject ?? new JsonObject();
         Happenings = happening["HAPPENINGS"] is JsonObject table
             ? table.Select(p => ReadHappening(p.Key, p.Value)).ToList() : new List<Happening>();
