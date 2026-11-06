@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Copyright (c) 2026 Zethrel. All rights reserved. See LICENSE. -->
+  <!-- The colony: the Wardens' settlement played up close (the design library's local tier). Plain .NET, no
+       Godot, so its tests run anywhere. It uses the same dice as the history (src/Sim's Dice). -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>WardensReckoning.Colony</AssemblyName>
+    <RootNamespace>WardensReckoning.Colony</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Sim/Sim.csproj" />
+  </ItemGroup>
+</Project>

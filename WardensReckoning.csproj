@@ -1,6 +1,6 @@
 <Project Sdk="Godot.NET.Sdk/4.7.2">
   <!-- Copyright (c) 2026 Zethrel. All rights reserved. See LICENSE. -->
-  <!-- The game itself: the screens in src/UI, built by Godot. src/World and src/Sim are their own
+  <!-- The game itself: the screens in src/UI, built by Godot. src/World, src/Sim and src/Colony are their own
        plain .NET projects (no Godot), referenced here, so that their tests run without the engine. -->
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -13,8 +13,10 @@
     <!-- Godot compiles every .cs file under this folder; these belong to the other projects. -->
     <Compile Remove="src/World/**" />
     <Compile Remove="src/Sim/**" />
+    <Compile Remove="src/Colony/**" />
     <Compile Remove="tests/**" />
     <ProjectReference Include="src/World/World.csproj" />
     <ProjectReference Include="src/Sim/Sim.csproj" />
+    <ProjectReference Include="src/Colony/Colony.csproj" />
   </ItemGroup>
 </Project>

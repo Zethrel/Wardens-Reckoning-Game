@@ -21,7 +21,7 @@ closes the book, or opens the menu (save, load, settings).
 
 ## The tests
 
-`dotnet test` in this folder runs the tests of `src/World` and `src/Sim`,
+`dotnet test` in this folder runs the tests of `src/World`, `src/Sim` and `src/Colony`,
 with no Godot needed.
 
 The plan, step by step: `docs/plan.md`.
@@ -30,6 +30,7 @@ The plan, step by step: `docs/plan.md`.
 
 - `src/World`: reads an exported world (as the generator's north/world_file.py does).
 - `src/Sim`: the history systems in C#, running the years on (so far: harvest, trade, mines, food, growth, ruin, memories, opinions, rulers, grievance, revolutions, your rules, war, alliances, conquest, rebellion, splits, merging and empires, feeding by tastes, drift, migration, rulers who age by their people's lifespan, learned paths and hybrids, capitals, attunement's mark, the harvest ritual, the great ritual in war, offshoot paths, the god of death and her signs, named threats and the great rituals against them, happenings and eras, and the chokepoints: needs, embargoes, stand-ins, smugglers, supply contracts, sabotage, labour displacement, secrets, legitimacy, the tech leak and debased coin, and whom a shortage is blamed on), and the chronicle telling the game's own eras in your sentences.
+- `src/Colony`: the colony, the Wardens' settlement played up close, as the design library describes it (so far: the clock and calendar, speed, identifiers, dice, the save and the autosave's timing).
 - `src/UI`: the screens, in Godot. The map is drawn in a SubViewport between the book and the factions, so no panel covers it.
 - `tests/`: the tests, and a small exported world to test with.
 

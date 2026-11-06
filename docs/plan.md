@@ -30,7 +30,7 @@ in `docs/lessons/`.
 | 9f | Suspicion (the maintainer's idea): a shortage is blamed on near producers and regular traders, drawn by weight, in the generator and the game | 2 Nov |
 | 10 | The chronicle as it happens: each era's most notable game events told in your sentences when the era ends (on the history's grid) | 2 Nov |
 | 11 | Record the 6 November decisions: the design library (Reviews 26 to 28), the generator's roadmap, this plan | 6 Nov |
-| 12 | The colony's clock and calendar, stable IDs, seeded dice per system, a minimal save (FP-01, FP-07) | |
+| 12 | The colony's clock and calendar, speed, stable IDs, seeded dice per system, the save and the autosave's timing (FP-01 but its schedule part, FP-07; lesson 12) | 6 Nov |
 | 13 | Goods: physical inventory, reservations, one production chain, an interrupted haul, checking the content files (FP-02, FP-05, FP-10) | |
 | 14 | Colonists: needs and schedules; why a job is blocked (FP-03, FP-06) | |
 | 15 | Construction; where the local terrain comes from is decided here (FP-04) | |

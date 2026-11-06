@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- Copyright (c) 2026 Zethrel. All rights reserved. See LICENSE. -->
-  <!-- The tests of src/World (and later src/Sim): plain .NET, run with `dotnet test`, no Godot needed. -->
+  <!-- The tests of src/World, src/Sim and src/Colony: plain .NET, run with `dotnet test`, no Godot needed. -->
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -18,6 +18,7 @@
     <Using Include="Xunit" />
     <ProjectReference Include="../src/World/World.csproj" />
     <ProjectReference Include="../src/Sim/Sim.csproj" />
+    <ProjectReference Include="../src/Colony/Colony.csproj" />
     <!-- The test world goes beside the tests when they are built, so they find it wherever they run. -->
     <None Include="fixtures/**" Exclude="fixtures/*.py" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
