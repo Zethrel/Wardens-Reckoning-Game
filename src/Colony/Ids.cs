@@ -30,6 +30,7 @@ public readonly record struct LocationId(long Value) : IStableId<LocationId> { p
 public readonly record struct CaravanId(long Value) : IStableId<CaravanId> { public static string Family => "caravan"; public static CaravanId From(long v) => new(v); }
 public readonly record struct AgreementId(long Value) : IStableId<AgreementId> { public static string Family => "agreement"; public static AgreementId From(long v) => new(v); }
 public readonly record struct DiscoveryId(long Value) : IStableId<DiscoveryId> { public static string Family => "discovery"; public static DiscoveryId From(long v) => new(v); }
+public readonly record struct OperationId(long Value) : IStableId<OperationId> { public static string Family => "operation"; public static OperationId From(long v) => new(v); }
 public readonly record struct EventId(long Value) : IStableId<EventId> { public static string Family => "event"; public static EventId From(long v) => new(v); }
 
 /// <summary>

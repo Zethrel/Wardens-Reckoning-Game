@@ -31,7 +31,8 @@ in `docs/lessons/`.
 | 10 | The chronicle as it happens: each era's most notable game events told in your sentences when the era ends (on the history's grid) | 2 Nov |
 | 11 | Record the 6 November decisions: the design library (Reviews 26 to 28), the generator's roadmap, this plan | 6 Nov |
 | 12 | The colony's clock and calendar, speed, stable IDs, seeded dice per system, the save and the autosave's timing (FP-01 but its schedule part, FP-07; lesson 12) | 6 Nov |
-| 13 | Goods: physical inventory, reservations, one production chain, an interrupted haul, checking the content files (FP-02, FP-05, FP-10) | |
+| 13a | Goods: content files (goods, recipes, everyday numbers) checked at start; inventories, claims, protected reserves and the ledger, every change once (FP-10, FP-05's ledger half; lesson 13a) | 7 Nov |
+| 13b | People who carry and grind: haul tasks, the quern's work, demand, an interrupted haul (FP-02, FP-05) | |
 | 14 | Colonists: needs and schedules; why a job is blocked (FP-03, FP-06) | |
 | 15 | Construction; where the local terrain comes from is decided here (FP-04) | |
 | 16 | Save and reload of the whole loop; a broken or unknown save refused safely (FP-08, FP-09) | |

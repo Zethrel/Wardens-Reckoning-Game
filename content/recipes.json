@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "workshops": [
+    { "id": "quern", "name": "Hand quern" }
+  ],
+  "recipes": [
+    { "id": "grind_wheat", "name": "Grind wheat", "workshop": "quern",
+      "inputs": { "wheat": 5 }, "outputs": { "flour": 4 }, "work_minutes": 180 }
+  ]
+}

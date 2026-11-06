@@ -23,6 +23,9 @@ public sealed class Colony
 
     public IdCounters Ids { get; } = new();
 
+    /// <summary>The colony's goods: inventories, reservations and the ledger (step 13).</summary>
+    public Stocks Stocks { get; }
+
     readonly SortedDictionary<string, Dice> dice = new(StringComparer.Ordinal);
 
     public Colony(long seed, Moment founded)
@@ -30,6 +33,7 @@ public sealed class Colony
         Seed = seed;
         Founded = founded;
         Now = founded;
+        Stocks = new Stocks(Ids);
     }
 
     /// <summary>The dice of one system ("weather", "births"...): made the first time they are asked for, then kept,

@@ -21,5 +21,7 @@
     <ProjectReference Include="../src/Colony/Colony.csproj" />
     <!-- The test world goes beside the tests when they are built, so they find it wherever they run. -->
     <None Include="fixtures/**" Exclude="fixtures/*.py" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The colony's content files, so the tests check the real ones. -->
+    <None Include="../content/*.json" Link="content/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

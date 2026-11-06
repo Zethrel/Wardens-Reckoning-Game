@@ -27,7 +27,8 @@ public static class ColonySave
     public const string Format = "wardens-reckoning-colony";
 
     /// <summary>The save's version: raised whenever what a save holds changes its shape or meaning.</summary>
-    public const int Version = 1;
+    // 2: the colony's goods (step 13a): inventories, reservations and the ledger.
+    public const int Version = 2;
 
     /// <summary>The colony as JSON.</summary>
     public static JsonObject Write(Colony colony) => new()
@@ -41,7 +42,27 @@ public static class ColonySave
         ["ids"] = new JsonObject(colony.Ids.Last.Select(p => KeyValuePair.Create(p.Key, (JsonNode?)JsonValue.Create(p.Value)))),
         ["dice"] = new JsonObject(colony.AllDice.Select(p => KeyValuePair.Create(p.Key,
             (JsonNode?)new JsonArray(p.Value.State.Select(n => (JsonNode?)n.ToString(CultureInfo.InvariantCulture)).ToArray())))),
+        ["inventories"] = new JsonArray(colony.Stocks.Inventories.Select(i => (JsonNode?)new JsonObject
+        {
+            ["id"] = i.Id.Value,
+            ["name"] = i.Name,
+            ["holder"] = i.Holder.ToString(),
+            ["x"] = i.X,
+            ["y"] = i.Y,
+            ["goods"] = Amounts(i.Goods),
+            ["kept"] = Amounts(i.Kept),
+        }).ToArray()),
+        ["reservations"] = new JsonArray(colony.Stocks.Reservations.Select(r => (JsonNode?)new JsonObject
+        {
+            ["id"] = r.Id.Value, ["inventory"] = r.Inventory.Value, ["good"] = r.Good, ["amount"] = r.Amount, ["purpose"] = r.Purpose,
+        }).ToArray()),
+        ["ledger"] = new JsonArray(colony.Stocks.Ledger.Select(e => (JsonNode?)new JsonArray(
+            e.Operation.Value, e.Tick, e.Change.ToString(), e.Good, e.Amount,
+            e.From is InventoryId f ? f.Value : null, e.To is InventoryId to ? to.Value : null)).ToArray()),
     };
+
+    static JsonObject Amounts(IReadOnlyDictionary<string, int> amounts) =>
+        new(amounts.Select(p => KeyValuePair.Create(p.Key, (JsonNode?)JsonValue.Create(p.Value))));
 
     static readonly JsonSerializerOptions Indented = new() { WriteIndented = true };
 
@@ -63,7 +84,7 @@ public static class ColonySave
     }
 
     /// <summary>Loads the colony saved at `path`, or refuses it (ColonySaveException) without changing the file.</summary>
-    public static Colony Load(string path)
+    public static Colony Load(string path, Content? content = null)
     {
         string text;
         try
@@ -76,7 +97,7 @@ public static class ColonySave
         }
         try
         {
-            return Read(text);
+            return Read(text, content);
         }
         catch (ColonySaveException e)
         {
@@ -84,8 +105,9 @@ public static class ColonySave
         }
     }
 
-    /// <summary>The colony a save's text holds, checked part by part.</summary>
-    public static Colony Read(string text)
+    /// <summary>The colony a save's text holds, checked part by part; with `content`, every good it names must be
+    /// one the content knows.</summary>
+    public static Colony Read(string text, Content? content = null)
     {
         JsonObject save;
         try
@@ -129,7 +151,82 @@ public static class ColonySave
                     ? u : throw new ColonySaveException("the dice of \"" + system + "\" hold something that is not a number"));
             colony.SetDice(system, new Dice(values));
         }
+        ReadStocks(save, colony, content);
         return colony;
+    }
+
+    static void ReadStocks(JsonObject save, Colony colony, Content? content)
+    {
+        var stocks = colony.Stocks;
+        string Good(JsonNode? node, string at)
+        {
+            string good = node is JsonValue v && v.TryGetValue(out string? s) ? s : throw new ColonySaveException(at + " is not a good's id");
+            if (content != null && !content.Goods.ContainsKey(good))
+                throw new ColonySaveException(at + " names the good \"" + good + "\", which the content does not have");
+            return good;
+        }
+        int Count(JsonNode? node, string at) =>
+            node is JsonValue v && v.TryGetValue(out int n) && n >= 1 ? n : throw new ColonySaveException(at + " is not a whole number of 1 or more");
+        var known = new HashSet<long>();
+        foreach (var (node, i) in Get<JsonArray>(save, "inventories").Select((n, i) => (n, i)))
+        {
+            string at = "inventories[" + i + "]";
+            if (node is not JsonObject o)
+                throw new ColonySaveException(at + " is not a table");
+            long id = Number(o["id"], at + ".id");
+            string name = o["name"] is JsonValue nv && nv.TryGetValue(out string? s) ? s : throw new ColonySaveException(at + ".name is not text");
+            if (!Enum.TryParse<Holder>(o["holder"]?.ToString(), out var holder) || !Enum.IsDefined(holder))
+                throw new ColonySaveException(at + ".holder is not a kind of inventory");
+            double x = o["x"] is JsonValue xv && xv.TryGetValue(out double dx) ? dx : throw new ColonySaveException(at + ".x is not a number");
+            double y = o["y"] is JsonValue yv && yv.TryGetValue(out double dy) ? dy : throw new ColonySaveException(at + ".y is not a number");
+            if (id < 1 || id > colony.Ids.Last.GetValueOrDefault(InventoryId.Family) || !known.Add(id))
+                throw new ColonySaveException(at + ".id " + id + " was never given out, or is given twice");
+            var inventory = new Inventory(new InventoryId(id), name, holder, x, y);
+            foreach (var (good, n) in o["goods"] as JsonObject ?? throw new ColonySaveException(at + ".goods is not a table"))
+                inventory.Add(Good(JsonValue.Create(good), at + ".goods"), Count(n, at + ".goods." + good));
+            foreach (var (good, n) in o["kept"] as JsonObject ?? throw new ColonySaveException(at + ".kept is not a table"))
+                inventory.Keep(Good(JsonValue.Create(good), at + ".kept"), Count(n, at + ".kept." + good));
+            stocks.Put(inventory);
+        }
+        var claimed = new Dictionary<(long, string), int>();
+        var reserved = new HashSet<long>();
+        foreach (var (node, i) in Get<JsonArray>(save, "reservations").Select((n, i) => (n, i)))
+        {
+            string at = "reservations[" + i + "]";
+            if (node is not JsonObject o)
+                throw new ColonySaveException(at + " is not a table");
+            long id = Number(o["id"], at + ".id"), where = Number(o["inventory"], at + ".inventory");
+            if (!known.Contains(where))
+                throw new ColonySaveException(at + " claims goods in inventory " + where + ", which does not exist");
+            string good = Good(o["good"], at + ".good");
+            int amount = Count(o["amount"], at + ".amount");
+            string purpose = o["purpose"] is JsonValue pv && pv.TryGetValue(out string? p) ? p : throw new ColonySaveException(at + ".purpose is not text");
+            if (id < 1 || id > colony.Ids.Last.GetValueOrDefault(ReservationId.Family) || !reserved.Add(id))
+                throw new ColonySaveException(at + ".id " + id + " was never given out, or is given twice");
+            claimed[(where, good)] = claimed.GetValueOrDefault((where, good)) + amount;
+            if (claimed[(where, good)] > stocks[new InventoryId(where)].Count(good))
+                throw new ColonySaveException(at + " claims more " + good + " than inventory " + where + " has");
+            stocks.PutReservation(new Reservation(new ReservationId(id), new InventoryId(where), good, amount, purpose));
+        }
+        foreach (var (node, i) in Get<JsonArray>(save, "ledger").Select((n, i) => (n, i)))
+        {
+            string at = "ledger[" + i + "]";
+            if (node is not JsonArray e || e.Count != 7 || !Enum.TryParse<Change>(e[2]?.ToString(), out var change) || !Enum.IsDefined(change))
+                throw new ColonySaveException(at + " is not a ledger line");
+            InventoryId? Place(JsonNode? n)
+            {
+                if (n is null)
+                    return null;
+                long place = Number(n, at);
+                return known.Contains(place) ? new InventoryId(place) : throw new ColonySaveException(at + " names inventory " + place + ", which does not exist");
+            }
+            stocks.PutEntry(new Entry(new OperationId(Number(e[0], at)), Number(e[1], at), change, Good(e[3], at),
+                                      Count(e[4], at), Place(e[5]), Place(e[6])));
+        }
+        foreach (string good in stocks.Inventories.SelectMany(i => i.Goods.Keys).Concat(stocks.Ledger.Select(e => e.Good)).Distinct())
+            if (stocks.Total(good) != stocks.Accounted(good))
+                throw new ColonySaveException("its goods do not add up: " + stocks.Total(good) + " " + good + " held, the ledger says "
+                                              + stocks.Accounted(good));
     }
 
     // A part of the save that must be there, of the right kind.
@@ -139,6 +236,8 @@ public static class ColonySave
             throw new ColonySaveException("its \"" + key + "\" is missing");
         if (typeof(T) == typeof(JsonObject))
             return node is JsonObject o ? (T)(object)o : throw new ColonySaveException("its \"" + key + "\" is not a table");
+        if (typeof(T) == typeof(JsonArray))
+            return node is JsonArray a ? (T)(object)a : throw new ColonySaveException("its \"" + key + "\" is not a list");
         if (typeof(T) == typeof(long))
             return (T)(object)Number(node, key);
         if (node is JsonValue value && value.TryGetValue(out T? got) && got is not null)
