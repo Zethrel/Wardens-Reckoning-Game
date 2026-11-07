@@ -30,6 +30,12 @@ public sealed class Inventory(InventoryId id, string name, Holder holder, double
     readonly SortedDictionary<string, int> goods = new(StringComparer.Ordinal);
     readonly SortedDictionary<string, int> kept = new(StringComparer.Ordinal);
 
+    /// <summary>For a store: the goods it takes (empty: every good). Carriers and workshops ignore it.</summary>
+    public SortedSet<string> Accepts { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>Whether goods of `good` may be brought here to be stored.</summary>
+    public bool Takes(string good) => Holder == Holder.Store && (Accepts.Count == 0 || Accepts.Contains(good));
+
     /// <summary>Units of each good here (goods with none are left out).</summary>
     public IReadOnlyDictionary<string, int> Goods => goods;
 

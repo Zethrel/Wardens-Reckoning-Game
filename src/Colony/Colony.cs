@@ -28,12 +28,20 @@ public sealed class Colony
 
     readonly SortedDictionary<string, Dice> dice = new(StringComparer.Ordinal);
 
-    public Colony(long seed, Moment founded)
+    /// <summary>What the colony knows (goods, recipes...), or null for a colony with no work (as in step 12).</summary>
+    public Content? Content { get; }
+
+    /// <summary>The colony's work: its workers, workshops and jobs (step 13b; null without content).</summary>
+    public Work? Work { get; }
+
+    public Colony(long seed, Moment founded, Content? content = null)
     {
         Seed = seed;
         Founded = founded;
         Now = founded;
         Stocks = new Stocks(Ids);
+        Content = content;
+        Work = content == null ? null : new Work(this, content);
     }
 
     /// <summary>The dice of one system ("weather", "births"...): made the first time they are asked for, then kept,
@@ -52,8 +60,8 @@ public sealed class Colony
     public void SetDice(string system, Dice saved) => dice[system] = saved;
 
     /// <summary>
-    /// Runs the colony on by `ticks` minutes, one tick at a time. `eachTick` is what happens in a tick: today
-    /// nothing does (the systems come in later steps), so it is only there for the tests and for those steps.
+    /// Runs the colony on by `ticks` minutes, one tick at a time: each minute the work is done (Work.Tick), then
+    /// `eachTick`, if given (for the tests).
     /// </summary>
     public void Run(long ticks, Action<Colony>? eachTick = null)
     {
@@ -62,6 +70,7 @@ public sealed class Colony
         for (long i = 0; i < ticks; i++)
         {
             Now = Now.After(1);
+            Work?.Tick();
             eachTick?.Invoke(this);
         }
     }
