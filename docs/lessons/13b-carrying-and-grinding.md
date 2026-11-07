@@ -36,7 +36,7 @@ job is made, so it can only ever happen once.
   them. If the workshop still needs them, it simply asks again next minute:
   that is the retry.
 - A stopped or cancelled grinding starts again from the beginning; its wheat
-  stays claimed.
+  stays claimed. (Since lesson 14b a stopped grinding keeps its progress.)
 
 Why a workshop waits is in `Site.Blocked`, for example:
 

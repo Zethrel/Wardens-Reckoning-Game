@@ -35,6 +35,10 @@ public sealed class Worker(ColonistId id, string name, double x, double y, Inven
     public Personal? Personal { get; internal set; }
     /// <summary>A need they could not see to, and why (for the player), or null.</summary>
     public string? Lacking { get; internal set; }
+
+    /// <summary>The kinds of work they are not allowed to do (the player's policy, step 14b): "haul", "care", or a
+    /// workshop's id. Empty: they may do any work.</summary>
+    public SortedSet<string> Forbidden { get; } = new(StringComparer.Ordinal);
 }
 
 /// <summary>One need of one colonist: its level, and how many minutes it has been at the limit.</summary>
@@ -160,7 +164,7 @@ public sealed class Job
 /// The player can **stop** a worker (and resume them) or **cancel** a job. Goods are never left without a keeper:
 /// goods not yet picked up stay claimed in their store (or are let go, if the job is cancelled); goods being
 /// carried stay in the carrier's arms: a stopped carrier keeps them until resumed, and a cancelled haul takes them
-/// to the nearest store instead. A cancelled or interrupted craft starts again from the beginning.
+/// to the nearest store instead. An interrupted craft keeps its progress (since step 14b); a cancelled one is gone.
 /// </summary>
 public sealed partial class Work
 {
@@ -258,12 +262,15 @@ public sealed partial class Work
         jobs.Remove(id.Value);
     }
 
+    /// <summary>A job given back: it waits for someone to take it. A grinding keeps its progress (the minutes still
+    /// to work), so whoever takes it carries on where it was left; a haul starts its loading again.</summary>
     void Reopen(Job job, Worker worker)
     {
         worker.Job = null;
         job.Worker = null;
         job.Step = Step.Open;
-        job.Left = 0;
+        if (job.Kind != JobKind.Craft)
+            job.Left = 0;
     }
 
     // ---- One minute ---------------------------------------------------------------------------------
@@ -296,7 +303,8 @@ public sealed partial class Work
                 if (Walk(worker, gx, gy))
                 {
                     job.Step = job.Kind == JobKind.Craft ? Step.Working : Step.Loading;
-                    job.Left = job.Kind == JobKind.Craft ? content.Recipes[job.Recipe!].WorkMinutes : content.PickupMinutes;
+                    job.Left = job.Kind == JobKind.Craft ? (job.Left > 0 ? job.Left : content.Recipes[job.Recipe!].WorkMinutes)
+                                                         : content.PickupMinutes;
                     if (there || job.Left == 0)
                         Act(worker, job);
                 }
@@ -468,7 +476,7 @@ public sealed partial class Work
         foreach (var job in jobs.Values.Where(j => j.Step == Step.Open))
         {
             var (x, y) = job.Kind == JobKind.Craft ? (sites[job.Site!.Value.Value].X, sites[job.Site!.Value.Value].Y) : Place(job.From);
-            var worker = workers.Values.Where(Available)
+            var worker = workers.Values.Where(w => Available(w) && !w.Forbidden.Contains(KindOf(job)))
                                 .OrderBy(w => Distance(w.X, w.Y, x, y)).ThenBy(w => w.Id.Value).FirstOrDefault();
             if (worker == null)
                 return;

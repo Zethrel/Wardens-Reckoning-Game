@@ -133,6 +133,7 @@ public class LifeTests
         Assert.Null(craft.Worker);
         Assert.Equal(Step.Open, craft.Step);
         Assert.Single(craft.Claims);                         // its wheat stays claimed
+        Assert.True(craft.Left is > 0 and < 180, "its progress is kept: " + craft.Left);
     }
 
     [Fact]

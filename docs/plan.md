@@ -34,7 +34,7 @@ in `docs/lessons/`.
 | 13a | Goods: content files (goods, recipes, everyday numbers) checked at start; inventories, claims, protected reserves and the ledger, every change once (FP-10, FP-05's ledger half; lesson 13a) | 7 Nov |
 | 13b | People who carry and grind: workers, workshops and orders, haul and grinding jobs, workshops asking for what they lack, stop, resume and cancel; the save keeps the work (FP-02, FP-05; lesson 13b) | 7 Nov |
 | 14a | The colonists' day: hunger, thirst, fatigue; the five schedule blocks (Standard Day); rations, the stand-in spring, bedrolls; urgent needs wait for a delivery in hand, critical ones do not; collapse and care, no death yet (FP-01's schedule part; lesson 14a) | 7 Nov |
-| 14b | Who may do which work, and why a job is blocked (FP-03, FP-06) | |
+| 14b | Who may do which work (kinds of work each colonist may do), why a job waits (for the player, a next step, a developer's trace); a put-down grinding keeps its progress (FP-03, FP-06; lesson 14b) | 7 Nov |
 | 15 | Construction; where the local terrain comes from is decided here (FP-04) | |
 | 16 | Save and reload of the whole loop; a broken or unknown save refused safely (FP-08, FP-09) | |
 | | Then: the colony joins the world's years; the Wardens' war, peace, path and rituals; the legacy number; losing when the Wardens fall | |

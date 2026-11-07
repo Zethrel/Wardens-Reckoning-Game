@@ -29,8 +29,9 @@ public static class ColonySave
     /// <summary>The save's version: raised whenever what a save holds changes its shape or meaning.</summary>
     // 2: the colony's goods (step 13a): inventories, reservations and the ledger. 3: the work (step 13b): what each
     // store takes, the workers, the workshops and their orders, the jobs. 4: the colonists' day (step 14a): needs,
-    // schedule, sleep, collapse, what they do for themselves; the bedrolls; the springs.
-    public const int Version = 4;
+    // schedule, sleep, collapse, what they do for themselves; the bedrolls; the springs. 5: the kinds of work each
+    // colonist is not allowed (step 14b).
+    public const int Version = 5;
 
     /// <summary>The colony as JSON.</summary>
     public static JsonObject Write(Colony colony) => new()
@@ -72,6 +73,7 @@ public static class ColonySave
                     (JsonNode?)new JsonArray(n.Value.Level, n.Value.MinutesAtLimit)))),
                 ["schedule"] = w.Schedule, ["asleep"] = w.Asleep, ["on_bedroll"] = w.OnBedroll, ["collapsed"] = w.Collapsed,
                 ["lacking"] = w.Lacking,
+                ["forbidden"] = new JsonArray(w.Forbidden.Select(k => (JsonNode?)k).ToArray()),
                 ["personal"] = w.Personal is not Personal p ? null : new JsonObject
                 {
                     ["kind"] = p.Kind.ToString(), ["x"] = p.X, ["y"] = p.Y,
@@ -330,6 +332,14 @@ public static class ColonySave
                 Stopped = Flag("stopped"), Schedule = schedule, Asleep = Flag("asleep"), OnBedroll = Flag("on_bedroll"),
                 Collapsed = collapsed, Lacking = o["lacking"] is null ? null : Text(o, "lacking", at),
             };
+            var kinds = colony.Work!.Kinds.ToHashSet();
+            foreach (var k in o["forbidden"] as JsonArray ?? throw new ColonySaveException(at + ".forbidden is not a list"))
+            {
+                string kind = k is JsonValue kv && kv.TryGetValue(out string? s) ? s : throw new ColonySaveException(at + ".forbidden holds something that is not text");
+                if (!kinds.Contains(kind))
+                    throw new ColonySaveException(at + ".forbidden names \"" + kind + "\", which is no kind of work");
+                worker.Forbidden.Add(kind);
+            }
             var needs = Item(o["needs"], at + ".needs");
             foreach (string need in content.Needs.Keys)
             {

@@ -305,7 +305,7 @@ public class WorkTests
     }
 
     [Fact]
-    public void FP05_a_stopped_grinder_starts_the_batch_again()
+    public void FP05_a_stopped_grinding_is_carried_on_by_another()
     {
         var camp = new Camp(workers: 2);
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
@@ -316,8 +316,9 @@ public class WorkTests
         camp.Work.Stop(grinder.Id);
         Assert.Equal(Step.Open, job.Step);
         Assert.Single(job.Claims);                        // the five wheat stay claimed for the batch
+        // The other worker walks over and carries on: the 80 minutes still to go, not 180 again.
         int minutes = camp.RunUntil(() => camp.Stocks.Total("flour") == 4);
-        Assert.True(minutes > 180, "the batch started again: " + minutes);
+        Assert.InRange(minutes, 80, 90);
         Assert.True(grinder.Stopped);                    // so the other worker ground it
         Assert.Null(grinder.Job);
         camp.Conserved();
