@@ -12,7 +12,7 @@ public class ContentTests
 {
     static string Folder => Path.Combine(AppContext.BaseDirectory, "content");
 
-    static Dictionary<string, string?> Files() => new[] { "goods.json", "recipes.json", "colony.json" }
+    static Dictionary<string, string?> Files() => Content.Files
         .ToDictionary(f => f, f => (string?)File.ReadAllText(Path.Combine(Folder, f)));
 
     /// <summary>The real files with one change made to one of them (as JSON).</summary>
@@ -32,13 +32,19 @@ public class ContentTests
     public void The_real_content_loads()
     {
         var content = Content.Load(Folder);
-        Assert.Equal(new[] { "flour", "wheat" }, content.Goods.Keys);
+        Assert.Equal(new[] { "flour", "ration", "water", "wheat" }, content.Goods.Keys);
         var grind = content.Recipes["grind_wheat"];
         Assert.Equal("quern", grind.Workshop);
         Assert.Equal(5, grind.Inputs["wheat"]);
         Assert.Equal(4, grind.Outputs["flour"]);
         Assert.Equal(180, grind.WorkMinutes);
         Assert.Equal(25, content.CarryKg);
+        Assert.Equal((6, 3, 72), (content.Hunger.PerHour, content.Hunger.AsleepPerHour, content.Hunger.CollapseHours));
+        Assert.Equal(("ration", 60.0, 20), (content.Eat.Good, content.Eat.Eases, content.Eat.Minutes));
+        Assert.Equal(200, content.SpringPerDay);
+        var day = content.Schedules[content.DefaultSchedule].Hours;
+        Assert.Equal((Block.Sleep, Block.Meals, Block.Work, Block.Recreation, Block.Flexible, Block.Sleep),
+                     (day[6], day[7], day[8], day[17], day[20], day[23]));
         Assert.Equal(70, content.WalkMetresPerMinute);
     }
 
@@ -77,9 +83,28 @@ public class ContentTests
         yield return Case("goods.json", r => Good(r, 0)["id"] = "Wheat Grain", "should be lowercase letters, digits and _");
         yield return Case("goods.json", r => Good(r, 0)["name"] = " ", "goods.json.goods[0].name: should be text that is not empty");
         yield return Case("goods.json", r => r["goods"] = 3, "goods.json.goods: should be a list");
-        yield return Case("goods.json", r => r["goods"]!.AsArray().Add(7), "goods.json.goods[2]: should be an object");
+        yield return Case("goods.json", r => r["goods"]!.AsArray().Add(7), "goods.json.goods[4]: should be an object");
         yield return Case("goods.json", r => r["version"] = 2, "goods.json: version 2; this game reads version 1");
         yield return Case("recipes.json", r => r["version"] = 0, "recipes.json: version 0; this game reads version 1");
+        // Needs and schedules.
+        JsonObject Hunger(JsonObject r) => r["needs"]!["hunger"]!.AsObject();
+        JsonObject Day(JsonObject r) => r["templates"]![0]!.AsObject();
+        yield return Case("needs.json", r => Hunger(r)["wants"] = 70, "needs.json.needs.hunger: should have peckish < wants < urgent < critical <= 100");
+        yield return Case("needs.json", r => Hunger(r)["critical"] = 101, "should have peckish < wants < urgent < critical <= 100");
+        yield return Case("needs.json", r => Hunger(r)["per_hour"] = -1, "needs.json.needs.hunger.per_hour: should be a number of 0 or more");
+        yield return Case("needs.json", r => r["needs"]!.AsObject().Remove("thirst"), "needs.json.needs: \"thirst\" is missing");
+        yield return Case("needs.json", r => r["needs"]!["boredom"] = new JsonObject(), "needs.json.needs: unknown key \"boredom\"");
+        yield return Case("needs.json", r => r["needs"]!["hunger"] = 5, "needs.json.needs.hunger: should be an object");
+        yield return Case("needs.json", r => r["eat"]!["good"] = "cake", "needs.json.eat.good: no good \"cake\"");
+        yield return Case("needs.json", r => r["drink"]!["minutes"] = 0, "needs.json.drink.minutes: should be a whole number of 1 or more");
+        yield return Case("needs.json", r => r["drink"] = "water", "needs.json.drink: should be an object");
+        yield return Case("needs.json", r => r["sleep"]!["ground_per_hour"] = 0, "needs.json.sleep.ground_per_hour: should be a number above 0");
+        yield return Case("needs.json", r => r["spring_litres_per_day"] = -5, "needs.json.spring_litres_per_day: should be a whole number of 0 or more");
+        yield return Case("schedules.json", r => Day(r)["hours"]!.AsArray().RemoveAt(0), "hours: should be a list of 24 blocks");
+        yield return Case("schedules.json", r => Day(r)["hours"]![3] = "nap", "schedules.json.templates[0].hours[3]: should be one of sleep, work, meals, recreation, flexible");
+        yield return Case("schedules.json", r => Day(r)["hours"]![3] = "Work", "hours[3]: should be one of");
+        yield return Case("schedules.json", r => r["default"] = "night_shift", "schedules.json.default: no schedule \"night_shift\"");
+        yield return Case("schedules.json", r => r["templates"]!.AsArray().Add(Day(r).DeepClone()), "a second schedule with the id \"standard_day\"");
         // Goods made from themselves.
         yield return Case("recipes.json", r => Recipe(r)["outputs"] = new JsonObject { ["flour"] = 4, ["wheat"] = 1 },
                           "\"wheat\" is made from itself");

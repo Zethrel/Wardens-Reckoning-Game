@@ -28,8 +28,9 @@ public static class ColonySave
 
     /// <summary>The save's version: raised whenever what a save holds changes its shape or meaning.</summary>
     // 2: the colony's goods (step 13a): inventories, reservations and the ledger. 3: the work (step 13b): what each
-    // store takes, the workers, the workshops and their orders, the jobs.
-    public const int Version = 3;
+    // store takes, the workers, the workshops and their orders, the jobs. 4: the colonists' day (step 14a): needs,
+    // schedule, sleep, collapse, what they do for themselves; the bedrolls; the springs.
+    public const int Version = 4;
 
     /// <summary>The colony as JSON.</summary>
     public static JsonObject Write(Colony colony) => new()
@@ -67,7 +68,22 @@ public static class ColonySave
             {
                 ["id"] = w.Id.Value, ["name"] = w.Name, ["x"] = w.X, ["y"] = w.Y, ["arms"] = w.Arms.Value,
                 ["job"] = w.Job is TaskId j ? j.Value : null, ["stopped"] = w.Stopped,
+                ["needs"] = new JsonObject(w.Needs.Select(n => KeyValuePair.Create(n.Key,
+                    (JsonNode?)new JsonArray(n.Value.Level, n.Value.MinutesAtLimit)))),
+                ["schedule"] = w.Schedule, ["asleep"] = w.Asleep, ["on_bedroll"] = w.OnBedroll, ["collapsed"] = w.Collapsed,
+                ["lacking"] = w.Lacking,
+                ["personal"] = w.Personal is not Personal p ? null : new JsonObject
+                {
+                    ["kind"] = p.Kind.ToString(), ["x"] = p.X, ["y"] = p.Y,
+                    ["claim"] = p.Claim is ReservationId c ? c.Value : null, ["operation"] = p.Operation.Value,
+                    ["bedroll"] = p.Bedroll, ["left"] = p.Left,
+                },
             }).ToArray()),
+            ["bedrolls"] = new JsonArray(work.Bedrolls.Select(b => (JsonNode?)new JsonObject
+            {
+                ["id"] = b.Id.Value, ["x"] = b.X, ["y"] = b.Y, ["owner"] = b.Owner is ColonistId o ? o.Value : null,
+            }).ToArray()),
+            ["springs"] = new JsonArray(work.Springs.Select(s => (JsonNode?)s.Value).ToArray()),
             ["sites"] = new JsonArray(work.Sites.Select(s => (JsonNode?)new JsonObject
             {
                 ["id"] = s.Id.Value, ["workshop"] = s.Workshop, ["input"] = s.Input.Value, ["output"] = s.Output.Value,
@@ -271,8 +287,25 @@ public static class ColonySave
                 Second = new OperationId(Id(o, "second", at)), Worker = worker, Step = step, Left = left, Purpose = Text(o, "purpose", at),
             });
         }
+        // Claims held by colonists eating or drinking are theirs, not a job's.
+        var personalClaims = new HashSet<long>();
+        foreach (var (node, i) in (work["workers"] as JsonArray ?? new JsonArray()).Select((n, i) => (n, i)))
+        {
+            if (node?["personal"] is not JsonObject po)
+                continue;
+            string at = "work.workers[" + i + "].personal";
+            if (po["kind"]?.ToString() is "Eat" or "Drink" && po["claim"] is null)
+                throw new ColonySaveException(at + ": eating and drinking hold a claim, sleeping none");
+            if (po["claim"] is null)
+                continue;
+            long claim = Number(po["claim"], at + ".claim");
+            if (!stocks.Reservations.Any(r => r.Id.Value == claim))
+                throw new ColonySaveException(at + ".claim " + claim + " does not exist");
+            personalClaims.Add(claim);
+        }
+        claimsNow.ExceptWith(personalClaims);
         if (claimsNow.Count > 0)
-            throw new ColonySaveException("claim " + claimsNow.Min() + " belongs to no job");
+            throw new ColonySaveException("claim " + claimsNow.Min() + " belongs to no job"); 
         var workerIds = new HashSet<long>();
         foreach (var (node, i) in (work["workers"] as JsonArray ?? throw new ColonySaveException("work.workers is not a list")).Select((n, i) => (n, i)))
         {
@@ -285,10 +318,46 @@ public static class ColonySave
             var arms = Inv(o, "arms", at);
             if (stocks[arms].Holder != Holder.Carrier)
                 throw new ColonySaveException(at + ".arms is not a carrier's inventory");
+            bool Flag(string key) => o[key] is JsonValue fv && fv.TryGetValue(out bool f) ? f : throw new ColonySaveException(at + "." + key + " is not true or false");
+            string schedule = Text(o, "schedule", at);
+            if (!content.Schedules.ContainsKey(schedule))
+                throw new ColonySaveException(at + ".schedule \"" + schedule + "\" is not in the content");
+            string? collapsed = o["collapsed"] is null ? null : Text(o, "collapsed", at);
+            if (collapsed != null && !content.Needs.ContainsKey(collapsed))
+                throw new ColonySaveException(at + ".collapsed is not a need");
             var worker = new Worker(new ColonistId(id), Text(o, "name", at), Real(o, "x", at), Real(o, "y", at), arms)
             {
-                Stopped = o["stopped"] is JsonValue sv && sv.TryGetValue(out bool b) ? b : throw new ColonySaveException(at + ".stopped is not true or false"),
+                Stopped = Flag("stopped"), Schedule = schedule, Asleep = Flag("asleep"), OnBedroll = Flag("on_bedroll"),
+                Collapsed = collapsed, Lacking = o["lacking"] is null ? null : Text(o, "lacking", at),
             };
+            var needs = Item(o["needs"], at + ".needs");
+            foreach (string need in content.Needs.Keys)
+            {
+                if (needs[need] is not JsonArray pair || pair.Count != 2
+                    || !(pair[0] is JsonValue lv && lv.TryGetValue(out double level) && level >= 0 && level <= 100)
+                    || !(pair[1] is JsonValue mv && mv.TryGetValue(out int minutes) && minutes >= 0))
+                    throw new ColonySaveException(at + ".needs." + need + " is not a level (0 to 100) and minutes at the limit");
+                worker.Needs[need].Level = level;
+                worker.Needs[need].MinutesAtLimit = minutes;
+            }
+            if (o["personal"] is JsonObject po)
+            {
+                string pat = at + ".personal";
+                if (!Enum.TryParse<PersonalKind>(Text(po, "kind", pat), out var pk) || !Enum.IsDefined(pk))
+                    throw new ColonySaveException(pat + ".kind is not eating, drinking or sleeping");
+                ReservationId? claim = po["claim"] is null ? null : new ReservationId(Id(po, "claim", pat));
+                if (claim is ReservationId rc && !stocks.Reservations.Any(r => r.Id == rc))
+                    throw new ColonySaveException(pat + ".claim " + rc.Value + " does not exist");
+                if ((pk == PersonalKind.Sleep) != (claim == null))
+                    throw new ColonySaveException(pat + ": eating and drinking hold a claim, sleeping none");
+                int? left = po["left"] is null ? null : (int)Id(po, "left", pat);
+                worker.Personal = new Personal
+                {
+                    Kind = pk, X = Real(po, "x", pat), Y = Real(po, "y", pat), Claim = claim,
+                    Operation = new OperationId(Id(po, "operation", pat)), Bedroll = po["bedroll"] is JsonValue bv && bv.TryGetValue(out bool bb) && bb,
+                    Left = left,
+                };
+            }
             if (o["job"] is not null)
             {
                 long job = Id(o, "job", at);
@@ -297,6 +366,27 @@ public static class ColonySave
                 worker.Job = new TaskId(job);
             }
             colony.Work!.Put(worker);
+        }
+        var bedIds = new HashSet<long>();
+        foreach (var (node, i) in (work["bedrolls"] as JsonArray ?? throw new ColonySaveException("work.bedrolls is not a list")).Select((n, i) => (n, i)))
+        {
+            string at = "work.bedrolls[" + i + "]";
+            var o = Item(node, at);
+            long id = Id(o, "id", at);
+            Given<BuildingId>(id, at + ".id");
+            if (sites.Contains(id) || !bedIds.Add(id))
+                throw new ColonySaveException(at + ".id " + id + " is given twice");
+            ColonistId? owner = o["owner"] is null ? null : new ColonistId(Id(o, "owner", at));
+            if (owner is ColonistId ow && !workerIds.Contains(ow.Value))
+                throw new ColonySaveException(at + ".owner " + ow.Value + " is no colonist");
+            colony.Work!.Put(new Bedroll(new BuildingId(id), Real(o, "x", at), Real(o, "y", at), owner));
+        }
+        foreach (var node in work["springs"] as JsonArray ?? throw new ColonySaveException("work.springs is not a list"))
+        {
+            long id = Number(node, "work.springs");
+            if (!held.Contains(id) || stocks[new InventoryId(id)].Holder != Holder.Store)
+                throw new ColonySaveException("work.springs names " + id + ", which is not a store");
+            colony.Work!.PutSpring(new InventoryId(id));
         }
         foreach (var (job, worker) in jobWorkers)
             if (colony.Work!.Worker(new ColonistId(worker)).Job != new TaskId(job))

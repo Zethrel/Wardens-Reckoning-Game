@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "needs": {
+    "hunger": { "per_hour": 6, "asleep_per_hour": 3, "peckish": 15, "wants": 35, "urgent": 65, "critical": 90, "collapse_hours": 72 },
+    "thirst": { "per_hour": 8, "asleep_per_hour": 4, "peckish": 15, "wants": 35, "urgent": 65, "critical": 90, "collapse_hours": 24 },
+    "fatigue": { "per_hour": 5, "asleep_per_hour": 0, "peckish": 50, "wants": 70, "urgent": 85, "critical": 95, "collapse_hours": 0 }
+  },
+  "eat": { "good": "ration", "eases": 60, "minutes": 20 },
+  "drink": { "good": "water", "eases": 50, "minutes": 2 },
+  "sleep": { "bedroll_per_hour": 15, "ground_per_hour": 10 },
+  "spring_litres_per_day": 200
+}

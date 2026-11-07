@@ -15,6 +15,18 @@ what is wrong, before anything runs.
 - `colony.json`: `carry_kg` (what one person carries by hand),
   `walk_m_per_minute` (walking speed), `pickup_minutes` and `drop_minutes`
   (time to load and unload).
+- `needs.json`: how the needs grow (`hunger`, `thirst`, `fatigue`): points an
+  hour awake (`per_hour`) and asleep (`asleep_per_hour`), from 0 (none) to 100
+  (the limit); the levels at which a colonist eats or drinks at mealtimes
+  (`peckish`), wants to see to it (`wants`), stops new work for it (`urgent`)
+  and drops what they are doing (`critical`); and how many hours at the limit
+  before they collapse (`collapse_hours`; 0: at once). `eat` and `drink`: the
+  good, how many points one unit eases, how many minutes it takes. `sleep`:
+  points of fatigue an hour of sleep on a bedroll or on the ground eases.
+  `spring_litres_per_day`: what the spring gives each morning (a stand-in
+  until rivers and wells).
+- `schedules.json`: schedule templates: 24 hours, each one of `sleep`,
+  `work`, `meals`, `recreation`, `flexible`; and the `default` template.
 
 Every file has `"version": 1`: the shape of the file, raised when it changes.
 Unknown keys are refused, so a misspelt key is caught rather than ignored.

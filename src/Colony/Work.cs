@@ -16,7 +16,59 @@ public sealed class Worker(ColonistId id, string name, double x, double y, Inven
     public TaskId? Job { get; internal set; }
     /// <summary>Stopped by the player (interrupted): they do nothing until resumed.</summary>
     public bool Stopped { get; internal set; }
+
+    /// <summary>Their needs (step 14a), each from 0 (none) to 100 (the limit), by name: "hunger", "thirst",
+    /// "fatigue".</summary>
+    public SortedDictionary<string, NeedState> Needs { get; } = new(StringComparer.Ordinal)
+    {
+        ["fatigue"] = new(), ["hunger"] = new(), ["thirst"] = new(),
+    };
+    /// <summary>Their schedule template's id.</summary>
+    public string Schedule { get; internal set; } = "";
+    /// <summary>Asleep (in bed, on a bedroll or on the ground).</summary>
+    public bool Asleep { get; internal set; }
+    /// <summary>Asleep on a bedroll (sleep there eases fatigue faster).</summary>
+    public bool OnBedroll { get; internal set; }
+    /// <summary>The need they collapsed from ("hunger", "thirst" or "fatigue"), or null.</summary>
+    public string? Collapsed { get; internal set; }
+    /// <summary>What they are doing for themselves (eating, drinking, going to sleep), or null.</summary>
+    public Personal? Personal { get; internal set; }
+    /// <summary>A need they could not see to, and why (for the player), or null.</summary>
+    public string? Lacking { get; internal set; }
 }
+
+/// <summary>One need of one colonist: its level, and how many minutes it has been at the limit.</summary>
+public sealed class NeedState
+{
+    public double Level { get; internal set; }
+    public int MinutesAtLimit { get; internal set; }
+}
+
+public enum PersonalKind
+{
+    Eat,
+    Drink,
+    Sleep,
+}
+
+/// <summary>Something a colonist does for themselves: walk to food, water or their bed, and eat, drink or lie down.</summary>
+public sealed class Personal
+{
+    public PersonalKind Kind { get; init; }
+    /// <summary>Where they are going.</summary>
+    public double X { get; init; }
+    public double Y { get; init; }
+    /// <summary>The ration or water they claimed, and the operation that uses it up.</summary>
+    public ReservationId? Claim { get; init; }
+    public OperationId Operation { get; init; }
+    /// <summary>For sleeping: whether they are going to their bedroll.</summary>
+    public bool Bedroll { get; init; }
+    /// <summary>Minutes left eating or drinking; null while still walking.</summary>
+    public int? Left { get; internal set; }
+}
+
+/// <summary>A bedroll laid out at a place: a sleeping place, and whose it is.</summary>
+public sealed record Bedroll(BuildingId Id, double X, double Y, ColonistId? Owner);
 
 /// <summary>
 /// A workshop where it stands: what it has at hand (`Input`), what it has made (`Output`), and its order: a recipe
@@ -110,13 +162,15 @@ public sealed class Job
 /// carried stay in the carrier's arms: a stopped carrier keeps them until resumed, and a cancelled haul takes them
 /// to the nearest store instead. A cancelled or interrupted craft starts again from the beginning.
 /// </summary>
-public sealed class Work
+public sealed partial class Work
 {
     readonly Colony colony;
     readonly Content content;
     readonly SortedDictionary<long, Worker> workers = new();
     readonly SortedDictionary<long, Site> sites = new();
     readonly SortedDictionary<long, Job> jobs = new();
+    readonly SortedDictionary<long, Bedroll> bedrolls = new();
+    readonly SortedSet<long> springs = new();
 
     public Work(Colony colony, Content content)
     {
@@ -137,7 +191,7 @@ public sealed class Work
     public Worker AddWorker(string name, double x, double y)
     {
         var arms = Stocks.Open(name + "'s arms", Holder.Carrier, x, y);
-        var worker = new Worker(colony.Ids.Next<ColonistId>(), name, x, y, arms.Id);
+        var worker = new Worker(colony.Ids.Next<ColonistId>(), name, x, y, arms.Id) { Schedule = content.DefaultSchedule };
         workers[worker.Id.Value] = worker;
         return worker;
     }
@@ -214,14 +268,19 @@ public sealed class Work
 
     // ---- One minute ---------------------------------------------------------------------------------
 
-    /// <summary>One tick of work: workers act, workshops ask, workers take jobs.</summary>
+    /// <summary>One tick: needs grow and are seen to (Life.cs), workers act, the spring fills in the morning,
+    /// workshops ask, the collapsed are cared for, workers take jobs.</summary>
     public void Tick()
     {
         foreach (var worker in workers.Values)
-            if (!worker.Stopped && worker.Job is TaskId t)
+            if (Live(worker) && !worker.Stopped && worker.Job is TaskId t)
                 Act(worker, jobs[t.Value]);
+        if (colony.Now.MinuteOfDay == Autosave.MorningMinute)
+            foreach (long spring in springs)
+                Fill(new InventoryId(spring));
         foreach (var site in sites.Values)
             Ask(site);
+        Care();
         Assign();
     }
 
@@ -409,7 +468,7 @@ public sealed class Work
         foreach (var job in jobs.Values.Where(j => j.Step == Step.Open))
         {
             var (x, y) = job.Kind == JobKind.Craft ? (sites[job.Site!.Value.Value].X, sites[job.Site!.Value.Value].Y) : Place(job.From);
-            var worker = workers.Values.Where(w => !w.Stopped && w.Job == null)
+            var worker = workers.Values.Where(Available)
                                 .OrderBy(w => Distance(w.X, w.Y, x, y)).ThenBy(w => w.Id.Value).FirstOrDefault();
             if (worker == null)
                 return;
@@ -424,4 +483,6 @@ public sealed class Work
     internal void Put(Worker worker) => workers[worker.Id.Value] = worker;
     internal void Put(Site site) => sites[site.Id.Value] = site;
     internal void Put(Job job) => jobs[job.Id.Value] = job;
+    internal void Put(Bedroll bedroll) => bedrolls[bedroll.Id.Value] = bedroll;
+    internal void PutSpring(InventoryId spring) => springs.Add(spring.Value);
 }

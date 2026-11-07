@@ -12,4 +12,8 @@
   <ItemGroup>
     <ProjectReference Include="../Sim/Sim.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- The tests may set a colonist's needs directly (to start a test hungry, say). -->
+    <InternalsVisibleTo Include="WardensReckoning.Tests" />
+  </ItemGroup>
 </Project>

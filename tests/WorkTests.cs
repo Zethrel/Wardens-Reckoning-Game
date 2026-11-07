@@ -13,7 +13,24 @@ namespace WardensReckoning.Tests;
 public class WorkTests
 {
     static readonly Moment Start = new(Calendar.TickOf(301, 1, 1, 6, 0));
-    static readonly Content Real = Content.Load(Path.Combine(AppContext.BaseDirectory, "content"));
+    /// <summary>The real content, but with nobody getting hungry, thirsty or tired, and every hour a Work hour: these
+    /// tests are about the work alone (the needs and the day have their own, LifeTests).</summary>
+    static readonly Content Real = NoNeeds();
+
+    static Content NoNeeds() => Content.Read(NoNeedsFiles());
+
+    static Dictionary<string, string?> NoNeedsFiles()
+    {
+        var files = Content.Files.ToDictionary(f => f, f => (string?)File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", f)));
+        var needs = JsonNode.Parse(files["needs.json"]!)!.AsObject();
+        foreach (var (_, rule) in needs["needs"]!.AsObject())
+            rule!["per_hour"] = 0;
+        files["needs.json"] = needs.ToJsonString();
+        var schedules = JsonNode.Parse(files["schedules.json"]!)!.AsObject();
+        schedules["templates"]![0]!["hours"] = new JsonArray(Enumerable.Repeat((JsonNode?)"work", 24).Select(n => n?.DeepClone()).ToArray());
+        files["schedules.json"] = schedules.ToJsonString();
+        return files;
+    }
 
     /// <summary>The founders' carts (50 wheat) by the camp, a quern 140 m away (two minutes' walk), a granary for
     /// the flour, and workers at the camp.</summary>
@@ -114,8 +131,7 @@ public class WorkTests
     [Fact]
     public void Loading_and_unloading_can_take_no_time()
     {
-        var files = new[] { "goods.json", "recipes.json", "colony.json" }
-            .ToDictionary(f => f, f => (string?)File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", f)));
+        var files = NoNeedsFiles();
         var colony = JsonNode.Parse(files["colony.json"]!)!.AsObject();
         colony["pickup_minutes"] = 0;
         colony["drop_minutes"] = 0;
@@ -171,8 +187,7 @@ public class WorkTests
     public void One_person_carries_no_more_than_twenty_five_kilos()
     {
         // A recipe wanting 60 wheat at once is fetched in three loads: 25, 25 and 10.
-        var files = new[] { "goods.json", "recipes.json", "colony.json" }
-            .ToDictionary(f => f, f => (string?)File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", f)));
+        var files = NoNeedsFiles();
         var recipes = JsonNode.Parse(files["recipes.json"]!)!.AsObject();
         recipes["recipes"]![0]!["inputs"]!["wheat"] = 60;
         files["recipes.json"] = recipes.ToJsonString();
@@ -311,8 +326,7 @@ public class WorkTests
     /// <summary>The real content with `change` made to one file.</summary>
     static Content With(string file, Action<JsonObject> change)
     {
-        var files = new[] { "goods.json", "recipes.json", "colony.json" }
-            .ToDictionary(f => f, f => (string?)File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", f)));
+        var files = NoNeedsFiles();
         var root = JsonNode.Parse(files[file]!)!.AsObject();
         change(root);
         files[file] = root.ToJsonString();

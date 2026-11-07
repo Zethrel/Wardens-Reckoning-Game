@@ -1,7 +1,29 @@
 {
   "version": 1,
   "goods": [
-    { "id": "wheat", "name": "Wheat", "mass_kg": 1.0, "volume_l": 1.3 },
-    { "id": "flour", "name": "Flour", "mass_kg": 1.0, "volume_l": 1.6 }
+    {
+      "id": "wheat",
+      "name": "Wheat",
+      "mass_kg": 1.0,
+      "volume_l": 1.3
+    },
+    {
+      "id": "flour",
+      "name": "Flour",
+      "mass_kg": 1.0,
+      "volume_l": 1.6
+    },
+    {
+      "id": "ration",
+      "name": "Travel ration",
+      "mass_kg": 0.5,
+      "volume_l": 0.8
+    },
+    {
+      "id": "water",
+      "name": "Water",
+      "mass_kg": 1.0,
+      "volume_l": 1.0
+    }
   ]
 }

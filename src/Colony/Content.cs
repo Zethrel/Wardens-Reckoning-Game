@@ -19,6 +19,26 @@ public sealed record Good(string Id, string Name, double MassKg, double VolumeL)
 /// <summary>A kind of workshop (a hand quern...).</summary>
 public sealed record Workshop(string Id, string Name);
 
+/// <summary>How one need grows and when it matters (needs.json), on a scale from 0 (none) to 100 (the limit).</summary>
+public sealed record NeedRule(string Name, double PerHour, double AsleepPerHour, double Peckish, double Wants, double Urgent,
+                              double Critical, double CollapseHours);
+
+/// <summary>Eating or drinking: the good, how many points of the need one unit eases, and how long it takes.</summary>
+public sealed record Consumption(string Good, double Eases, int Minutes);
+
+/// <summary>The five schedule blocks of the design library (Daily Life §4.2).</summary>
+public enum Block
+{
+    Sleep,
+    Work,
+    Meals,
+    Recreation,
+    Flexible,
+}
+
+/// <summary>A schedule template: what each of the day's 24 hours is for.</summary>
+public sealed record Schedule(string Id, string Name, IReadOnlyList<Block> Hours);
+
 /// <summary>A recipe: the workshop that works it, what goes in and comes out (whole units), and how long it takes.</summary>
 public sealed record Recipe(string Id, string Name, string Workshop, IReadOnlyDictionary<string, int> Inputs,
                             IReadOnlyDictionary<string, int> Outputs, int WorkMinutes);
@@ -46,6 +66,21 @@ public sealed class Content
     public int PickupMinutes { get; }
     public int DropMinutes { get; }
 
+    /// <summary>The needs: "hunger", "thirst", "fatigue".</summary>
+    public IReadOnlyDictionary<string, NeedRule> Needs { get; private init; } = new Dictionary<string, NeedRule>();
+    public NeedRule Hunger => Needs["hunger"];
+    public NeedRule Thirst => Needs["thirst"];
+    public NeedRule Fatigue => Needs["fatigue"];
+    public Consumption Eat { get; private init; } = new("", 0, 0);
+    public Consumption Drink { get; private init; } = new("", 0, 0);
+    /// <summary>Points of fatigue an hour of sleep eases, on a bedroll and on the bare ground.</summary>
+    public double BedrollPerHour { get; private init; }
+    public double GroundPerHour { get; private init; }
+    /// <summary>Litres the spring has each morning (a stand-in for rivers and wells).</summary>
+    public int SpringPerDay { get; private init; }
+    public IReadOnlyDictionary<string, Schedule> Schedules { get; private init; } = new Dictionary<string, Schedule>();
+    public string DefaultSchedule { get; private init; } = "";
+
     Content(Dictionary<string, Good> goods, Dictionary<string, Workshop> workshops, Dictionary<string, Recipe> recipes,
             double carryKg, double walk, int pickup, int drop)
     {
@@ -59,7 +94,7 @@ public sealed class Content
     public static Content Load(string folder)
     {
         var texts = new Dictionary<string, string?>();
-        foreach (string name in new[] { "goods.json", "recipes.json", "colony.json" })
+        foreach (string name in Files)
         {
             string path = Path.Combine(folder, name);
             texts[name] = File.Exists(path) ? File.ReadAllText(path) : null;
@@ -68,6 +103,9 @@ public sealed class Content
     }
 
     static readonly Regex IdShape = new("^[a-z][a-z0-9_]*$");
+
+    /// <summary>The content's files.</summary>
+    public static readonly string[] Files = { "goods.json", "recipes.json", "colony.json", "needs.json", "schedules.json" };
 
     /// <summary>Checks content given as file name to text (null: the file is missing).</summary>
     public static Content Read(IReadOnlyDictionary<string, string?> files)
@@ -172,9 +210,113 @@ public sealed class Content
             drop = check.Int(c, "colony.json", "drop_minutes", 0) ?? 0;
         }
 
+        // Needs, eating, drinking, sleeping, the spring.
+        var needs = new SortedDictionary<string, NeedRule>(StringComparer.Ordinal);
+        Consumption? eat = null, drink = null;
+        double bedroll = 0, ground = 0;
+        int spring = 0;
+        if (Open("needs.json", "needs", "eat", "drink", "sleep", "spring_litres_per_day") is JsonObject n)
+        {
+            if (n["needs"] is JsonObject table)
+            {
+                check.Keys(table, "needs.json.needs", "hunger", "thirst", "fatigue");
+                foreach (var (name, node) in table)
+                {
+                    string at = "needs.json.needs." + name;
+                    if (node is not JsonObject rule)
+                    {
+                        problems.Add(at + ": should be an object { ... }");
+                        continue;
+                    }
+                    check.Keys(rule, at, "per_hour", "asleep_per_hour", "peckish", "wants", "urgent", "critical", "collapse_hours");
+                    double?[] v = { check.NotNegative(rule, at, "per_hour"), check.NotNegative(rule, at, "asleep_per_hour"),
+                                    check.NotNegative(rule, at, "peckish"), check.NotNegative(rule, at, "wants"),
+                                    check.NotNegative(rule, at, "urgent"), check.NotNegative(rule, at, "critical"),
+                                    check.NotNegative(rule, at, "collapse_hours") };
+                    if (v.Any(x => x == null))
+                        continue;
+                    if (!(v[2] < v[3] && v[3] < v[4] && v[4] < v[5] && v[5] <= 100))
+                        problems.Add(at + ": should have peckish < wants < urgent < critical <= 100");
+                    else if (table.ContainsKey(name) && new[] { "hunger", "thirst", "fatigue" }.Contains(name))
+                        needs[name] = new NeedRule(name, v[0]!.Value, v[1]!.Value, v[2]!.Value, v[3]!.Value, v[4]!.Value, v[5]!.Value, v[6]!.Value);
+                }
+            }
+            else if (n.ContainsKey("needs"))
+                problems.Add("needs.json.needs: should be an object { ... }");
+            Consumption? Use(string key)
+            {
+                string at = "needs.json." + key;
+                if (n[key] is not JsonObject o)
+                {
+                    if (n.ContainsKey(key))
+                        problems.Add(at + ": should be an object { ... }");
+                    return null;
+                }
+                check.Keys(o, at, "good", "eases", "minutes");
+                string? good = check.Text(o, at, "good");
+                if (good != null && !goods.ContainsKey(good))
+                {
+                    problems.Add(at + ".good: no good \"" + good + "\"");
+                    good = null;
+                }
+                double? eases = check.Positive(o, at, "eases");
+                int? minutes = check.Int(o, at, "minutes", 1);
+                return good != null && eases != null && minutes != null ? new Consumption(good, eases.Value, minutes.Value) : null;
+            }
+            eat = Use("eat");
+            drink = Use("drink");
+            if (n["sleep"] is JsonObject s)
+            {
+                check.Keys(s, "needs.json.sleep", "bedroll_per_hour", "ground_per_hour");
+                bedroll = check.Positive(s, "needs.json.sleep", "bedroll_per_hour") ?? 0;
+                ground = check.Positive(s, "needs.json.sleep", "ground_per_hour") ?? 0;
+            }
+            else if (n.ContainsKey("sleep"))
+                problems.Add("needs.json.sleep: should be an object { ... }");
+            spring = check.Int(n, "needs.json", "spring_litres_per_day", 0) ?? 0;
+        }
+
+        // Schedules.
+        var schedules = new SortedDictionary<string, Schedule>(StringComparer.Ordinal);
+        string? defaultSchedule = null;
+        if (Open("schedules.json", "default", "templates") is JsonObject sc)
+        {
+            foreach (var (item, at) in check.List(sc, "schedules.json", "templates"))
+            {
+                check.Keys(item, at, "id", "name", "hours");
+                string? id = check.Id(item, at, IdShape);
+                string? name = check.Text(item, at, "name");
+                var hours = new List<Block>();
+                if (item["hours"] is JsonArray list && list.Count == Calendar.HoursPerDay)
+                {
+                    for (int h = 0; h < list.Count; h++)
+                        if (list[h] is JsonValue hv && hv.TryGetValue(out string? word) && Enum.TryParse<Block>(word, ignoreCase: true, out var block)
+                            && word == word.ToLowerInvariant() && Enum.IsDefined(block))
+                            hours.Add(block);
+                        else
+                            problems.Add(at + ".hours[" + h + "]: should be one of sleep, work, meals, recreation, flexible");
+                }
+                else if (item.ContainsKey("hours"))
+                    problems.Add(at + ".hours: should be a list of 24 blocks, one for each hour from midnight");
+                if (id == null)
+                    continue;
+                if (schedules.ContainsKey(id))
+                    problems.Add(at + ": a second schedule with the id \"" + id + "\"");
+                else if (name != null && hours.Count == Calendar.HoursPerDay)
+                    schedules[id] = new Schedule(id, name, hours);
+            }
+            defaultSchedule = check.Text(sc, "schedules.json", "default");
+            if (defaultSchedule != null && !schedules.ContainsKey(defaultSchedule) && !problems.Any(p => p.StartsWith("schedules.json.templates")))
+                problems.Add("schedules.json.default: no schedule \"" + defaultSchedule + "\"");
+        }
+
         if (problems.Count > 0)
             throw new ContentException(problems);
-        return new Content(goods, workshops, recipes, carry, walk, pickup, drop);
+        return new Content(goods, workshops, recipes, carry, walk, pickup, drop)
+        {
+            Needs = needs, Eat = eat!, Drink = drink!, BedrollPerHour = bedroll, GroundPerHour = ground, SpringPerDay = spring,
+            Schedules = schedules, DefaultSchedule = defaultSchedule!,
+        };
     }
 
     /// <summary>
@@ -267,6 +409,16 @@ public sealed class Content
             if (item[key] is JsonValue v && v.TryGetValue(out double d) && d > 0 && double.IsFinite(d))
                 return d;
             problems.Add(at + "." + key + ": should be a number above 0");
+            return null;
+        }
+
+        public double? NotNegative(JsonObject item, string at, string key)
+        {
+            if (!item.ContainsKey(key))
+                return null;
+            if (item[key] is JsonValue v && v.TryGetValue(out double d) && d >= 0 && double.IsFinite(d))
+                return d;
+            problems.Add(at + "." + key + ": should be a number of 0 or more");
             return null;
         }
 

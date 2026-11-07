@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "default": "standard_day",
+  "templates": [
+    {
+      "id": "standard_day",
+      "name": "Standard Day",
+      "hours": [
+        "sleep", "sleep", "sleep", "sleep", "sleep", "sleep", "sleep",
+        "meals",
+        "work", "work", "work", "work",
+        "meals",
+        "work", "work", "work", "work",
+        "recreation", "recreation", "recreation",
+        "flexible", "flexible", "flexible",
+        "sleep"
+      ]
+    }
+  ]
+}
