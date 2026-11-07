@@ -234,8 +234,7 @@ public sealed partial class Work
     /// <summary>The nearest inventory with `good` free a colonist may take from: their own arms first, then stores.</summary>
     Inventory? Source(Worker w, string good) =>
         Stocks.Free(w.Arms, good) > 0 ? Stocks[w.Arms]
-        : Stocks.Inventories.Where(i => i.Holder == Holder.Store && Stocks.Free(i.Id, good) > 0)
-                .OrderBy(i => Distance(i.X, i.Y, w.X, w.Y)).ThenBy(i => i.Id.Value).FirstOrDefault();
+        : Nearest(Stocks.Inventories.Where(i => i.Holder == Holder.Store && Stocks.Free(i.Id, good) > 0), w.X, w.Y);
 
     /// <summary>Starts seeing to a wish: claims the food or water, or picks the bed.</summary>
     void Start(Worker w, PersonalKind kind)
@@ -262,6 +261,15 @@ public sealed partial class Work
         var p = w.Personal!;
         if (p.Left == null)
         {
+            // The way there is gone (a wall was built across it): they give up, letting go of what they claimed.
+            if (double.IsPositiveInfinity(Far(w.X, w.Y, p.X, p.Y)))
+            {
+                if (p.Claim is ReservationId lost)
+                    Stocks.Release(lost);
+                w.Personal = null;
+                w.Lacking = "cannot reach " + (p.Kind == PersonalKind.Sleep ? "their bedroll" : "the store");
+                return;
+            }
             bool there = w.X == p.X && w.Y == p.Y;
             if (!Walk(w, p.X, p.Y))
             {
@@ -302,8 +310,7 @@ public sealed partial class Work
                 if (w.Needs[rule.Name].Level < rule.Wants
                     || jobs.Values.Any(j => j.Kind == JobKind.Haul && j.To == w.Arms && j.Good == use.Good))
                     continue;
-                var from = Stocks.Inventories.Where(i => i.Holder == Holder.Store && Stocks.Free(i.Id, use.Good) > 0)
-                                 .OrderBy(i => Distance(i.X, i.Y, w.X, w.Y)).ThenBy(i => i.Id.Value).FirstOrDefault();
+                var from = Nearest(Stocks.Inventories.Where(i => i.Holder == Holder.Store && Stocks.Free(i.Id, use.Good) > 0), w.X, w.Y);
                 if (from != null)
                     NewHaul(from.Id, w.Arms, use.Good, 1, "bring " + content.Goods[use.Good].Name.ToLowerInvariant() + " to " + w.Name);
             }

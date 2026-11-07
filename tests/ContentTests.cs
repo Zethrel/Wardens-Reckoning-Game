@@ -32,7 +32,7 @@ public class ContentTests
     public void The_real_content_loads()
     {
         var content = Content.Load(Folder);
-        Assert.Equal(new[] { "flour", "ration", "water", "wheat" }, content.Goods.Keys);
+        Assert.Equal(new[] { "flour", "ration", "timber", "water", "wheat" }, content.Goods.Keys);
         var grind = content.Recipes["grind_wheat"];
         Assert.Equal("quern", grind.Workshop);
         Assert.Equal(5, grind.Inputs["wheat"]);
@@ -46,6 +46,12 @@ public class ContentTests
         Assert.Equal((Block.Sleep, Block.Meals, Block.Work, Block.Recreation, Block.Flexible, Block.Sleep),
                      (day[6], day[7], day[8], day[17], day[20], day[23]));
         Assert.Equal(70, content.WalkMetresPerMinute);
+        Assert.Equal(new[] { "door", "floor", "wall" }, content.Pieces.Keys);
+        var wall = content.Pieces["wall"];
+        Assert.Equal((2, 45, true), (wall.Materials["timber"], wall.WorkMinutes, wall.Blocks));
+        Assert.False(content.Pieces["door"].Blocks);
+        Assert.Equal((48, 48), (content.TestGround.Width, content.TestGround.Height));
+        Assert.Contains(new Obstacle("rock", 30, 8), content.TestGround.Obstacles);
     }
 
     public static IEnumerable<object[]> Broken()
@@ -83,7 +89,7 @@ public class ContentTests
         yield return Case("goods.json", r => Good(r, 0)["id"] = "Wheat Grain", "should be lowercase letters, digits and _");
         yield return Case("goods.json", r => Good(r, 0)["name"] = " ", "goods.json.goods[0].name: should be text that is not empty");
         yield return Case("goods.json", r => r["goods"] = 3, "goods.json.goods: should be a list");
-        yield return Case("goods.json", r => r["goods"]!.AsArray().Add(7), "goods.json.goods[4]: should be an object");
+        yield return Case("goods.json", r => r["goods"]!.AsArray().Add(7), "goods.json.goods[5]: should be an object");
         yield return Case("goods.json", r => r["version"] = 2, "goods.json: version 2; this game reads version 1");
         yield return Case("recipes.json", r => r["version"] = 0, "recipes.json: version 0; this game reads version 1");
         // Needs and schedules.
@@ -105,6 +111,20 @@ public class ContentTests
         yield return Case("schedules.json", r => Day(r)["hours"]![3] = "Work", "hours[3]: should be one of");
         yield return Case("schedules.json", r => r["default"] = "night_shift", "schedules.json.default: no schedule \"night_shift\"");
         yield return Case("schedules.json", r => r["templates"]!.AsArray().Add(Day(r).DeepClone()), "a second schedule with the id \"standard_day\"");
+        // Construction pieces and the test ground.
+        JsonObject Wall(JsonObject r) => r["pieces"]![0]!.AsObject();
+        JsonObject TestGround(JsonObject r) => r["test_ground"]!.AsObject();
+        JsonObject Rock(JsonObject r) => r["test_ground"]!["obstacles"]![0]!.AsObject();
+        yield return Case("construction.json", r => r["pieces"]!.AsArray().Add(Wall(r).DeepClone()), "construction.json.pieces[3]: a second piece with the id \"wall\"");
+        yield return Case("construction.json", r => Wall(r)["materials"] = new JsonObject { ["stone"] = 2 }, "construction.json.pieces[0].materials.stone: no good \"stone\"");
+        yield return Case("construction.json", r => Wall(r)["work_minutes"] = 0, "construction.json.pieces[0].work_minutes: should be a whole number of 1 or more");
+        yield return Case("construction.json", r => Wall(r)["blocks"] = "yes", "construction.json.pieces[0].blocks: should be true or false");
+        yield return Case("construction.json", r => TestGround(r)["width"] = 0, "construction.json.test_ground.width: should be a whole number of 1 or more");
+        yield return Case("construction.json", r => Rock(r)["x"] = 48, "construction.json.test_ground.obstacles[0]: (48, 8) is outside the ground (48 by 48)");
+        yield return Case("construction.json", r => Rock(r)["x"] = 31, "construction.json.test_ground.obstacles[1]: a second obstacle on (31, 8)");
+        yield return Case("construction.json", r => Rock(r)["kind"] = "Big Rock", "construction.json.test_ground.obstacles[0].kind: \"Big Rock\" should be lowercase");
+        yield return Case("construction.json", r => r.Remove("test_ground"), "construction.json: \"test_ground\" is missing");
+        yield return Case("construction.json", r => r["test_ground"] = 5, "construction.json.test_ground: should be an object");
         // Goods made from themselves.
         yield return Case("recipes.json", r => Recipe(r)["outputs"] = new JsonObject { ["flour"] = 4, ["wheat"] = 1 },
                           "\"wheat\" is made from itself");

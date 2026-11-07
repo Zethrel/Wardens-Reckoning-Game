@@ -30,8 +30,9 @@ public static class ColonySave
     // 2: the colony's goods (step 13a): inventories, reservations and the ledger. 3: the work (step 13b): what each
     // store takes, the workers, the workshops and their orders, the jobs. 4: the colonists' day (step 14a): needs,
     // schedule, sleep, collapse, what they do for themselves; the bedrolls; the springs. 5: the kinds of work each
-    // colonist is not allowed (step 14b).
-    public const int Version = 5;
+    // colonist is not allowed (step 14b). 6: the ground (its size, what is in the way, the finished pieces) and the
+    // construction projects (step 15a).
+    public const int Version = 6;
 
     /// <summary>The colony as JSON.</summary>
     public static JsonObject Write(Colony colony) => new()
@@ -60,6 +61,12 @@ public static class ColonySave
         {
             ["id"] = r.Id.Value, ["inventory"] = r.Inventory.Value, ["good"] = r.Good, ["amount"] = r.Amount, ["purpose"] = r.Purpose,
         }).ToArray()),
+        ["ground"] = colony.Ground is not Ground g ? null : new JsonObject
+        {
+            ["width"] = g.Width, ["height"] = g.Height,
+            ["obstacles"] = new JsonArray(g.Obstacles.Select(o => (JsonNode?)new JsonArray(o.Kind, o.X, o.Y)).ToArray()),
+            ["pieces"] = new JsonArray(g.Pieces.Select(p => (JsonNode?)new JsonArray(p.Piece, p.X, p.Y)).ToArray()),
+        },
         ["ledger"] = new JsonArray(colony.Stocks.Ledger.Select(e => (JsonNode?)new JsonArray(
             e.Operation.Value, e.Tick, e.Change.ToString(), e.Good, e.Amount,
             e.From is InventoryId f ? f.Value : null, e.To is InventoryId to ? to.Value : null)).ToArray()),
@@ -86,6 +93,11 @@ public static class ColonySave
                 ["id"] = b.Id.Value, ["x"] = b.X, ["y"] = b.Y, ["owner"] = b.Owner is ColonistId o ? o.Value : null,
             }).ToArray()),
             ["springs"] = new JsonArray(work.Springs.Select(s => (JsonNode?)s.Value).ToArray()),
+            ["projects"] = new JsonArray(work.Projects.Select(p => (JsonNode?)new JsonObject
+            {
+                ["id"] = p.Id.Value, ["piece"] = p.Piece, ["x"] = p.X, ["y"] = p.Y, ["stock"] = p.Stock.Value,
+                ["paused"] = p.Paused, ["cancelled"] = p.Cancelled,
+            }).ToArray()),
             ["sites"] = new JsonArray(work.Sites.Select(s => (JsonNode?)new JsonObject
             {
                 ["id"] = s.Id.Value, ["workshop"] = s.Workshop, ["input"] = s.Input.Value, ["output"] = s.Output.Value,
@@ -195,6 +207,7 @@ public static class ColonySave
             colony.SetDice(system, new Dice(values));
         }
         ReadStocks(save, colony, content);
+        colony.SetGround(ReadGround(save, content));
         if (colony.Work != null)
             ReadWork(Get<JsonObject>(save, "work"), colony, content!);
         return colony;
@@ -244,6 +257,28 @@ public static class ColonySave
                 throw new ColonySaveException(at + ".id " + id + " is given twice");
             colony.Work!.Put(site);
         }
+        // Construction projects (step 15a): their numbers are buildings' numbers, so never a workshop's.
+        var projects = new HashSet<long>();
+        foreach (var (node, i) in (work["projects"] as JsonArray ?? throw new ColonySaveException("work.projects is not a list")).Select((n, i) => (n, i)))
+        {
+            string at = "work.projects[" + i + "]";
+            var o = Item(node, at);
+            long id = Id(o, "id", at);
+            Given<BuildingId>(id, at + ".id");
+            if (sites.Contains(id) || !projects.Add(id))
+                throw new ColonySaveException(at + ".id " + id + " is given twice");
+            string piece = Text(o, "piece", at);
+            if (!content.Pieces.ContainsKey(piece))
+                throw new ColonySaveException(at + ".piece \"" + piece + "\" is not in the content");
+            int x = (int)Id(o, "x", at), y = (int)Id(o, "y", at);
+            if (colony.Ground is not Ground ground || !ground.Inside(x, y) || ground.ObstacleAt(x, y) != null || ground.PieceAt(x, y) != null)
+                throw new ColonySaveException(at + " is planned where it cannot be (" + x + ", " + y + ")");
+            var stock = Inv(o, "stock", at);
+            if (stocks[stock].Holder != Holder.Construction)
+                throw new ColonySaveException(at + ".stock is not a building site's inventory");
+            bool Flag(string key) => o[key] is JsonValue fv && fv.TryGetValue(out bool f) ? f : throw new ColonySaveException(at + "." + key + " is not true or false");
+            colony.Work!.Put(new Project(new BuildingId(id), piece, x, y, stock) { Paused = Flag("paused"), Cancelled = Flag("cancelled") });
+        }
         var claimsNow = new HashSet<long>(stocks.Reservations.Select(r => r.Id.Value));
         var jobIds = new HashSet<long>();
         var jobWorkers = new Dictionary<long, long>();
@@ -268,8 +303,10 @@ public static class ColonySave
                 claims.Add(new ReservationId(claim));
             }
             BuildingId? site = o["site"] is null ? null : new BuildingId(Id(o, "site", at));
-            if (site is BuildingId s && !sites.Contains(s.Value))
+            if (site is BuildingId s && !(kind == JobKind.Build ? projects : sites).Contains(s.Value))
                 throw new ColonySaveException(at + ".site " + s.Value + " does not exist");
+            if (kind == JobKind.Build && site == null)
+                throw new ColonySaveException(at + " is a build without a project");
             string? recipe = o["recipe"] is null ? null : Text(o, "recipe", at);
             if (kind == JobKind.Craft && (site == null || recipe == null || !content.Recipes.ContainsKey(recipe)))
                 throw new ColonySaveException(at + " is a craft without a workshop and a recipe it knows");
@@ -384,7 +421,7 @@ public static class ColonySave
             var o = Item(node, at);
             long id = Id(o, "id", at);
             Given<BuildingId>(id, at + ".id");
-            if (sites.Contains(id) || !bedIds.Add(id))
+            if (sites.Contains(id) || projects.Contains(id) || !bedIds.Add(id))
                 throw new ColonySaveException(at + ".id " + id + " is given twice");
             ColonistId? owner = o["owner"] is null ? null : new ColonistId(Id(o, "owner", at));
             if (owner is ColonistId ow && !workerIds.Contains(ow.Value))
@@ -401,6 +438,45 @@ public static class ColonySave
         foreach (var (job, worker) in jobWorkers)
             if (colony.Work!.Worker(new ColonistId(worker)).Job != new TaskId(job))
                 throw new ColonySaveException("work.jobs: job " + job + " names worker " + worker + ", who is not doing it");
+    }
+
+    /// <summary>The ground a save holds (or null: none), checked: every tile on it, no two things on one tile, and
+    /// every piece one the content knows.</summary>
+    static Ground? ReadGround(JsonObject save, Content? content)
+    {
+        if (!save.ContainsKey("ground"))
+            throw new ColonySaveException("its \"ground\" is missing");
+        if (save["ground"] is null)
+            return null;
+        if (save["ground"] is not JsonObject g)
+            throw new ColonySaveException("its \"ground\" is not a table");
+        long width = Number(g["width"], "ground.width"), height = Number(g["height"], "ground.height");
+        if (width < 1 || height < 1 || width * height > 100_000_000)
+            throw new ColonySaveException("its ground is " + width + " by " + height + " tiles, which cannot be");
+        var ground = new Ground((int)width, (int)height);
+        var used = new HashSet<(long, long)>();
+        IEnumerable<(string What, int X, int Y)> Things(string key)
+        {
+            foreach (var (node, i) in (g[key] as JsonArray ?? throw new ColonySaveException("ground." + key + " is not a list")).Select((n, i) => (n, i)))
+            {
+                string at = "ground." + key + "[" + i + "]";
+                if (node is not JsonArray e || e.Count != 3 || !(e[0] is JsonValue v && v.TryGetValue(out string? what)))
+                    throw new ColonySaveException(at + " is not [what, x, y]");
+                long x = Number(e[1], at), y = Number(e[2], at);
+                if (!ground.Inside((int)Math.Clamp(x, -1, int.MaxValue), (int)Math.Clamp(y, -1, int.MaxValue)) || !used.Add((x, y)))
+                    throw new ColonySaveException(at + " is off the ground, or on a tile that already holds something");
+                yield return (what, (int)x, (int)y);
+            }
+        }
+        foreach (var (kind, x, y) in Things("obstacles").ToList())
+            ground.AddObstacle(kind, x, y);
+        foreach (var (piece, x, y) in Things("pieces").ToList())
+        {
+            if (content == null || !content.Pieces.TryGetValue(piece, out var kind))
+                throw new ColonySaveException("ground.pieces names \"" + piece + "\", which " + (content == null ? "needs the colony's content to load" : "is not in the content"));
+            ground.AddPiece(piece, kind.Blocks, x, y);
+        }
+        return ground;
     }
 
     static void ReadStocks(JsonObject save, Colony colony, Content? content)

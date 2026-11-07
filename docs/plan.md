@@ -35,8 +35,10 @@ in `docs/lessons/`.
 | 13b | People who carry and grind: workers, workshops and orders, haul and grinding jobs, workshops asking for what they lack, stop, resume and cancel; the save keeps the work (FP-02, FP-05; lesson 13b) | 7 Nov |
 | 14a | The colonists' day: hunger, thirst, fatigue; the five schedule blocks (Standard Day); rations, the stand-in spring, bedrolls; urgent needs wait for a delivery in hand, critical ones do not; collapse and care, no death yet (FP-01's schedule part; lesson 14a) | 7 Nov |
 | 14b | Who may do which work (kinds of work each colonist may do), why a job waits (for the player, a next step, a developer's trace); a put-down grinding keeps its progress (FP-03, FP-06; lesson 14b) | 7 Nov |
-| 15 | Construction; where the local terrain comes from is decided here (FP-04) | |
+| 15a | Construction on a flat test ground: 1 m tiles and path-finding; walls, doors and floors of timber; construction orders planned before their materials exist, supplied, built and finished; reasons when one waits; pause and cancel (FP-04; lesson 15a). Library Review 32 decided where local terrain comes from: the generator, for founding sites pre-made in its export (step 17) | 7 Nov |
+| 15b | The rest of the library's first construction prototype: a room, a dedicated-footprint structure, templates, a stockpile, paths that speed walking, deconstruction, two workplaces working locally | |
 | 16 | Save and reload of the whole loop; a broken or unknown save refused safely (FP-08, FP-09) | |
+| 17 | Local terrain from the world generator for the founding sites (R26-05); the generator needs a scale in metres and a local-terrain maker | |
 | | Then: the colony joins the world's years; the Wardens' war, peace, path and rituals; the legacy number; losing when the Wardens fall | |
 
 For each step, the generator adds what that system carries from year to year
@@ -72,8 +74,8 @@ the colony first.
 What the colony will need that the world does not have yet, to plan for then:
 
 - A **local map** for one region of the world map, generated from
-  that region's height, biome, water and geology (in the game or by the
-  generator: decided at step 15), seeded from the world's two
+  that region's height, biome, water and geology (by the generator, for
+  founding sites pre-made in its export: decided 7 November, step 17), seeded from the world's two
   seeds and the region's place, so the same site always gives the same ground.
 - **Underground layers** made from the region's geology (mines, caves, metal,
   volcanoes), as the generator has no strata.
@@ -107,8 +109,10 @@ below (Review 26, Master Architecture "Review 26").
   docs/world.md). The endings stay: endless, the legacy number, lost when the
   Wardens fall.
 - **The local terrain** (tiles and underground around the colony) comes from
-  the generator's export or from the game: decided at step 15, after gauging
-  the generator's share of the work. The maintainer leans to the generator.
+  the generator (decided 7 November, library Review 32): its export pre-makes
+  local maps for a list of founding sites, and the player chooses among them
+  (players have no Python when founding). Built at step 17; until then the
+  colony stands on the flat test ground of `content/construction.json`.
 - **Steps 12 to 16** build the library's first playable: its scenarios FP-01
   to FP-10 (in `Review_25_Final_Baseline/First_Playable_Acceptance_Criteria.md`)
   as tests. A scenario counts only when its test has run and passed. FP-11

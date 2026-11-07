@@ -27,6 +27,13 @@ what is wrong, before anything runs.
   until rivers and wells).
 - `schedules.json`: schedule templates: 24 hours, each one of `sleep`,
   `work`, `meals`, `recreation`, `flexible`; and the `default` template.
+- `construction.json`: the construction `pieces` (a wall, a door, a floor):
+  each takes one tile; what it is made of (`materials`, good id to whole
+  units), how long building it takes (`work_minutes`) and whether it blocks
+  walking (`blocks`). And the `test_ground` the colony stands on until the
+  world generator makes local terrain: its `width` and `height` in tiles (a
+  tile is 1 m square) and its `obstacles` (a `kind` such as rock or tree, on a
+  tile `x`, `y`, counted from 0 at the top left).
 
 Every file has `"version": 1`: the shape of the file, raised when it changes.
 Unknown keys are refused, so a misspelt key is caught rather than ignored.

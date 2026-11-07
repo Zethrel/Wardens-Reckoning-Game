@@ -12,6 +12,8 @@ public enum Holder
     WorkshopOutput,
     /// <summary>What a person is carrying.</summary>
     Carrier,
+    /// <summary>The materials brought to a construction project (step 15a).</summary>
+    Construction,
 }
 
 /// <summary>
@@ -244,6 +246,15 @@ public sealed class Stocks(IdCounters ids)
         Change.Used => -e.Amount,
         _ => 0,
     });
+
+    /// <summary>Closes an inventory that is empty and has no claims on it (a finished or cancelled building
+    /// site): it is gone, and its number is never used again.</summary>
+    public void Close(InventoryId id)
+    {
+        if (this[id].Goods.Count > 0 || reservations.Values.Any(r => r.Inventory == id))
+            throw new InvalidOperationException(this[id].Name + " still holds goods or claims");
+        inventories.Remove(id.Value);
+    }
 
     // For loading a save.
     internal void Put(Inventory inventory) => inventories[inventory.Id.Value] = inventory;

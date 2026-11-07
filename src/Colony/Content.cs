@@ -43,6 +43,17 @@ public sealed record Schedule(string Id, string Name, IReadOnlyList<Block> Hours
 public sealed record Recipe(string Id, string Name, string Workshop, IReadOnlyDictionary<string, int> Inputs,
                             IReadOnlyDictionary<string, int> Outputs, int WorkMinutes);
 
+/// <summary>A construction piece (construction.json): a wall, a door, a floor. It takes one tile; what it is made
+/// of and how long building it takes; whether it blocks walking (a wall does, a door and a floor do not).</summary>
+public sealed record PieceKind(string Id, string Name, IReadOnlyDictionary<string, int> Materials, int WorkMinutes, bool Blocks);
+
+/// <summary>Something in the way on the ground (a rock, a tree), on one tile.</summary>
+public sealed record Obstacle(string Kind, int X, int Y);
+
+/// <summary>The flat test ground the colony stands on until the world generator makes local terrain (Review 32):
+/// its size in tiles (one tile is 1 m square) and what is in the way.</summary>
+public sealed record TestGround(int Width, int Height, IReadOnlyList<Obstacle> Obstacles);
+
 /// <summary>
 /// The colony's content (the design library calls it "content definitions"): the goods, workshops and recipes the
 /// colony knows, and its everyday numbers, read from the JSON files in `content/` (see content/README.md).
@@ -80,6 +91,9 @@ public sealed class Content
     public int SpringPerDay { get; private init; }
     public IReadOnlyDictionary<string, Schedule> Schedules { get; private init; } = new Dictionary<string, Schedule>();
     public string DefaultSchedule { get; private init; } = "";
+    /// <summary>The construction pieces, by id (step 15a).</summary>
+    public IReadOnlyDictionary<string, PieceKind> Pieces { get; private init; } = new Dictionary<string, PieceKind>();
+    public TestGround TestGround { get; private init; } = new(1, 1, Array.Empty<Obstacle>());
 
     Content(Dictionary<string, Good> goods, Dictionary<string, Workshop> workshops, Dictionary<string, Recipe> recipes,
             double carryKg, double walk, int pickup, int drop)
@@ -90,7 +104,7 @@ public sealed class Content
         (CarryKg, WalkMetresPerMinute, PickupMinutes, DropMinutes) = (carryKg, walk, pickup, drop);
     }
 
-    /// <summary>Reads and checks the content in `folder` (goods.json, recipes.json, colony.json).</summary>
+    /// <summary>Reads and checks the content in `folder` (every file of `Files`).</summary>
     public static Content Load(string folder)
     {
         var texts = new Dictionary<string, string?>();
@@ -105,7 +119,7 @@ public sealed class Content
     static readonly Regex IdShape = new("^[a-z][a-z0-9_]*$");
 
     /// <summary>The content's files.</summary>
-    public static readonly string[] Files = { "goods.json", "recipes.json", "colony.json", "needs.json", "schedules.json" };
+    public static readonly string[] Files = { "goods.json", "recipes.json", "colony.json", "needs.json", "schedules.json", "construction.json" };
 
     /// <summary>Checks content given as file name to text (null: the file is missing).</summary>
     public static Content Read(IReadOnlyDictionary<string, string?> files)
@@ -310,12 +324,62 @@ public sealed class Content
                 problems.Add("schedules.json.default: no schedule \"" + defaultSchedule + "\"");
         }
 
+        // Construction pieces and the test ground.
+        var pieces = new SortedDictionary<string, PieceKind>(StringComparer.Ordinal);
+        TestGround? testGround = null;
+        if (Open("construction.json", "pieces", "test_ground") is JsonObject k)
+        {
+            foreach (var (item, at) in check.List(k, "construction.json", "pieces"))
+            {
+                check.Keys(item, at, "id", "name", "materials", "work_minutes", "blocks");
+                string? id = check.Id(item, at, IdShape);
+                string? name = check.Text(item, at, "name");
+                var materials = check.Amounts(item, at, "materials", goods);
+                int? minutes = check.Int(item, at, "work_minutes", 1);
+                bool? blocks = check.Bool(item, at, "blocks");
+                if (id == null)
+                    continue;
+                if (pieces.ContainsKey(id))
+                    problems.Add(at + ": a second piece with the id \"" + id + "\"");
+                else if (name != null && materials != null && minutes != null && blocks != null)
+                    pieces[id] = new PieceKind(id, name, materials, minutes.Value, blocks.Value);
+            }
+            if (k["test_ground"] is JsonObject tg)
+            {
+                const string at = "construction.json.test_ground";
+                check.Keys(tg, at, "width", "height", "obstacles");
+                int? width = check.Int(tg, at, "width", 1), height = check.Int(tg, at, "height", 1);
+                var obstacles = new List<Obstacle>();
+                var taken = new HashSet<(int, int)>();
+                foreach (var (item, oat) in check.List(tg, at, "obstacles"))
+                {
+                    check.Keys(item, oat, "kind", "x", "y");
+                    string? kind = check.Text(item, oat, "kind");
+                    int? x = check.Int(item, oat, "x", 0), y = check.Int(item, oat, "y", 0);
+                    if (kind == null || x == null || y == null)
+                        continue;
+                    if (!IdShape.IsMatch(kind))
+                        problems.Add(oat + ".kind: \"" + kind + "\" should be lowercase letters, digits and _, starting with a letter");
+                    else if (width != null && height != null && (x >= width || y >= height))
+                        problems.Add(oat + ": (" + x + ", " + y + ") is outside the ground (" + width + " by " + height + ")");
+                    else if (!taken.Add((x.Value, y.Value)))
+                        problems.Add(oat + ": a second obstacle on (" + x + ", " + y + ")");
+                    else
+                        obstacles.Add(new Obstacle(kind, x.Value, y.Value));
+                }
+                if (width != null && height != null)
+                    testGround = new TestGround(width.Value, height.Value, obstacles);
+            }
+            else if (k.ContainsKey("test_ground"))
+                problems.Add("construction.json.test_ground: should be an object { ... }");
+        }
+
         if (problems.Count > 0)
             throw new ContentException(problems);
         return new Content(goods, workshops, recipes, carry, walk, pickup, drop)
         {
             Needs = needs, Eat = eat!, Drink = drink!, BedrollPerHour = bedroll, GroundPerHour = ground, SpringPerDay = spring,
-            Schedules = schedules, DefaultSchedule = defaultSchedule!,
+            Schedules = schedules, DefaultSchedule = defaultSchedule!, Pieces = pieces, TestGround = testGround!,
         };
     }
 
@@ -419,6 +483,16 @@ public sealed class Content
             if (item[key] is JsonValue v && v.TryGetValue(out double d) && d >= 0 && double.IsFinite(d))
                 return d;
             problems.Add(at + "." + key + ": should be a number of 0 or more");
+            return null;
+        }
+
+        public bool? Bool(JsonObject item, string at, string key)
+        {
+            if (!item.ContainsKey(key))
+                return null;
+            if (item[key] is JsonValue v && v.TryGetValue(out bool b))
+                return b;
+            problems.Add(at + "." + key + ": should be true or false");
             return null;
         }
 

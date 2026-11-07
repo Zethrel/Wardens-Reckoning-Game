@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "pieces": [
+    { "id": "wall", "name": "Timber wall", "materials": { "timber": 2 }, "work_minutes": 45, "blocks": true },
+    { "id": "door", "name": "Timber door", "materials": { "timber": 3 }, "work_minutes": 60, "blocks": false },
+    { "id": "floor", "name": "Plank floor", "materials": { "timber": 1 }, "work_minutes": 15, "blocks": false }
+  ],
+  "test_ground": {
+    "width": 48,
+    "height": 48,
+    "obstacles": [
+      { "kind": "rock", "x": 30, "y": 8 },
+      { "kind": "rock", "x": 31, "y": 8 },
+      { "kind": "rock", "x": 12, "y": 35 },
+      { "kind": "tree", "x": 6, "y": 6 },
+      { "kind": "tree", "x": 40, "y": 20 },
+      { "kind": "tree", "x": 41, "y": 22 },
+      { "kind": "tree", "x": 22, "y": 42 }
+    ]
+  }
+}

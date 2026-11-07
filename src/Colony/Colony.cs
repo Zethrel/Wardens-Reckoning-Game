@@ -34,6 +34,23 @@ public sealed class Colony
     /// <summary>The colony's work: its workers, workshops and jobs (step 13b; null without content).</summary>
     public Work? Work { get; }
 
+    /// <summary>The ground it stands on (step 15a), or null: open ground without bounds, where colonists walk
+    /// straight (as in steps 13 and 14).</summary>
+    public Ground? Ground { get; private set; }
+
+    /// <summary>Lays the colony on a ground (once, before anyone or anything is placed).</summary>
+    public void Lay(Ground ground)
+    {
+        if (Ground != null)
+            throw new InvalidOperationException("the colony already has its ground");
+        if (Stocks.Inventories.Count > 0 || Work?.Workers.Count > 0 || Work?.Sites.Count > 0)
+            throw new InvalidOperationException("lay the ground before placing anything");
+        Ground = ground;
+    }
+
+    /// <summary>Puts back the ground a save kept.</summary>
+    internal void SetGround(Ground? ground) => Ground = ground;
+
     public Colony(long seed, Moment founded, Content? content = null)
     {
         Seed = seed;

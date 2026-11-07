@@ -24,6 +24,12 @@
       "name": "Water",
       "mass_kg": 1.0,
       "volume_l": 1.0
+    },
+    {
+      "id": "timber",
+      "name": "Timber",
+      "mass_kg": 10.0,
+      "volume_l": 15.0
     }
   ]
 }

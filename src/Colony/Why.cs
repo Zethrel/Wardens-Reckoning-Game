@@ -24,11 +24,12 @@ public sealed partial class Work
     public const string CareWork = "care";
 
     /// <summary>The kinds of work there are: hauling, care, and each workshop.</summary>
-    public IEnumerable<string> Kinds => new[] { CareWork, HaulWork }.Concat(content.Workshops.Keys);
+    public IEnumerable<string> Kinds => new[] { BuildWork, CareWork, HaulWork }.Concat(content.Workshops.Keys);
 
     /// <summary>The kind of a job.</summary>
     public string KindOf(Job job) =>
-        job.Kind == JobKind.Craft ? sites[job.Site!.Value.Value].Workshop
+        job.Kind == JobKind.Build ? BuildWork
+        : job.Kind == JobKind.Craft ? sites[job.Site!.Value.Value].Workshop
         : workers.Values.Any(w => w.Arms == job.To) ? CareWork : HaulWork;
 
     /// <summary>Allows or forbids a colonist a kind of work. A job of a kind newly forbidden that they hold goes back
@@ -63,7 +64,7 @@ public sealed partial class Work
                                    "Allow someone to " + what + " in their work settings.",
                                    trace + "no worker permits '" + kind + "' (" + workers.Count + " workers)");
         // Each allowed colonist's reason for not taking it, nearest to the job first.
-        var reasons = allowed.Select(w => (Worker: w, Reason: NotNow(w))).ToList();
+        var reasons = allowed.Select(w => (Worker: w, Reason: NotNow(w, job))).ToList();
         string list = string.Join("; ", reasons.Select(r => r.Worker.Name + " " + r.Reason.Player));
         string next = reasons.Select(r => r.Reason.Next).FirstOrDefault(n => n != null)
                       ?? "Wait: it is taken in the next minute.";
@@ -74,6 +75,7 @@ public sealed partial class Work
     /// <summary>The kind of work in words: "carry goods", "bring food or water to the fallen", "work the hand quern".</summary>
     string Words(string kind) => kind switch
     {
+        BuildWork => "build",
         HaulWork => "carry goods",
         CareWork => "bring food or water to the fallen",
         _ => "work the " + content.Workshops[kind].Name.ToLowerInvariant(),
@@ -81,7 +83,7 @@ public sealed partial class Work
 
     /// <summary>Why an allowed colonist is not taking work now: for the player, a next step if there is one, and
     /// a trace.</summary>
-    (string Player, string? Next, string Trace) NotNow(Worker w)
+    (string Player, string? Next, string Trace) NotNow(Worker w, Job job)
     {
         if (w.Collapsed != null)
             return ("has collapsed (" + w.Collapsed + ")", "See that there is " + (w.Collapsed == "fatigue" ? "time to sleep" : "food and water") + " in the stores.", "collapsed " + w.Collapsed);
@@ -105,6 +107,9 @@ public sealed partial class Work
                     + (w.Lacking != null ? " (" + w.Lacking + ")" : ""),
                     w.Lacking != null ? "Bring " + (urgent.Name == content.Hunger.Name ? "rations" : "water") + " to a store." : null,
                     "urgent " + urgent.Name + " " + w.Needs[urgent.Name].Level.ToString("0.#", CultureInfo.InvariantCulture));
+        var (x, y) = Spot(job);
+        if (double.IsPositiveInfinity(Far(w.X, w.Y, x, y)))
+            return ("cannot get there", "Open a way: leave a gap or put a door in the wall.", "no way from " + Ground.TileOf(w.X, w.Y));
         return ("is free and will take it", null, "free");
     }
 

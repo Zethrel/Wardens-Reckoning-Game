@@ -100,6 +100,8 @@ public enum JobKind
     Haul,
     /// <summary>Work a recipe at a workshop.</summary>
     Craft,
+    /// <summary>Build a construction piece (step 15a).</summary>
+    Build,
 }
 
 /// <summary>Where a job is.</summary>
@@ -115,7 +117,7 @@ public enum Step
     Carrying,
     /// <summary>Putting them down.</summary>
     Unloading,
-    /// <summary>Working the recipe.</summary>
+    /// <summary>Working the recipe, or building.</summary>
     Working,
 }
 
@@ -132,7 +134,7 @@ public sealed class Job
     public int Amount { get; init; }
     public InventoryId From { get; init; }
     public InventoryId To { get; internal set; }
-    /// <summary>For a craft: the workshop and the recipe.</summary>
+    /// <summary>For a craft: the workshop and the recipe. For a build: the project (in `Site`).</summary>
     public BuildingId? Site { get; init; }
     public string? Recipe { get; init; }
     /// <summary>The claims it holds: on the goods to haul, or on a recipe's inputs.</summary>
@@ -194,6 +196,7 @@ public sealed partial class Work
     /// <summary>A new worker at (`x`, `y`), with empty arms.</summary>
     public Worker AddWorker(string name, double x, double y)
     {
+        OnOpenGround(x, y);
         var arms = Stocks.Open(name + "'s arms", Holder.Carrier, x, y);
         var worker = new Worker(colony.Ids.Next<ColonistId>(), name, x, y, arms.Id) { Schedule = content.DefaultSchedule };
         workers[worker.Id.Value] = worker;
@@ -205,11 +208,20 @@ public sealed partial class Work
     {
         if (!content.Workshops.TryGetValue(workshop, out var kind))
             throw new ArgumentException("no workshop \"" + workshop + "\" in the content", nameof(workshop));
+        OnOpenGround(x, y);
         var input = Stocks.Open(kind.Name + " (at hand)", Holder.WorkshopInput, x, y);
         var output = Stocks.Open(kind.Name + " (made)", Holder.WorkshopOutput, x, y);
         var site = new Site(colony.Ids.Next<BuildingId>(), workshop, input.Id, output.Id, x, y);
         sites[site.Id.Value] = site;
         return site;
+    }
+
+    /// <summary>With a ground, a place must be on it, on a tile nothing blocks.</summary>
+    void OnOpenGround(double x, double y)
+    {
+        var (tx, ty) = Ground.TileOf(x, y);
+        if (colony.Ground is Ground g && !g.Open(tx, ty))
+            throw new ArgumentException("(" + x + ", " + y + ") is not on open ground");
     }
 
     /// <summary>Orders `site` to work `recipe` `batches` more times (0: no order).</summary>
@@ -262,21 +274,22 @@ public sealed partial class Work
         jobs.Remove(id.Value);
     }
 
-    /// <summary>A job given back: it waits for someone to take it. A grinding keeps its progress (the minutes still
-    /// to work), so whoever takes it carries on where it was left; a haul starts its loading again.</summary>
+    /// <summary>A job given back: it waits for someone to take it. A grinding or a building keeps its progress
+    /// (the minutes still to work), so whoever takes it carries on where it was left; a haul starts its loading
+    /// again.</summary>
     void Reopen(Job job, Worker worker)
     {
         worker.Job = null;
         job.Worker = null;
         job.Step = Step.Open;
-        if (job.Kind != JobKind.Craft)
+        if (job.Kind == JobKind.Haul)
             job.Left = 0;
     }
 
     // ---- One minute ---------------------------------------------------------------------------------
 
     /// <summary>One tick: needs grow and are seen to (Life.cs), workers act, the spring fills in the morning,
-    /// workshops ask, the collapsed are cared for, workers take jobs.</summary>
+    /// workshops ask, construction projects ask (Build.cs), the collapsed are cared for, workers take jobs.</summary>
     public void Tick()
     {
         foreach (var worker in workers.Values)
@@ -287,6 +300,8 @@ public sealed partial class Work
                 Fill(new InventoryId(spring));
         foreach (var site in sites.Values)
             Ask(site);
+        foreach (var project in projects.Values.ToList())
+            Supply(project);
         Care();
         Assign();
     }
@@ -297,14 +312,27 @@ public sealed partial class Work
         switch (job.Step)
         {
             case Step.Going:
-                var (gx, gy) = job.Kind == JobKind.Craft ? (sites[job.Site!.Value.Value].X, sites[job.Site!.Value.Value].Y) : Place(job.From);
-                // Someone already standing there starts at once; anyone else spends this minute walking.
-                bool there = worker.X == gx && worker.Y == gy;
-                if (Walk(worker, gx, gy))
+                var (gx, gy) = Spot(job);
+                // Nobody can get there any more (a wall was built in the way): the job goes back.
+                if (double.IsPositiveInfinity(Far(worker.X, worker.Y, gx, gy)))
                 {
-                    job.Step = job.Kind == JobKind.Craft ? Step.Working : Step.Loading;
-                    job.Left = job.Kind == JobKind.Craft ? (job.Left > 0 ? job.Left : content.Recipes[job.Recipe!].WorkMinutes)
-                                                         : content.PickupMinutes;
+                    Reopen(job, worker);
+                    break;
+                }
+                // Someone already standing there starts at once; anyone else spends this minute walking. A builder
+                // works from beside the tile.
+                bool near = job.Kind == JobKind.Build;
+                bool there = Arrived(worker, gx, gy, near);
+                if (Walk(worker, gx, gy, near))
+                {
+                    job.Step = job.Kind == JobKind.Haul ? Step.Loading : Step.Working;
+                    job.Left = job.Kind switch
+                    {
+                        JobKind.Haul => content.PickupMinutes,
+                        _ when job.Left > 0 => job.Left,
+                        JobKind.Craft => content.Recipes[job.Recipe!].WorkMinutes,
+                        _ => content.Pieces[projects[job.Site!.Value.Value].Piece].WorkMinutes,
+                    };
                     if (there || job.Left == 0)
                         Act(worker, job);
                 }
@@ -337,6 +365,12 @@ public sealed partial class Work
             case Step.Working:
                 if (--job.Left > 0)
                     break;
+                if (job.Kind == JobKind.Build)
+                {
+                    Complete(job, now);
+                    Finish(worker, job);
+                    break;
+                }
                 var site = sites[job.Site!.Value.Value];
                 var recipe = content.Recipes[job.Recipe!];
                 Stocks.Make(job.First, now, job.Claims, site.Output, recipe.Outputs);
@@ -356,28 +390,85 @@ public sealed partial class Work
         jobs.Remove(job.Id.Value);
     }
 
-    /// <summary>A step of walking towards (x, y): true once there.</summary>
-    bool Walk(Worker worker, double x, double y)
+    /// <summary>
+    /// A minute of walking towards (x, y): true once there. Without a ground (as in the tests of steps 13 and 14)
+    /// a colonist walks straight. On a ground they walk from tile to tile on the way the ground finds, through the
+    /// middle of each tile, and in the last tile straight to the spot. `near`: arrived as soon as they stand on a
+    /// tile beside the spot's tile (or on it), as a builder does.
+    /// </summary>
+    bool Walk(Worker worker, double x, double y, bool near = false)
     {
-        double dx = x - worker.X, dy = y - worker.Y, far = Math.Sqrt(dx * dx + dy * dy);
-        if (far <= content.WalkMetresPerMinute)
+        double left = content.WalkMetresPerMinute;
+        while (true)
         {
-            (worker.X, worker.Y) = (x, y);
-            return true;
+            if (near && Arrived(worker, x, y, near))
+                return true;
+            double px = x, py = y;
+            if (Ground is Ground ground)
+            {
+                var (tx, ty) = Ground.TileOf(worker.X, worker.Y);
+                var (gx, gy) = Ground.TileOf(x, y);
+                if ((tx, ty) != (gx, gy))
+                {
+                    if (ground.Next(tx, ty, gx, gy) is not var (nx, ny))
+                        return false;                                  // no way there: they stay where they are
+                    (px, py) = Ground.Centre(nx, ny);
+                }
+            }
+            double dx = px - worker.X, dy = py - worker.Y, far = Math.Sqrt(dx * dx + dy * dy);
+            if (far > left)
+            {
+                (worker.X, worker.Y) = (worker.X + dx * left / far, worker.Y + dy * left / far);
+                return false;
+            }
+            (worker.X, worker.Y) = (px, py);
+            left -= far;
+            if (px == x && py == y)
+                return true;
         }
-        double share = content.WalkMetresPerMinute / far;
-        (worker.X, worker.Y) = (worker.X + dx * share, worker.Y + dy * share);
-        return false;
+    }
+
+    /// <summary>Whether a worker is at (x, y); with `near` on a ground, on its tile or a tile beside it.</summary>
+    bool Arrived(Worker worker, double x, double y, bool near)
+    {
+        if (!near || Ground == null)
+            return worker.X == x && worker.Y == y;
+        var (tx, ty) = Ground.TileOf(worker.X, worker.Y);
+        var (gx, gy) = Ground.TileOf(x, y);
+        return Math.Abs(tx - gx) <= 1 && Math.Abs(ty - gy) <= 1;
     }
 
     (double X, double Y) Place(InventoryId id) => (Stocks[id].X, Stocks[id].Y);
 
+    /// <summary>Where a job is done: a craft at its workshop, a build at its tile, a haul where the goods are.</summary>
+    (double X, double Y) Spot(Job job) => job.Kind switch
+    {
+        JobKind.Craft => (sites[job.Site!.Value.Value].X, sites[job.Site!.Value.Value].Y),
+        JobKind.Build => Ground.Centre(projects[job.Site!.Value.Value].X, projects[job.Site!.Value.Value].Y),
+        _ => Place(job.From),
+    };
+
     static double Distance(double ax, double ay, double bx, double by) => Math.Sqrt((ax - bx) * (ax - bx) + (ay - by) * (ay - by));
+
+    /// <summary>How far it is to walk from (ax, ay) to (bx, by), in metres: straight without a ground; on a
+    /// ground, the length of the way between their tiles, or infinity if there is none.</summary>
+    double Far(double ax, double ay, double bx, double by)
+    {
+        if (Ground is not Ground ground)
+            return Distance(ax, ay, bx, by);
+        var (tx, ty) = Ground.TileOf(ax, ay);
+        var (gx, gy) = Ground.TileOf(bx, by);
+        return ground.Metres(tx, ty, gx, gy);
+    }
+
+    /// <summary>The nearest of `places` by walking from (x, y) that can be reached (the lower number on a tie).</summary>
+    Inventory? Nearest(IEnumerable<Inventory> places, double x, double y) =>
+        places.Select(i => (Place: i, Far: Far(x, y, i.X, i.Y))).Where(p => !double.IsPositiveInfinity(p.Far))
+              .OrderBy(p => p.Far).ThenBy(p => p.Place.Id.Value).Select(p => p.Place).FirstOrDefault();
 
     /// <summary>The nearest store taking `good` (the lower number on a tie), or null.</summary>
     Inventory? NearestStore(string good, double x, double y, InventoryId? except = null) =>
-        Stocks.Inventories.Where(i => i.Takes(good) && i.Id != except)
-              .OrderBy(i => Distance(i.X, i.Y, x, y)).ThenBy(i => i.Id.Value).FirstOrDefault();
+        Nearest(Stocks.Inventories.Where(i => i.Takes(good) && i.Id != except), x, y);
 
     /// <summary>Units of `good` one person can carry.</summary>
     int CarryUnits(string good) => Math.Max(1, (int)Math.Floor(content.CarryKg / content.Goods[good].MassKg));
@@ -421,23 +512,31 @@ public sealed partial class Work
         }
         // Otherwise it asks for what is missing, counting what is already on its way.
         foreach (var (good, needed) in recipe.Inputs)
+            if (Bring(site.Input, site.X, site.Y, good, needed, "bring " + good + " to the " + content.Workshops[site.Workshop].Name.ToLowerInvariant()) is string why)
+                site.Blocked = why;
+    }
+
+    /// <summary>
+    /// Asks for goods to be brought to `to` (at x, y) until it has `needed` of `good`, counting what it has free and
+    /// what is already on its way: hauls from the nearest stores with some free, each no more than a person can
+    /// carry. Returns why not all could be asked for (for the player), or null.
+    /// </summary>
+    string? Bring(InventoryId to, double x, double y, string good, int needed, string purpose)
+    {
+        int coming = jobs.Values.Where(j => j.Kind == JobKind.Haul && j.To == to && j.Good == good).Sum(j => j.Amount);
+        int missing = needed - Stocks.Free(to, good) - coming;
+        while (missing > 0)
         {
-            int coming = jobs.Values.Where(j => j.Kind == JobKind.Haul && j.To == site.Input && j.Good == good).Sum(j => j.Amount);
-            int missing = needed - Stocks.Free(site.Input, good) - coming;
-            while (missing > 0)
-            {
-                var source = Stocks.Inventories.Where(i => i.Holder == Holder.Store && Stocks.Free(i.Id, good) > 0)
-                                   .OrderBy(i => Distance(i.X, i.Y, site.X, site.Y)).ThenBy(i => i.Id.Value).FirstOrDefault();
-                if (source == null)
-                {
-                    site.Blocked = "waiting for " + good + ": " + missing + " more needed, and no store has any free" + Held(good);
-                    break;
-                }
-                int amount = Math.Min(Math.Min(missing, Stocks.Free(source.Id, good)), CarryUnits(good));
-                NewHaul(source.Id, site.Input, good, amount, "bring " + good + " to the " + content.Workshops[site.Workshop].Name.ToLowerInvariant());
-                missing -= amount;
-            }
+            var stores = Stocks.Inventories.Where(i => i.Holder == Holder.Store && Stocks.Free(i.Id, good) > 0).ToList();
+            var source = Nearest(stores, x, y);
+            if (source == null)
+                return "waiting for " + good + ": " + missing + " more needed, and "
+                       + (stores.Count > 0 ? "no store with some free can be reached from here" : "no store has any free" + Held(good));
+            int amount = Math.Min(Math.Min(missing, Stocks.Free(source.Id, good)), CarryUnits(good));
+            NewHaul(source.Id, to, good, amount, purpose);
+            missing -= amount;
         }
+        return null;
     }
 
     /// <summary>Why goods that are there are not free (for the player): claimed, or kept as a reserve.</summary>
@@ -475,11 +574,16 @@ public sealed partial class Work
     {
         foreach (var job in jobs.Values.Where(j => j.Step == Step.Open))
         {
-            var (x, y) = job.Kind == JobKind.Craft ? (sites[job.Site!.Value.Value].X, sites[job.Site!.Value.Value].Y) : Place(job.From);
+            // A paused project's building waits.
+            if (job.Kind == JobKind.Build && projects[job.Site!.Value.Value].Paused)
+                continue;
+            var (x, y) = Spot(job);
+            // The nearest by walking of those free, allowed, and able to get there.
             var worker = workers.Values.Where(w => Available(w) && !w.Forbidden.Contains(KindOf(job)))
-                                .OrderBy(w => Distance(w.X, w.Y, x, y)).ThenBy(w => w.Id.Value).FirstOrDefault();
+                                .Select(w => (Worker: w, Far: Far(w.X, w.Y, x, y))).Where(p => !double.IsPositiveInfinity(p.Far))
+                                .OrderBy(p => p.Far).ThenBy(p => p.Worker.Id.Value).Select(p => p.Worker).FirstOrDefault();
             if (worker == null)
-                return;
+                continue;
             worker.Job = job.Id;
             job.Worker = worker.Id;
             job.Step = Step.Going;

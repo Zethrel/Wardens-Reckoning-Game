@@ -119,9 +119,9 @@ public class PolicyTests
     public void Only_kinds_of_work_that_exist_can_be_allowed_or_forbidden()
     {
         var camp = new Camp();
-        Assert.Equal(new[] { "care", "haul", "quern" }, camp.Work.Kinds);
+        Assert.Equal(new[] { "build", "care", "haul", "quern" }, camp.Work.Kinds);
         var e = Assert.Throws<ArgumentException>(() => camp.Work.Permit(camp.People[0].Id, "baking", false));
-        Assert.Contains("there are: care, haul, quern", e.Message);
+        Assert.Contains("there are: build, care, haul, quern", e.Message);
         camp.Work.Permit(camp.People[0].Id, "quern", false);
         camp.Work.Permit(camp.People[0].Id, Work.HaulWork, false);
         camp.Work.Permit(camp.People[0].Id, "quern", true);
