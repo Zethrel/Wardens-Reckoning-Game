@@ -1,9 +1,21 @@
 {
   "version": 1,
+  "surfaces": [
+    { "id": "road", "name": "Road", "speed": 1.0 },
+    { "id": "grass", "name": "Grass", "speed": 0.8 },
+    { "id": "rough", "name": "Rough ground", "speed": 0.55 }
+  ],
   "pieces": [
-    { "id": "wall", "name": "Timber wall", "materials": { "timber": 2 }, "work_minutes": 45, "blocks": true, "encloses": true },
-    { "id": "door", "name": "Timber door", "materials": { "timber": 3 }, "work_minutes": 60, "blocks": false, "encloses": true },
-    { "id": "floor", "name": "Plank floor", "materials": { "timber": 1 }, "work_minutes": 15, "blocks": false, "encloses": false }
+    { "id": "wall", "name": "Timber wall", "materials": { "timber": 2 }, "work_minutes": 45, "blocks": true, "encloses": true,
+      "speed": null, "size": [1, 1], "access": null, "water_per_day": 0 },
+    { "id": "door", "name": "Timber door", "materials": { "timber": 3 }, "work_minutes": 60, "blocks": false, "encloses": true,
+      "speed": null, "size": [1, 1], "access": null, "water_per_day": 0 },
+    { "id": "floor", "name": "Plank floor", "materials": { "timber": 1 }, "work_minutes": 15, "blocks": false, "encloses": false,
+      "speed": 1.0, "size": [1, 1], "access": null, "water_per_day": 0 },
+    { "id": "road", "name": "Road", "materials": {}, "work_minutes": 10, "blocks": false, "encloses": false,
+      "speed": 1.0, "size": [1, 1], "access": null, "water_per_day": 0 },
+    { "id": "well", "name": "Well", "materials": { "timber": 8 }, "work_minutes": 240, "blocks": true, "encloses": false,
+      "speed": null, "size": [2, 2], "access": [0, 2], "water_per_day": 200 }
   ],
   "templates": [
     {
@@ -23,6 +35,11 @@
   "test_ground": {
     "width": 48,
     "height": 48,
+    "surface": "grass",
+    "patches": [
+      { "surface": "rough", "x": 34, "y": 30, "width": 10, "height": 8 },
+      { "surface": "rough", "x": 4, "y": 14, "width": 6, "height": 12 }
+    ],
     "obstacles": [
       { "kind": "rock", "x": 30, "y": 8 },
       { "kind": "rock", "x": 31, "y": 8 },

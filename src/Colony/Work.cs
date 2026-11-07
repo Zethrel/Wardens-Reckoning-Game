@@ -17,6 +17,15 @@ public sealed class Worker(ColonistId id, string name, double x, double y, Inven
     /// <summary>Stopped by the player (interrupted): they do nothing until resumed.</summary>
     public bool Stopped { get; internal set; }
 
+    double legs = 1;
+    /// <summary>How well their legs carry them (step 15c), as a share of a healthy walk: 1 (100%) until body
+    /// functions and injuries come; an injured leg will lower it. Above 0 and at most 1.</summary>
+    public double Legs
+    {
+        get => legs;
+        set => legs = value > 0 && value <= 1 ? value : throw new ArgumentOutOfRangeException(nameof(Legs), "legs carry from above 0 to 1 (100%)");
+    }
+
     /// <summary>Their needs (step 14a), each from 0 (none) to 100 (the limit), by name: "hunger", "thirst",
     /// "fatigue".</summary>
     public SortedDictionary<string, NeedState> Needs { get; } = new(StringComparer.Ordinal)
@@ -176,7 +185,8 @@ public sealed partial class Work
     readonly SortedDictionary<long, Site> sites = new();
     readonly SortedDictionary<long, Job> jobs = new();
     readonly SortedDictionary<long, Bedroll> bedrolls = new();
-    readonly SortedSet<long> springs = new();
+    // The springs and wells, each with the litres it has every morning.
+    readonly SortedDictionary<long, int> springs = new();
 
     public Work(Colony colony, Content content)
     {
@@ -296,7 +306,7 @@ public sealed partial class Work
             if (Live(worker) && !worker.Stopped && worker.Job is TaskId t)
                 Act(worker, jobs[t.Value]);
         if (colony.Now.MinuteOfDay == Autosave.MorningMinute)
-            foreach (long spring in springs)
+            foreach (long spring in springs.Keys)
                 Fill(new InventoryId(spring));
         foreach (var site in sites.Values)
             Ask(site);
@@ -322,7 +332,7 @@ public sealed partial class Work
                 }
                 // Someone already standing there starts at once; anyone else spends this minute walking. A builder
                 // works from beside the tile.
-                bool near = job.Kind == JobKind.Build;
+                bool near = job.Kind == JobKind.Build && content.Pieces[projects[job.Site!.Value.Value].Piece].Access == null;
                 bool there = Arrived(worker, gx, gy, near);
                 if (Walk(worker, gx, gy, near))
                 {
@@ -332,7 +342,7 @@ public sealed partial class Work
                         JobKind.Haul => content.PickupMinutes,
                         _ when job.Left > 0 => job.Left,
                         JobKind.Craft => content.Recipes[job.Recipe!].WorkMinutes,
-                        _ => content.Pieces[projects[job.Site!.Value.Value].Piece].WorkMinutes,
+                        _ => Minutes(projects[job.Site!.Value.Value]),
                     };
                     if (there || job.Left == 0)
                         Act(worker, job);
@@ -396,15 +406,18 @@ public sealed partial class Work
     /// a colonist walks straight. On a ground they walk from tile to tile on the way the ground finds, through the
     /// middle of each tile, and in the last tile straight to the spot. `near`: arrived as soon as they stand on a
     /// tile beside the spot's tile (or on it), as a builder does.
+    ///
+    /// The minute is spent stretch by stretch (step 15c): each stretch goes at the walking speed (colony.json, on
+    /// a road) times the speed of the tile it leads onto (grass 0.8) times how well the colonist's legs carry them.
     /// </summary>
     bool Walk(Worker worker, double x, double y, bool near = false)
     {
-        double left = content.WalkMetresPerMinute;
+        double minutes = 1;
         while (true)
         {
             if (near && Arrived(worker, x, y, near))
                 return true;
-            double px = x, py = y;
+            double px = x, py = y, speed = 1;
             if (Ground is Ground ground)
             {
                 var (tx, ty) = Ground.TileOf(worker.X, worker.Y);
@@ -414,16 +427,22 @@ public sealed partial class Work
                     if (ground.Next(tx, ty, gx, gy) is not var (nx, ny))
                         return false;                                  // no way there: they stay where they are
                     (px, py) = Ground.Centre(nx, ny);
+                    speed = ground.Speed(nx, ny);
                 }
+                else
+                    speed = ground.Speed(gx, gy);
             }
+            double metresPerMinute = content.WalkMetresPerMinute * speed * worker.Legs;
             double dx = px - worker.X, dy = py - worker.Y, far = Math.Sqrt(dx * dx + dy * dy);
-            if (far > left)
+            double takes = far / metresPerMinute;
+            if (takes > minutes)
             {
-                (worker.X, worker.Y) = (worker.X + dx * left / far, worker.Y + dy * left / far);
+                double share = minutes * metresPerMinute / far;
+                (worker.X, worker.Y) = (worker.X + dx * share, worker.Y + dy * share);
                 return false;
             }
             (worker.X, worker.Y) = (px, py);
-            left -= far;
+            minutes -= takes;
             if (px == x && py == y)
                 return true;
         }
@@ -445,14 +464,15 @@ public sealed partial class Work
     (double X, double Y) Spot(Job job) => job.Kind switch
     {
         JobKind.Craft => (sites[job.Site!.Value.Value].X, sites[job.Site!.Value.Value].Y),
-        JobKind.Build => Ground.Centre(projects[job.Site!.Value.Value].X, projects[job.Site!.Value.Value].Y),
+        JobKind.Build => Place(projects[job.Site!.Value.Value].Stock),
         _ => Place(job.From),
     };
 
     static double Distance(double ax, double ay, double bx, double by) => Math.Sqrt((ax - bx) * (ax - bx) + (ay - by) * (ay - by));
 
     /// <summary>How far it is to walk from (ax, ay) to (bx, by), in metres: straight without a ground; on a
-    /// ground, the length of the way between their tiles, or infinity if there is none.</summary>
+    /// ground, the way between their tiles counted in metres of road (so the quickest way wins), or infinity if
+    /// there is none.</summary>
     double Far(double ax, double ay, double bx, double by)
     {
         if (Ground is not Ground ground)
@@ -637,5 +657,5 @@ public sealed partial class Work
     internal void Put(Site site) => sites[site.Id.Value] = site;
     internal void Put(Job job) => jobs[job.Id.Value] = job;
     internal void Put(Bedroll bedroll) => bedrolls[bedroll.Id.Value] = bedroll;
-    internal void PutSpring(InventoryId spring) => springs.Add(spring.Value);
+    internal void PutSpring(InventoryId spring, int litres) => springs[spring.Value] = litres;
 }

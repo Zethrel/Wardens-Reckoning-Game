@@ -31,8 +31,9 @@ public static class ColonySave
     // store takes, the workers, the workshops and their orders, the jobs. 4: the colonists' day (step 14a): needs,
     // schedule, sleep, collapse, what they do for themselves; the bedrolls; the springs. 5: the kinds of work each
     // colonist is not allowed (step 14b). 6: the ground (its size, what is in the way, the finished pieces) and the
-    // construction projects (step 15a). 7: stockpiles (a store's tiles) and stores being emptied (step 15b).
-    public const int Version = 7;
+    // construction projects (step 15a). 7: stockpiles (a store's tiles) and stores being emptied (step 15b). 8: the
+    // ground's surfaces, each colonist's legs, the litres of each spring and well, takings-down (step 15c).
+    public const int Version = 8;
 
     /// <summary>The colony as JSON.</summary>
     public static JsonObject Write(Colony colony) => new()
@@ -66,6 +67,10 @@ public static class ColonySave
         ["ground"] = colony.Ground is not Ground g ? null : new JsonObject
         {
             ["width"] = g.Width, ["height"] = g.Height,
+            ["surfaces"] = new JsonArray(g.Patches.Select(p => p.Surface).Append(g.Surface).DistinctBy(s => s.Id).OrderBy(s => s.Id, StringComparer.Ordinal)
+                                          .Select(s => (JsonNode?)new JsonArray(s.Id, s.Name, s.Speed)).ToArray()),
+            ["surface"] = g.Surface.Id,
+            ["patches"] = new JsonArray(g.Patches.Select(p => (JsonNode?)new JsonArray(p.Surface.Id, p.X, p.Y)).ToArray()),
             ["obstacles"] = new JsonArray(g.Obstacles.Select(o => (JsonNode?)new JsonArray(o.Kind, o.X, o.Y)).ToArray()),
             ["pieces"] = new JsonArray(g.Pieces.Select(p => (JsonNode?)new JsonArray(p.Piece, p.X, p.Y)).ToArray()),
         },
@@ -77,7 +82,7 @@ public static class ColonySave
             ["workers"] = new JsonArray(work.Workers.Select(w => (JsonNode?)new JsonObject
             {
                 ["id"] = w.Id.Value, ["name"] = w.Name, ["x"] = w.X, ["y"] = w.Y, ["arms"] = w.Arms.Value,
-                ["job"] = w.Job is TaskId j ? j.Value : null, ["stopped"] = w.Stopped,
+                ["job"] = w.Job is TaskId j ? j.Value : null, ["stopped"] = w.Stopped, ["legs"] = w.Legs,
                 ["needs"] = new JsonObject(w.Needs.Select(n => KeyValuePair.Create(n.Key,
                     (JsonNode?)new JsonArray(n.Value.Level, n.Value.MinutesAtLimit)))),
                 ["schedule"] = w.Schedule, ["asleep"] = w.Asleep, ["on_bedroll"] = w.OnBedroll, ["collapsed"] = w.Collapsed,
@@ -94,11 +99,11 @@ public static class ColonySave
             {
                 ["id"] = b.Id.Value, ["x"] = b.X, ["y"] = b.Y, ["owner"] = b.Owner is ColonistId o ? o.Value : null,
             }).ToArray()),
-            ["springs"] = new JsonArray(work.Springs.Select(s => (JsonNode?)s.Value).ToArray()),
+            ["springs"] = new JsonArray(work.Springs.Select(s => (JsonNode?)new JsonArray(s.Value, work.LitresOf(s))).ToArray()),
             ["projects"] = new JsonArray(work.Projects.Select(p => (JsonNode?)new JsonObject
             {
                 ["id"] = p.Id.Value, ["piece"] = p.Piece, ["x"] = p.X, ["y"] = p.Y, ["stock"] = p.Stock.Value,
-                ["paused"] = p.Paused, ["cancelled"] = p.Cancelled,
+                ["paused"] = p.Paused, ["cancelled"] = p.Cancelled, ["removing"] = p.Removing,
             }).ToArray()),
             ["sites"] = new JsonArray(work.Sites.Select(s => (JsonNode?)new JsonObject
             {
@@ -276,13 +281,22 @@ public static class ColonySave
             if (!content.Pieces.ContainsKey(piece))
                 throw new ColonySaveException(at + ".piece \"" + piece + "\" is not in the content");
             int x = (int)Id(o, "x", at), y = (int)Id(o, "y", at);
-            if (colony.Ground is not Ground ground || !ground.Inside(x, y) || ground.ObstacleAt(x, y) != null || ground.PieceAt(x, y) != null)
+            bool Flag(string key) => o[key] is JsonValue fv && fv.TryGetValue(out bool f) ? f : throw new ColonySaveException(at + "." + key + " is not true or false");
+            bool removing = Flag("removing"), cancelled = Flag("cancelled");
+            var kind = content.Pieces[piece];
+            bool fits = colony.Ground is Ground ground
+                && (removing
+                    // A taking down not yet done: the piece is still there.
+                    ? cancelled || ground.PieceAt(x, y) == piece
+                    // A building: every tile of it free.
+                    : Enumerable.Range(y, kind.Height).All(ty => Enumerable.Range(x, kind.Width).All(tx =>
+                        ground.Inside(tx, ty) && ground.ObstacleAt(tx, ty) == null && ground.PieceAt(tx, ty) == null)));
+            if (!fits)
                 throw new ColonySaveException(at + " is planned where it cannot be (" + x + ", " + y + ")");
             var stock = Inv(o, "stock", at);
             if (stocks[stock].Holder != Holder.Construction)
                 throw new ColonySaveException(at + ".stock is not a building site's inventory");
-            bool Flag(string key) => o[key] is JsonValue fv && fv.TryGetValue(out bool f) ? f : throw new ColonySaveException(at + "." + key + " is not true or false");
-            colony.Work!.Put(new Project(new BuildingId(id), piece, x, y, stock) { Paused = Flag("paused"), Cancelled = Flag("cancelled") });
+            colony.Work!.Put(new Project(new BuildingId(id), piece, x, y, stock) { Paused = Flag("paused"), Cancelled = cancelled, Removing = removing });
         }
         var claimsNow = new HashSet<long>(stocks.Reservations.Select(r => r.Id.Value));
         var jobIds = new HashSet<long>();
@@ -374,6 +388,10 @@ public static class ColonySave
                 Stopped = Flag("stopped"), Schedule = schedule, Asleep = Flag("asleep"), OnBedroll = Flag("on_bedroll"),
                 Collapsed = collapsed, Lacking = o["lacking"] is null ? null : Text(o, "lacking", at),
             };
+            double legs = Real(o, "legs", at);
+            if (!(legs > 0 && legs <= 1))
+                throw new ColonySaveException(at + ".legs is " + legs + ", which should be above 0 and at most 1");
+            worker.Legs = legs;
             var kinds = colony.Work!.Kinds.ToHashSet();
             foreach (var k in o["forbidden"] as JsonArray ?? throw new ColonySaveException(at + ".forbidden is not a list"))
             {
@@ -435,10 +453,14 @@ public static class ColonySave
         }
         foreach (var node in work["springs"] as JsonArray ?? throw new ColonySaveException("work.springs is not a list"))
         {
-            long id = Number(node, "work.springs");
+            if (node is not JsonArray pair || pair.Count != 2)
+                throw new ColonySaveException("work.springs holds something that is not [store, litres]");
+            long id = Number(pair[0], "work.springs"), litres = Number(pair[1], "work.springs");
             if (!held.Contains(id) || stocks[new InventoryId(id)].Holder != Holder.Store)
                 throw new ColonySaveException("work.springs names " + id + ", which is not a store");
-            colony.Work!.PutSpring(new InventoryId(id));
+            if (litres < 0 || litres > int.MaxValue)
+                throw new ColonySaveException("work.springs gives " + id + " " + litres + " litres a day, which cannot be");
+            colony.Work!.PutSpring(new InventoryId(id), (int)litres);
         }
         foreach (var (job, worker) in jobWorkers)
             if (colony.Work!.Worker(new ColonistId(worker)).Job != new TaskId(job))
@@ -458,7 +480,21 @@ public static class ColonySave
         long width = Number(g["width"], "ground.width"), height = Number(g["height"], "ground.height");
         if (width < 1 || height < 1 || width * height > 100_000_000)
             throw new ColonySaveException("its ground is " + width + " by " + height + " tiles, which cannot be");
-        var ground = new Ground((int)width, (int)height);
+        // Its surfaces: every one named once, with its speed; the ground's own, and the tiles of others.
+        var surfaces = new Dictionary<string, Surface>(StringComparer.Ordinal);
+        foreach (var (node, i) in (g["surfaces"] as JsonArray ?? throw new ColonySaveException("ground.surfaces is not a list")).Select((n, i) => (n, i)))
+        {
+            string at = "ground.surfaces[" + i + "]";
+            if (node is not JsonArray e || e.Count != 3 || !(e[0] is JsonValue v0 && v0.TryGetValue(out string? sid))
+                || !(e[1] is JsonValue v1 && v1.TryGetValue(out string? sname)) || !(e[2] is JsonValue v2 && v2.TryGetValue(out double speed)))
+                throw new ColonySaveException(at + " is not [id, name, speed]");
+            if (!(speed > 0 && speed <= 1) || !surfaces.TryAdd(sid, new Surface(sid, sname, speed)))
+                throw new ColonySaveException(at + " has a speed that cannot be, or is named twice");
+        }
+        string own = g["surface"] is JsonValue ov && ov.TryGetValue(out string? os) ? os : throw new ColonySaveException("ground.surface is not text");
+        if (!surfaces.ContainsKey(own))
+            throw new ColonySaveException("ground.surface \"" + own + "\" is not in ground.surfaces");
+        var ground = new Ground((int)width, (int)height, surfaces[own]);
         var used = new HashSet<(long, long)>();
         IEnumerable<(string What, int X, int Y)> Things(string key)
         {
@@ -473,13 +509,24 @@ public static class ColonySave
                 yield return (what, (int)x, (int)y);
             }
         }
+        var patched = new HashSet<(int, int)>();
+        foreach (var (node, i) in (g["patches"] as JsonArray ?? throw new ColonySaveException("ground.patches is not a list")).Select((n, i) => (n, i)))
+        {
+            string at = "ground.patches[" + i + "]";
+            if (node is not JsonArray e || e.Count != 3 || !(e[0] is JsonValue v && v.TryGetValue(out string? sid)) || !surfaces.ContainsKey(sid))
+                throw new ColonySaveException(at + " is not [surface, x, y] of a surface in ground.surfaces");
+            long x = Number(e[1], at), y = Number(e[2], at);
+            if (x < 0 || y < 0 || x >= width || y >= height || !patched.Add(((int)x, (int)y)))
+                throw new ColonySaveException(at + " is off the ground, or a second patch on its tile");
+            ground.SetSurface((int)x, (int)y, surfaces[sid]);
+        }
         foreach (var (kind, x, y) in Things("obstacles").ToList())
             ground.AddObstacle(kind, x, y);
         foreach (var (piece, x, y) in Things("pieces").ToList())
         {
             if (content == null || !content.Pieces.TryGetValue(piece, out var kind))
                 throw new ColonySaveException("ground.pieces names \"" + piece + "\", which " + (content == null ? "needs the colony's content to load" : "is not in the content"));
-            ground.AddPiece(piece, kind.Blocks, x, y, kind.Encloses);
+            ground.AddPiece(piece, kind.Blocks, x, y, kind.Encloses, kind.Speed);
         }
         return ground;
     }

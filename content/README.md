@@ -27,16 +27,26 @@ what is wrong, before anything runs.
   until rivers and wells).
 - `schedules.json`: schedule templates: 24 hours, each one of `sleep`,
   `work`, `meals`, `recreation`, `flexible`; and the `default` template.
-- `construction.json`: the construction `pieces` (a wall, a door, a floor):
-  each takes one tile; what it is made of (`materials`, good id to whole
-  units), how long building it takes (`work_minutes`) and whether it blocks
-  walking (`blocks`) and closes a room in (`encloses`: a wall and a door do,
-  a floor does not). The `templates`: buildings to plan in one go, drawn as
-  `rows` of letters, one per tile, with a `key` saying which piece each letter
-  is (`.` leaves the tile as it is). And the `test_ground` the colony stands on until the
-  world generator makes local terrain: its `width` and `height` in tiles (a
-  tile is 1 m square) and its `obstacles` (a `kind` such as rock or tree, on a
-  tile `x`, `y`, counted from 0 at the top left).
+- `construction.json`:
+  - `surfaces`: what the ground may be (road, grass, rough ground), each with
+    its walking `speed` as a share of a road's (1 = 100%, grass 0.8).
+  - `pieces`: what can be built (a wall, a door, a floor, a road, a well).
+    Each piece states what it is made of (`materials`, good id to whole
+    units; a road needs none), how long building it takes (`work_minutes`),
+    whether it blocks walking (`blocks`), whether it closes a room in
+    (`encloses`: a wall and a door do, a floor does not), its own walking
+    `speed` (or `null`: the surface beneath counts), its `size` in tiles
+    `[across, down]`, the `access` tile it is built and used from (`[x, y]`
+    from its top left tile, or `null` for a one-tile piece worked from beside
+    it) and the `water_per_day` it gives (a well; 0 for the rest).
+  - `templates`: buildings to plan in one go, drawn as `rows` of letters, one
+    per tile, with a `key` saying which piece each letter is (`.` leaves the
+    tile as it is).
+  - `test_ground`: the ground the colony stands on until the world generator
+    makes local terrain: its `width` and `height` in tiles (a tile is 1 m
+    square), its `surface` everywhere, its `patches` of other surfaces (blocks
+    of tiles) and its `obstacles` (a `kind` such as rock or tree, on a tile
+    `x`, `y`, counted from 0 at the top left).
 
 - `founding.json`: who founds the colony: how many `founders`, the `names`
   they are drawn from (by the colony's dice; at least as many names as

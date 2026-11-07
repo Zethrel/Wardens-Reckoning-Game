@@ -8,9 +8,15 @@ namespace WardensReckoning.Colony;
 ///
 /// Tile (x, y) covers the metres from x to x + 1 across and y to y + 1 down; its centre is (x + 0.5, y + 0.5).
 ///
+/// Each tile has a **surface** (grass, rough ground; step 15c, library Review 34), and walking on it goes at that
+/// surface's speed: 1 is a road's (100%), grass 0.8, rough ground 0.55. A piece may set its own speed (a road, a
+/// floor: 1); otherwise the surface beneath it counts.
+///
 /// The ground also finds the colonists' ways (path-finding): from any tile to any other, around what blocks
-/// walking, moving to any of the 8 tiles around (a step across costs 1 m, a step on the slant √2 = 1.41 m), and
-/// never cutting a corner past a wall or a rock (a slanting step needs both tiles beside it to be open).
+/// walking, moving to any of the 8 tiles around, and never cutting a corner past a wall or a rock (a slanting step
+/// needs both tiles beside it to be open). A step costs its length (1 m across, √2 = 1.41 m on the slant) divided
+/// by the speed of the tile it steps onto: so a metre of grass counts as 1.25 m of road, and the way found is the
+/// quickest, not always the shortest.
 ///
 /// And it finds the **rooms** (step 15b, library Review 33): a room is a group of open tiles closed in on every
 /// side by walls, doors or anything else that blocks, with no open way out to the edge of the ground. Its tiles
@@ -31,7 +37,12 @@ public sealed class Ground
     List<IReadOnlyList<(int X, int Y)>>? rooms;
     int[]? roomOf;
 
-    public Ground(int width, int height)
+    readonly string[] surfaceOf;
+    readonly Dictionary<string, Surface> surfaces = new(StringComparer.Ordinal);
+    readonly double[] pieceSpeed;
+
+    /// <summary>A ground of `surface` everywhere (if not given: plain ground at a road's speed).</summary>
+    public Ground(int width, int height, Surface? surface = null)
     {
         if (width < 1 || height < 1)
             throw new ArgumentOutOfRangeException(nameof(width), "a ground is at least 1 tile by 1 tile");
@@ -40,15 +51,53 @@ public sealed class Ground
         pieces = new string?[width * height];
         blocked = new bool[width * height];
         encloses = new bool[width * height];
+        var everywhere = surface ?? new Surface("ground", "Ground", 1);
+        surfaces[everywhere.Id] = everywhere;
+        surfaceOf = new string[width * height];
+        Array.Fill(surfaceOf, everywhere.Id);
+        pieceSpeed = new double[width * height];
+        Array.Fill(pieceSpeed, double.NaN);
+        Surface = everywhere;
     }
 
-    /// <summary>The test ground of the content: its size and what is in the way.</summary>
+    /// <summary>The surface the ground was made of everywhere (patches aside).</summary>
+    public Surface Surface { get; }
+
+    /// <summary>The test ground of the content: its size, its surfaces and what is in the way.</summary>
     public static Ground Test(Content content)
     {
-        var ground = new Ground(content.TestGround.Width, content.TestGround.Height);
-        foreach (var o in content.TestGround.Obstacles)
+        var tg = content.TestGround;
+        var ground = new Ground(tg.Width, tg.Height, content.Surfaces[tg.Surface]);
+        foreach (var patch in tg.Patches)
+            for (int y = patch.Y; y < patch.Y + patch.Height; y++)
+                for (int x = patch.X; x < patch.X + patch.Width; x++)
+                    ground.SetSurface(x, y, content.Surfaces[patch.Surface]);
+        foreach (var o in tg.Obstacles)
             ground.AddObstacle(o.Kind, o.X, o.Y);
         return ground;
+    }
+
+    /// <summary>The surface of a tile.</summary>
+    public Surface SurfaceAt(int x, int y) => surfaces[surfaceOf[Index(x, y)]];
+
+    /// <summary>The walking speed on a tile (1 = a road's): its piece's, if the piece has one, or its surface's.</summary>
+    public double Speed(int x, int y)
+    {
+        double own = pieceSpeed[Index(x, y)];
+        return double.IsNaN(own) ? surfaces[surfaceOf[Index(x, y)]].Speed : own;
+    }
+
+    /// <summary>Every tile whose surface is not the ground's own, row by row, as (surface, x, y) (for a save).</summary>
+    public IEnumerable<(Surface Surface, int X, int Y)> Patches =>
+        Enumerable.Range(0, Width * Height).Where(i => surfaceOf[i] != Surface.Id).Select(i => (surfaces[surfaceOf[i]], i % Width, i / Width));
+
+    internal void SetSurface(int x, int y, Surface surface)
+    {
+        if (surfaces.TryGetValue(surface.Id, out var known) && known != surface)
+            throw new ArgumentException("a different surface called \"" + surface.Id + "\" is already on this ground");
+        surfaces[surface.Id] = surface;
+        surfaceOf[Index(x, y)] = surface.Id;
+        ways.Clear();
     }
 
     public bool Inside(int x, int y) => x >= 0 && y >= 0 && x < Width && y < Height;
@@ -90,16 +139,28 @@ public sealed class Ground
 
     /// <summary>A finished piece put on a tile (`blocks`: whether it blocks walking; `closes`: whether it closes
     /// a room in, as a wall or a door does; if not given, the same as `blocks`).</summary>
-    internal void AddPiece(string piece, bool blocks, int x, int y, bool? closes = null)
+    internal void AddPiece(string piece, bool blocks, int x, int y, bool? closes = null, double? speed = null)
     {
         pieces[Index(x, y)] = piece;
         encloses[Index(x, y)] = closes ?? blocks;
+        pieceSpeed[Index(x, y)] = speed ?? double.NaN;
         rooms = null;
         if (blocks)
-        {
             blocked[Index(x, y)] = true;
+        if (blocks || speed != null)
             ways.Clear();
-        }
+    }
+
+    /// <summary>Takes the piece off a tile (step 15c): the tile is as it was before, whatever was beneath.</summary>
+    internal void RemovePiece(int x, int y)
+    {
+        int i = Index(x, y);
+        pieces[i] = null;
+        encloses[i] = false;
+        pieceSpeed[i] = double.NaN;
+        blocked[i] = obstacles[i] != null;
+        rooms = null;
+        ways.Clear();
     }
 
     // ---- Rooms -------------------------------------------------------------------------------------------
@@ -214,7 +275,8 @@ public sealed class Ground
                 if (!CanStep(x, y, dx, dy))
                     continue;
                 int n = Index(x + dx, y + dy);
-                double through = metres + step;
+                // Stepping from the neighbour onto this tile: its length at this tile's speed.
+                double through = metres + step / Speed(x, y);
                 if (through < far[n])
                 {
                     if (!double.IsPositiveInfinity(far[n]))
@@ -228,8 +290,9 @@ public sealed class Ground
         return far;
     }
 
-    /// <summary>Metres of walking from tile (x, y) to tile (gx, gy), or infinity if there is no way. Someone
-    /// standing on a blocked tile (a wall just finished where they stood) can still step off it.</summary>
+    /// <summary>How far it is to walk from tile (x, y) to tile (gx, gy), counted in metres of road (a metre of
+    /// grass at 80% counts as 1.25 m), or infinity if there is no way. Someone standing on a blocked tile (a wall
+    /// just finished where they stood) can still step off it.</summary>
     public double Metres(int x, int y, int gx, int gy)
     {
         if (!Inside(x, y) || !Inside(gx, gy))
@@ -242,12 +305,12 @@ public sealed class Ground
         double best = double.PositiveInfinity;
         foreach (var (dx, dy, step) in Steps)
             if (CanStep(x, y, dx, dy))
-                best = Math.Min(best, step + far[Index(x + dx, y + dy)]);
+                best = Math.Min(best, step / Speed(x + dx, y + dy) + far[Index(x + dx, y + dy)]);
         return best;
     }
 
     /// <summary>The next tile on the way from (x, y) to (gx, gy), or null if there is no way (or already there).
-    /// Of the tiles around, the one with the shortest way left (the first in `Steps` on a tie).</summary>
+    /// Of the tiles around, the one with the quickest way left (the first in `Steps` on a tie).</summary>
     public (int X, int Y)? Next(int x, int y, int gx, int gy)
     {
         if (!Inside(gx, gy) || (x == gx && y == gy))
@@ -259,7 +322,7 @@ public sealed class Ground
         {
             if (!CanStep(x, y, dx, dy))
                 continue;
-            double through = step + far[Index(x + dx, y + dy)];
+            double through = step / Speed(x + dx, y + dy) + far[Index(x + dx, y + dy)];
             if (through < left)
                 (best, left) = ((x + dx, y + dy), through);
         }

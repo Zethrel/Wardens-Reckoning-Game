@@ -10,8 +10,8 @@ namespace WardensReckoning.Colony;
 public static class Founding
 {
     /// <summary>The founders' arrival: a colony on the test ground with the founders' carts on tile (x, y), holding
-    /// the supplies; the founders and their bedrolls on the open tiles nearest the carts; and the stand-in spring
-    /// a little way south (until the well, step 15c).</summary>
+    /// the supplies; the founders and their bedrolls on the open tiles nearest the carts; and a stream (the
+    /// stand-in spring) a little way south, until step 17 brings the world's rivers (library Review 34).</summary>
     public static (Colony Colony, Inventory Carts) Found(long seed, Moment arrival, Content content, int x, int y)
     {
         var colony = new Colony(seed, arrival, content);
@@ -40,7 +40,7 @@ public static class Founding
             }
         }
         var (sx, sy) = OpenNear(ground, x, y + 6, used);
-        work.AddSpring(sx + 0.5, sy + 0.5);
+        work.AddSpring(sx + 0.5, sy + 0.5, "The stream");
         return (colony, carts);
     }
 

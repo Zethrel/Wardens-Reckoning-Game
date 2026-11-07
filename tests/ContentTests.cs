@@ -46,7 +46,14 @@ public class ContentTests
         Assert.Equal((Block.Sleep, Block.Meals, Block.Work, Block.Recreation, Block.Flexible, Block.Sleep),
                      (day[6], day[7], day[8], day[17], day[20], day[23]));
         Assert.Equal(70, content.WalkMetresPerMinute);
-        Assert.Equal(new[] { "door", "floor", "wall" }, content.Pieces.Keys);
+        Assert.Equal(new[] { "door", "floor", "road", "wall", "well" }, content.Pieces.Keys);
+        Assert.Equal((1.0, 0.8, 0.55), (content.Surfaces["road"].Speed, content.Surfaces["grass"].Speed, content.Surfaces["rough"].Speed));
+        var well = content.Pieces["well"];
+        Assert.Equal((2, 2, (0, 2), 200, 8), (well.Width, well.Height, well.Access!.Value, well.WaterPerDay, well.Materials["timber"]));
+        Assert.Empty(content.Pieces["road"].Materials);
+        Assert.Equal(1.0, content.Pieces["road"].Speed);
+        Assert.Null(content.Pieces["wall"].Speed);
+        Assert.Equal("grass", content.TestGround.Surface);
         var wall = content.Pieces["wall"];
         Assert.Equal((2, 45, true), (wall.Materials["timber"], wall.WorkMinutes, wall.Blocks));
         Assert.False(content.Pieces["door"].Blocks);
@@ -118,7 +125,7 @@ public class ContentTests
         JsonObject Wall(JsonObject r) => r["pieces"]![0]!.AsObject();
         JsonObject TestGround(JsonObject r) => r["test_ground"]!.AsObject();
         JsonObject Rock(JsonObject r) => r["test_ground"]!["obstacles"]![0]!.AsObject();
-        yield return Case("construction.json", r => r["pieces"]!.AsArray().Add(Wall(r).DeepClone()), "construction.json.pieces[3]: a second piece with the id \"wall\"");
+        yield return Case("construction.json", r => r["pieces"]!.AsArray().Add(Wall(r).DeepClone()), "construction.json.pieces[5]: a second piece with the id \"wall\"");
         yield return Case("construction.json", r => Wall(r)["materials"] = new JsonObject { ["stone"] = 2 }, "construction.json.pieces[0].materials.stone: no good \"stone\"");
         yield return Case("construction.json", r => Wall(r)["work_minutes"] = 0, "construction.json.pieces[0].work_minutes: should be a whole number of 1 or more");
         yield return Case("construction.json", r => Wall(r)["blocks"] = "yes", "construction.json.pieces[0].blocks: should be true or false");
@@ -128,6 +135,20 @@ public class ContentTests
         yield return Case("construction.json", r => Rock(r)["kind"] = "Big Rock", "construction.json.test_ground.obstacles[0].kind: \"Big Rock\" should be lowercase");
         yield return Case("construction.json", r => r.Remove("test_ground"), "construction.json: \"test_ground\" is missing");
         yield return Case("construction.json", r => r["test_ground"] = 5, "construction.json.test_ground: should be an object");
+        // Surfaces, speeds, footprints.
+        JsonObject Well(JsonObject r) => r["pieces"]![4]!.AsObject();
+        JsonObject Grass(JsonObject r) => r["surfaces"]![1]!.AsObject();
+        yield return Case("construction.json", r => Grass(r)["speed"] = 1.2, "construction.json.surfaces[1].speed: should be a number above 0 and at most 1");
+        yield return Case("construction.json", r => Grass(r)["speed"] = 0, "construction.json.surfaces[1].speed: should be a number above 0 and at most 1");
+        yield return Case("construction.json", r => r["surfaces"]!.AsArray().Add(Grass(r).DeepClone()), "construction.json.surfaces[3]: a second surface with the id \"grass\"");
+        yield return Case("construction.json", r => r["test_ground"]!["surface"] = "sand", "construction.json.test_ground.surface: no surface \"sand\"");
+        yield return Case("construction.json", r => r["test_ground"]!["patches"]![0]!["surface"] = "sand", "construction.json.test_ground.patches[0].surface: no surface \"sand\"");
+        yield return Case("construction.json", r => r["test_ground"]!["patches"]![0]!["width"] = 20, "construction.json.test_ground.patches[0]: it reaches outside the ground");
+        yield return Case("construction.json", r => Wall(r)["speed"] = 2, "construction.json.pieces[0].speed: should be a number above 0 and at most 1");
+        yield return Case("construction.json", r => Well(r)["access"] = new JsonArray(1, 1), "construction.json.pieces[4].access: (1, 1) is under the piece itself");
+        yield return Case("construction.json", r => Well(r)["access"] = null, "construction.json.pieces[4].access: a piece bigger than one tile needs a tile it is built and used from");
+        yield return Case("construction.json", r => Well(r)["size"] = new JsonArray(0, 2), "construction.json.pieces[4].size: should be two whole numbers [a, b] of 1 or more");
+        yield return Case("construction.json", r => Well(r)["water_per_day"] = -5, "construction.json.pieces[4].water_per_day: should be a whole number of 0 or more");
         // Templates and the founding.
         JsonObject House(JsonObject r) => r["templates"]![0]!.AsObject();
         yield return Case("construction.json", r => House(r)["rows"]![1] = "W...W", "construction.json.templates[0].rows[1]: every row should be text of the same length");

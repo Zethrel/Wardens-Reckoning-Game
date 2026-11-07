@@ -44,23 +44,26 @@ public sealed partial class Work
         return moved;
     }
 
-    /// <summary>The spring (a stand-in for rivers and wells): a store of water at (`x`, `y`), filled to
-    /// SpringPerDay litres when made and every morning.</summary>
-    public Inventory AddSpring(double x, double y)
+    /// <summary>A spring (the stand-in stream, until step 17 brings rivers) or a well: a store of water at (`x`,
+    /// `y`), filled to `litres` (if not given: the content's SpringPerDay) when made and every morning.</summary>
+    public Inventory AddSpring(double x, double y, string name = "Spring", int? litres = null)
     {
-        var spring = Stocks.Open("Spring", Holder.Store, x, y);
+        var spring = Stocks.Open(name, Holder.Store, x, y);
         spring.Accepts.Add(content.Drink.Good);
-        springs.Add(spring.Id.Value);
+        springs[spring.Id.Value] = litres ?? content.SpringPerDay;
         Fill(spring.Id);
         return spring;
     }
 
     /// <summary>The springs' inventories.</summary>
-    public IEnumerable<InventoryId> Springs => springs.Select(s => new InventoryId(s));
+    public IEnumerable<InventoryId> Springs => springs.Keys.Select(s => new InventoryId(s));
+
+    /// <summary>The litres a spring or well has each morning.</summary>
+    public int LitresOf(InventoryId spring) => springs[spring.Value];
 
     void Fill(InventoryId spring)
     {
-        int missing = content.SpringPerDay - Stocks[spring].Count(content.Drink.Good);
+        int missing = springs[spring.Value] - Stocks[spring].Count(content.Drink.Good);
         if (missing > 0)
             Stocks.Arrive(colony.Ids.Next<OperationId>(), colony.Now.Tick, spring, content.Drink.Good, missing);
     }

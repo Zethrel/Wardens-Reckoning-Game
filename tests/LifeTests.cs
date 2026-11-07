@@ -443,7 +443,11 @@ public class LifeTests
         yield return Case(s => Ada(s)["personal"]!["claim"] = 99, "personal.claim 99 does not exist");
         yield return Case(s => Ada(s)["personal"]!["claim"] = null, "eating and drinking hold a claim");
         yield return Case(s => s["work"]!["bedrolls"]![0]!["owner"] = 99, "owner 99 is no colonist");
-        yield return Case(s => s["work"]!["springs"] = new JsonArray(99), "work.springs names 99");
+        yield return Case(s => s["work"]!["springs"] = new JsonArray(new JsonArray(99, 200)), "work.springs names 99");
+        yield return Case(s => s["work"]!["springs"]![0]![1] = -1, "litres a day, which cannot be");
+        yield return Case(s => s["work"]!["springs"] = new JsonArray(5), "work.springs holds something that is not [store, litres]");
+        yield return Case(s => Ada(s)["legs"] = 0, "legs is 0, which should be above 0 and at most 1");
+        yield return Case(s => Ada(s)["legs"] = 1.5, "legs is 1.5");
     }
 
     [Theory]

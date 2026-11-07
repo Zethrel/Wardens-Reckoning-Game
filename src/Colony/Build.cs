@@ -21,6 +21,9 @@ public sealed class Project(BuildingId id, string piece, int x, int y, Inventory
     public bool Paused { get; internal set; }
     /// <summary>Cancelled: its materials are carried back to a store, then it is gone.</summary>
     public bool Cancelled { get; internal set; }
+    /// <summary>A taking down (step 15c), not a building: the piece on the tile is worked off, and half its
+    /// materials (rounded down) come back.</summary>
+    public bool Removing { get; init; }
     /// <summary>Why it is waiting, for the player, and what they could do about it (null: it is not).</summary>
     public string? Blocked { get; internal set; }
     public string? NextStep { get; internal set; }
@@ -64,22 +67,59 @@ public sealed partial class Work
         var ground = Ground ?? throw new InvalidOperationException("the colony has no ground to build on");
         if (!content.Pieces.TryGetValue(piece, out var kind))
             throw new ArgumentException("no piece \"" + piece + "\" in the content", nameof(piece));
-        if (!ground.Inside(x, y))
-            return new Placement(false, "It is outside the ground (" + ground.Width + " by " + ground.Height + " tiles).");
-        if (ground.ObstacleAt(x, y) is string obstacle)
-            return new Placement(false, "A " + obstacle + " is in the way.");
-        if (ground.PieceAt(x, y) is string built)
-            return new Placement(false, "There is already " + Article(content.Pieces[built].Name) + " there.");
-        if (projects.Values.FirstOrDefault(p => p.X == x && p.Y == y) is Project planned)
-            return new Placement(false, Article(content.Pieces[planned.Piece].Name, capital: true) + " is already planned there.");
-        if (kind.Blocks && StandsOn(x, y) is string thing)
-            return new Placement(false, thing + " there: " + Article(kind.Name) + " would block it.");
+        bool big = kind.Width > 1 || kind.Height > 1;
+        foreach (var (tx, ty) in Footprint(kind, x, y))
+        {
+            // On a piece bigger than one tile, say which of its tiles is the trouble.
+            string at = big ? "At (" + tx + ", " + ty + "): " : "";
+            if (!ground.Inside(tx, ty))
+                return new Placement(false, at + "It is outside the ground (" + ground.Width + " by " + ground.Height + " tiles).");
+            if (ground.ObstacleAt(tx, ty) is string obstacle)
+                return new Placement(false, at + "A " + obstacle + " is in the way.");
+            if (ground.PieceAt(tx, ty) is string built)
+                return new Placement(false, at + "There is already " + Article(content.Pieces[built].Name) + " there.");
+            if (projects.Values.FirstOrDefault(p => Covers(p, tx, ty)) is Project planned)
+                return new Placement(false, at + Article(content.Pieces[planned.Piece].Name, capital: true) + " is already planned there.");
+            if (kind.Blocks && StandsOn(tx, ty) is string thing)
+                return new Placement(false, at + thing + " there: " + Article(kind.Name) + " would block it.");
+            if (kind.Blocks && projects.Values.FirstOrDefault(p => AccessOf(p) == (tx, ty)) is Project used)
+                return new Placement(false, at + "The planned " + content.Pieces[used.Piece].Name.ToLowerInvariant() + " is to be used from there.");
+        }
+        // A structure is built and used from its access tile: that tile must be open and stay so.
+        if (kind.Access is var (dx, dy))
+        {
+            int ax = x + dx, ay = y + dy;
+            if (!ground.Open(ax, ay) || projects.Values.Any(p => Covers(p, ax, ay) && content.Pieces[p.Piece].Blocks))
+                return new Placement(false, "It is used from (" + ax + ", " + ay + "), which must be open ground.");
+        }
         string? warning = null;
-        var (cx, cy) = Ground.Centre(x, y);
+        var (cx, cy) = WorkSpot(kind, x, y);
         if (workers.Count > 0 && workers.Values.All(w => double.IsPositiveInfinity(Far(w.X, w.Y, cx, cy))))
             warning = "No colonist can reach it now; it waits until there is a way.";
         return new Placement(true, Warning: warning);
     }
+
+    /// <summary>The tiles a piece on (x, y) covers: just that one, or a structure's whole footprint.</summary>
+    static IEnumerable<(int X, int Y)> Footprint(PieceKind kind, int x, int y) =>
+        Enumerable.Range(y, kind.Height).SelectMany(ty => Enumerable.Range(x, kind.Width).Select(tx => (tx, ty)));
+
+    bool Covers(Project p, int x, int y)
+    {
+        var kind = content.Pieces[p.Piece];
+        return x >= p.X && y >= p.Y && x < p.X + kind.Width && y < p.Y + kind.Height;
+    }
+
+    (int X, int Y)? AccessOf(Project p) =>
+        content.Pieces[p.Piece].Access is var (dx, dy) && !p.Removing ? (p.X + dx, p.Y + dy) : null;
+
+    /// <summary>Where a piece on (x, y) is worked from and its materials are put down: a structure's access tile,
+    /// or the tile itself.</summary>
+    static (double X, double Y) WorkSpot(PieceKind kind, int x, int y) =>
+        kind.Access is var (dx, dy) ? Ground.Centre(x + dx, y + dy) : Ground.Centre(x, y);
+
+    /// <summary>The minutes of work a project takes: a piece's own; taking one down, half of that (at least 1).</summary>
+    int Minutes(Project p) =>
+        p.Removing ? Math.Max(1, content.Pieces[p.Piece].WorkMinutes / 2) : content.Pieces[p.Piece].WorkMinutes;
 
     /// <summary>What stands on a tile and must stay reachable (for the player), or null.</summary>
     string? StandsOn(int x, int y)
@@ -103,7 +143,7 @@ public sealed partial class Work
         var placement = Check(piece, x, y);
         if (!placement.Ok)
             return (null, placement);
-        var (cx, cy) = Ground.Centre(x, y);
+        var (cx, cy) = WorkSpot(content.Pieces[piece], x, y);
         var stock = Stocks.Open(content.Pieces[piece].Name + " at (" + x + ", " + y + ") (site)", Holder.Construction, cx, cy);
         var project = new Project(colony.Ids.Next<BuildingId>(), piece, x, y, stock.Id);
         projects[project.Id.Value] = project;
@@ -147,6 +187,33 @@ public sealed partial class Work
         }
     }
 
+    /// <summary>
+    /// Takes down the piece on tile (x, y) (step 15c, library Construction §5.4): a project like a building, of half
+    /// the piece's minutes, with no materials to bring. When it is done the tile is as it was beneath, and half the
+    /// piece's materials, rounded down, are left there and carried to a store. A structure bigger than one tile (a
+    /// well) cannot be taken down yet.
+    /// </summary>
+    public (Project? Project, Placement Placement) TakeDown(int x, int y)
+    {
+        var ground = Ground ?? throw new InvalidOperationException("the colony has no ground to build on");
+        if (ground.PieceAt(x, y) is not string piece)
+            return (null, new Placement(false, "There is nothing built there to take down."));
+        var kind = content.Pieces[piece];
+        if (kind.Width > 1 || kind.Height > 1)
+            return (null, new Placement(false, Article(kind.Name, capital: true) + " cannot be taken down yet."));
+        if (projects.Values.Any(p => p.X == x && p.Y == y))
+            return (null, new Placement(false, "It is already being taken down."));
+        var (cx, cy) = Ground.Centre(x, y);
+        var stock = Stocks.Open(kind.Name + " at (" + x + ", " + y + ") (taking down)", Holder.Construction, cx, cy);
+        var project = new Project(colony.Ids.Next<BuildingId>(), piece, x, y, stock.Id) { Removing = true };
+        projects[project.Id.Value] = project;
+        return (project, new Placement(true));
+    }
+
+    /// <summary>What taking a piece down gives back: half of each material, rounded down (library Review 33).</summary>
+    public static IReadOnlyDictionary<string, int> Recovered(PieceKind kind) =>
+        kind.Materials.Where(m => m.Value / 2 > 0).ToDictionary(m => m.Key, m => m.Value / 2);
+
     /// <summary>Pauses or resumes a project. Paused, nothing more is brought to it and its building is put down
     /// (keeping its progress); goods already on their way are still delivered.</summary>
     public void Pause(BuildingId id, bool paused)
@@ -177,7 +244,7 @@ public sealed partial class Work
     {
         (project.Blocked, project.NextStep) = (null, null);
         var kind = content.Pieces[project.Piece];
-        var (cx, cy) = Ground.Centre(project.X, project.Y);
+        var (cx, cy) = (Stocks[project.Stock].X, Stocks[project.Stock].Y);
         if (project.Cancelled)
         {
             foreach (var (good, _) in Stocks[project.Stock].Goods.ToList())
@@ -213,14 +280,16 @@ public sealed partial class Work
             (project.Blocked, project.NextStep) = ("no colonist can reach it", "Open a way to it: leave a gap or put a door in the wall.");
             return;
         }
-        if (kind.Materials.All(m => Stocks.Free(project.Stock, m.Key) >= m.Value))
+        if (project.Removing || kind.Materials.All(m => Stocks.Free(project.Stock, m.Key) >= m.Value))
         {
-            var claims = kind.Materials.Select(m => Stocks.Reserve(project.Stock, m.Key, m.Value, "build " + Article(kind.Name)).Reservation!.Id).ToList();
+            var claims = project.Removing ? new List<ReservationId>()
+                : kind.Materials.Select(m => Stocks.Reserve(project.Stock, m.Key, m.Value, "build " + Article(kind.Name)).Reservation!.Id).ToList();
             var job = new Job
             {
                 Id = colony.Ids.Next<TaskId>(), Kind = JobKind.Build, Site = project.Id, Claims = claims,
                 First = colony.Ids.Next<OperationId>(), Second = colony.Ids.Next<OperationId>(),
-                From = project.Stock, To = project.Stock, Purpose = "build " + Article(kind.Name) + " at (" + project.X + ", " + project.Y + ")",
+                From = project.Stock, To = project.Stock,
+                Purpose = (project.Removing ? "take down " : "build ") + Article(kind.Name) + " at (" + project.X + ", " + project.Y + ")",
             };
             jobs[job.Id.Value] = job;
             return;
@@ -237,11 +306,33 @@ public sealed partial class Work
     {
         var project = projects[job.Site!.Value.Value];
         var kind = content.Pieces[project.Piece];
+        if (project.Removing)
+        {
+            // Taken down: the tile is bare again, and what can be used again is left there to be carried away.
+            Ground!.RemovePiece(project.X, project.Y);
+            var back = Recovered(kind);
+            if (back.Count > 0)
+                Stocks.Make(job.First, now, Array.Empty<ReservationId>(), project.Stock, back);
+            project.Cancelled = true;                          // from here on it only carries its materials away
+            if (back.Count == 0)
+            {
+                projects.Remove(project.Id.Value);
+                Stocks.Close(project.Stock);
+            }
+            return;
+        }
         Stocks.Make(job.First, now, job.Claims, project.Stock, new Dictionary<string, int>());
         job.Claims.Clear();
-        Ground!.AddPiece(project.Piece, kind.Blocks, project.X, project.Y, kind.Encloses);
+        foreach (var (tx, ty) in Footprint(kind, project.X, project.Y))
+            Ground!.AddPiece(project.Piece, kind.Blocks, tx, ty, kind.Encloses, kind.Speed);
         projects.Remove(project.Id.Value);
         Stocks.Close(project.Stock);
+        // A well gives water from its access tile, every morning.
+        if (kind.WaterPerDay > 0 && kind.Access is var (dx, dy))
+        {
+            var (wx, wy) = Ground.Centre(project.X + dx, project.Y + dy);
+            AddSpring(wx, wy, kind.Name, kind.WaterPerDay);
+        }
     }
 
     /// <summary>Why a project is waiting (FP-04, FP-06): for the player, a next step and a trace; null if it is
@@ -250,7 +341,8 @@ public sealed partial class Work
     {
         if (!projects.TryGetValue(id.Value, out var project))
             return null;
-        string name = Article(content.Pieces[project.Piece].Name, capital: true) + " at (" + project.X + ", " + project.Y + ")";
+        string name = (project.Removing ? "Taking down " + Article(content.Pieces[project.Piece].Name) : Article(content.Pieces[project.Piece].Name, capital: true))
+                      + " at (" + project.X + ", " + project.Y + ")";
         string trace = "project " + id.Value + " (" + project.Piece + " at " + project.X + "," + project.Y + ") at tick "
                        + colony.Now.Tick.ToString(CultureInfo.InvariantCulture) + ": ";
         if (!project.Paused && !project.Cancelled && BuildJob(project) is Job job)

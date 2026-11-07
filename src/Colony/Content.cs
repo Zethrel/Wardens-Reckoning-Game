@@ -47,7 +47,26 @@ public sealed record Recipe(string Id, string Name, string Workshop, IReadOnlyDi
 /// of and how long building it takes; whether it blocks walking (a wall does, a door and a floor do not); and
 /// whether it closes a room in (a wall and a door do, a floor does not).</summary>
 public sealed record PieceKind(string Id, string Name, IReadOnlyDictionary<string, int> Materials, int WorkMinutes, bool Blocks,
-                               bool Encloses = false);
+                               bool Encloses = false)
+{
+    /// <summary>The walking speed on it (1 = a road's), or null: whatever is beneath it (step 15c).</summary>
+    public double? Speed { get; init; }
+    /// <summary>How many tiles it covers, across and down, from its top left tile (a well: 2 by 2).</summary>
+    public int Width { get; init; } = 1;
+    public int Height { get; init; } = 1;
+    /// <summary>For a structure with a fixed footprint: the tile it is used and built from, counted from its top
+    /// left tile (the well's is just below its left half), or null: worked from any tile beside it.</summary>
+    public (int X, int Y)? Access { get; init; }
+    /// <summary>Litres of water it gives each morning (a well), or 0.</summary>
+    public int WaterPerDay { get; init; }
+}
+
+/// <summary>What the ground is (construction.json): grass, rough ground, a road. Walking on it goes at `Speed` of
+/// a road's speed (1 = 100%).</summary>
+public sealed record Surface(string Id, string Name, double Speed);
+
+/// <summary>A block of one surface on the test ground.</summary>
+public sealed record Patch(string Surface, int X, int Y, int Width, int Height);
 
 /// <summary>A building template (construction.json): pieces laid out on tiles, from the top left (0, 0), to plan
 /// in one go (library Construction §3.3). The player may still change it after planning.</summary>
@@ -61,7 +80,12 @@ public sealed record Obstacle(string Kind, int X, int Y);
 
 /// <summary>The flat test ground the colony stands on until the world generator makes local terrain (Review 32):
 /// its size in tiles (one tile is 1 m square) and what is in the way.</summary>
-public sealed record TestGround(int Width, int Height, IReadOnlyList<Obstacle> Obstacles);
+public sealed record TestGround(int Width, int Height, IReadOnlyList<Obstacle> Obstacles)
+{
+    /// <summary>The surface everywhere (step 15c), except where a patch says otherwise.</summary>
+    public string Surface { get; init; } = "";
+    public IReadOnlyList<Patch> Patches { get; init; } = Array.Empty<Patch>();
+}
 
 /// <summary>
 /// The colony's content (the design library calls it "content definitions"): the goods, workshops and recipes the
@@ -103,6 +127,8 @@ public sealed class Content
     /// <summary>The construction pieces, by id (step 15a).</summary>
     public IReadOnlyDictionary<string, PieceKind> Pieces { get; private init; } = new Dictionary<string, PieceKind>();
     public TestGround TestGround { get; private init; } = new(1, 1, Array.Empty<Obstacle>());
+    /// <summary>The surfaces, by id (step 15c).</summary>
+    public IReadOnlyDictionary<string, Surface> Surfaces { get; private init; } = new Dictionary<string, Surface>();
     /// <summary>The building templates, by id (step 15b).</summary>
     public IReadOnlyDictionary<string, Template> Templates { get; private init; } = new Dictionary<string, Template>();
     public FoundingRules Founding { get; private init; } = new(0, Array.Empty<string>(), new Dictionary<string, int>(), false);
@@ -340,14 +366,44 @@ public sealed class Content
         var pieces = new SortedDictionary<string, PieceKind>(StringComparer.Ordinal);
         TestGround? testGround = null;
         var templates = new SortedDictionary<string, Template>(StringComparer.Ordinal);
-        if (Open("construction.json", "pieces", "templates", "test_ground") is JsonObject k)
+        var surfaces = new SortedDictionary<string, Surface>(StringComparer.Ordinal);
+        if (Open("construction.json", "surfaces", "pieces", "templates", "test_ground") is JsonObject k)
         {
-            foreach (var (item, at) in check.List(k, "construction.json", "pieces"))
+            foreach (var (item, at) in check.List(k, "construction.json", "surfaces"))
             {
-                check.Keys(item, at, "id", "name", "materials", "work_minutes", "blocks", "encloses");
+                check.Keys(item, at, "id", "name", "speed");
                 string? id = check.Id(item, at, IdShape);
                 string? name = check.Text(item, at, "name");
-                var materials = check.Amounts(item, at, "materials", goods);
+                double? speed = check.Share(item, at, "speed");
+                if (id == null)
+                    continue;
+                if (surfaces.ContainsKey(id))
+                    problems.Add(at + ": a second surface with the id \"" + id + "\"");
+                else if (name != null && speed != null)
+                    surfaces[id] = new Surface(id, name, speed.Value);
+            }
+            foreach (var (item, at) in check.List(k, "construction.json", "pieces"))
+            {
+                check.Keys(item, at, "id", "name", "materials", "work_minutes", "blocks", "encloses", "speed", "size", "access", "water_per_day");
+                string? id = check.Id(item, at, IdShape);
+                string? name = check.Text(item, at, "name");
+                var materials = check.Amounts(item, at, "materials", goods, emptyAllowed: true);
+                double? pieceSpeed = item["speed"] is null ? null : check.Share(item, at, "speed");
+                bool speedOk = item["speed"] is null || pieceSpeed != null;
+                var size = check.Pair(item, at, "size", 1);
+                (int, int)? access = item["access"] is null ? null : check.Pair(item, at, "access", -1);
+                bool accessOk = item["access"] is null || access != null;
+                int? water = check.Int(item, at, "water_per_day", 0);
+                if (size is var (sw, sh) && access is var (ax, ay) && ax >= 0 && ay >= 0 && ax < sw && ay < sh)
+                {
+                    problems.Add(at + ".access: (" + ax + ", " + ay + ") is under the piece itself; it should be a tile beside it");
+                    accessOk = false;
+                }
+                if (size is var (w2, h2) && (w2 > 1 || h2 > 1) && access == null && accessOk)
+                {
+                    problems.Add(at + ".access: a piece bigger than one tile needs a tile it is built and used from");
+                    accessOk = false;
+                }
                 int? minutes = check.Int(item, at, "work_minutes", 1);
                 bool? blocks = check.Bool(item, at, "blocks");
                 bool? encloses = check.Bool(item, at, "encloses");
@@ -355,8 +411,12 @@ public sealed class Content
                     continue;
                 if (pieces.ContainsKey(id))
                     problems.Add(at + ": a second piece with the id \"" + id + "\"");
-                else if (name != null && materials != null && minutes != null && blocks != null && encloses != null)
-                    pieces[id] = new PieceKind(id, name, materials, minutes.Value, blocks.Value, encloses.Value);
+                else if (name != null && materials != null && minutes != null && blocks != null && encloses != null
+                         && speedOk && size != null && accessOk && water != null)
+                    pieces[id] = new PieceKind(id, name, materials, minutes.Value, blocks.Value, encloses.Value)
+                    {
+                        Speed = pieceSpeed, Width = size.Value.Item1, Height = size.Value.Item2, Access = access, WaterPerDay = water.Value,
+                    };
             }
             foreach (var (item, at) in check.List(k, "construction.json", "templates"))
             {
@@ -420,8 +480,27 @@ public sealed class Content
             if (k["test_ground"] is JsonObject tg)
             {
                 const string at = "construction.json.test_ground";
-                check.Keys(tg, at, "width", "height", "obstacles");
+                check.Keys(tg, at, "width", "height", "surface", "patches", "obstacles");
                 int? width = check.Int(tg, at, "width", 1), height = check.Int(tg, at, "height", 1);
+                string? surface = check.Text(tg, at, "surface");
+                if (surface != null && !surfaces.ContainsKey(surface))
+                    problems.Add(at + ".surface: no surface \"" + surface + "\"");
+                var patches = new List<Patch>();
+                foreach (var (item, pat) in check.List(tg, at, "patches"))
+                {
+                    check.Keys(item, pat, "surface", "x", "y", "width", "height");
+                    string? kind = check.Text(item, pat, "surface");
+                    int? px = check.Int(item, pat, "x", 0), py = check.Int(item, pat, "y", 0);
+                    int? pw = check.Int(item, pat, "width", 1), ph = check.Int(item, pat, "height", 1);
+                    if (kind == null || px == null || py == null || pw == null || ph == null)
+                        continue;
+                    if (!surfaces.ContainsKey(kind))
+                        problems.Add(pat + ".surface: no surface \"" + kind + "\"");
+                    else if (width != null && height != null && (px + pw > width || py + ph > height))
+                        problems.Add(pat + ": it reaches outside the ground (" + width + " by " + height + ")");
+                    else
+                        patches.Add(new Patch(kind, px.Value, py.Value, pw.Value, ph.Value));
+                }
                 var obstacles = new List<Obstacle>();
                 var taken = new HashSet<(int, int)>();
                 foreach (var (item, oat) in check.List(tg, at, "obstacles"))
@@ -440,8 +519,8 @@ public sealed class Content
                     else
                         obstacles.Add(new Obstacle(kind, x.Value, y.Value));
                 }
-                if (width != null && height != null)
-                    testGround = new TestGround(width.Value, height.Value, obstacles);
+                if (width != null && height != null && surface != null)
+                    testGround = new TestGround(width.Value, height.Value, obstacles) { Surface = surface, Patches = patches };
             }
             else if (k.ContainsKey("test_ground"))
                 problems.Add("construction.json.test_ground: should be an object { ... }");
@@ -479,7 +558,7 @@ public sealed class Content
         {
             Needs = needs, Eat = eat!, Drink = drink!, BedrollPerHour = bedroll, GroundPerHour = ground, SpringPerDay = spring,
             Schedules = schedules, DefaultSchedule = defaultSchedule!, Pieces = pieces, TestGround = testGround!,
-            Templates = templates, Founding = founding!,
+            Templates = templates, Founding = founding!, Surfaces = surfaces,
         };
     }
 
@@ -586,6 +665,29 @@ public sealed class Content
             return null;
         }
 
+        /// <summary>A share above 0 and at most 1 (a speed: 0.8 is 80%).</summary>
+        public double? Share(JsonObject item, string at, string key)
+        {
+            if (!item.ContainsKey(key))
+                return null;
+            if (item[key] is JsonValue v && v.TryGetValue(out double d) && d > 0 && d <= 1)
+                return d;
+            problems.Add(at + "." + key + ": should be a number above 0 and at most 1 (1 is a road's speed)");
+            return null;
+        }
+
+        /// <summary>Two whole numbers [a, b], each at least `least`.</summary>
+        public (int, int)? Pair(JsonObject item, string at, string key, int least)
+        {
+            if (!item.ContainsKey(key))
+                return null;
+            if (item[key] is JsonArray a && a.Count == 2 && a[0] is JsonValue v0 && v0.TryGetValue(out int x) && a[1] is JsonValue v1
+                && v1.TryGetValue(out int y) && x >= least && y >= least)
+                return (x, y);
+            problems.Add(at + "." + key + ": should be two whole numbers [a, b] of " + least + " or more");
+            return null;
+        }
+
         public bool? Bool(JsonObject item, string at, string key)
         {
             if (!item.ContainsKey(key))
@@ -607,13 +709,13 @@ public sealed class Content
         }
 
         /// <summary>A table of good id to whole units (1 or more), every good known.</summary>
-        public IReadOnlyDictionary<string, int>? Amounts(JsonObject item, string at, string key, Dictionary<string, Good> goods)
+        public IReadOnlyDictionary<string, int>? Amounts(JsonObject item, string at, string key, Dictionary<string, Good> goods, bool emptyAllowed = false)
         {
             if (!item.ContainsKey(key))
                 return null;
-            if (item[key] is not JsonObject table || table.Count == 0)
+            if (item[key] is not JsonObject table || (table.Count == 0 && !emptyAllowed))
             {
-                problems.Add(at + "." + key + ": should be a table of goods and amounts, not empty");
+                problems.Add(at + "." + key + ": should be a table of goods and amounts" + (emptyAllowed ? "" : ", not empty"));
                 return null;
             }
             var amounts = new SortedDictionary<string, int>(StringComparer.Ordinal);
