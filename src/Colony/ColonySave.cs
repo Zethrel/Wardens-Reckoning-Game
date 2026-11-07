@@ -9,7 +9,15 @@ using WardensReckoning.Sim;
 namespace WardensReckoning.Colony;
 
 /// <summary>A colony save that cannot be read: its `Message` says why, in words the player can act on.</summary>
-public sealed class ColonySaveException(string message) : Exception(message);
+public class ColonySaveException(string message) : Exception(message);
+
+/// <summary>A save that reads well but whose checksum does not match: it was changed outside the game, or is
+/// damaged (step 16, library Review 35). It may still be loaded, if the player says so (`acceptChanged`).</summary>
+public sealed class ColonySaveChangedException(string message) : ColonySaveException(message);
+
+/// <summary>A loaded colony, and what the player should be told about it (the content changed since, or the
+/// save had been changed and they chose to load it anyway).</summary>
+public sealed record Opened(Colony Colony, IReadOnlyList<string> Warnings);
 
 /// <summary>
 /// Saving and loading a colony (library Reviews 29 and 30): plain JSON, with a format name and a version.
@@ -32,12 +40,14 @@ public static class ColonySave
     // schedule, sleep, collapse, what they do for themselves; the bedrolls; the springs. 5: the kinds of work each
     // colonist is not allowed (step 14b). 6: the ground (its size, what is in the way, the finished pieces) and the
     // construction projects (step 15a). 7: stockpiles (a store's tiles) and stores being emptied (step 15b). 8: the
-    // ground's surfaces, each colonist's legs, the litres of each spring and well, takings-down (step 15c).
-    public const int Version = 8;
+    // ground's surfaces, each colonist's legs, the litres of each spring and well, takings-down (step 15c). 9: a
+    // checksum and the content's fingerprint (step 16).
+    public const int Version = 9;
 
     /// <summary>The colony as JSON.</summary>
     public static JsonObject Write(Colony colony) => new()
     {
+        ["content"] = colony.Content?.Fingerprint,
         ["format"] = Format,
         ["version"] = Version,
         // 64-bit numbers are written as text: JSON numbers are not exact beyond 2^53.
@@ -47,6 +57,7 @@ public static class ColonySave
         ["ids"] = new JsonObject(colony.Ids.Last.Select(p => KeyValuePair.Create(p.Key, (JsonNode?)JsonValue.Create(p.Value)))),
         ["dice"] = new JsonObject(colony.AllDice.Select(p => KeyValuePair.Create(p.Key,
             (JsonNode?)new JsonArray(p.Value.State.Select(n => (JsonNode?)n.ToString(CultureInfo.InvariantCulture)).ToArray())))),
+        ["closed_inventories"] = new JsonArray(colony.Stocks.Closed.Select(c => (JsonNode?)c.Value).ToArray()),
         ["inventories"] = new JsonArray(colony.Stocks.Inventories.Select(i => (JsonNode?)new JsonObject
         {
             ["id"] = i.Id.Value,
@@ -126,25 +137,84 @@ public static class ColonySave
 
     static readonly JsonSerializerOptions Indented = new() { WriteIndented = true };
 
-    /// <summary>The colony as the text a save file holds.</summary>
-    public static string Text(Colony colony) => Write(colony).ToJsonString(Indented);
+    /// <summary>
+    /// The colony as the text a save file holds. Last comes its **checksum**: the SHA-256 of the save's text
+    /// without it. Loading works it out again; if it differs, something changed the file after the game wrote it.
+    /// </summary>
+    public static string Text(Colony colony)
+    {
+        var save = Write(colony);
+        save["checksum"] = Hash(save.ToJsonString(Indented));
+        return save.ToJsonString(Indented);
+    }
+
+    static string Hash(string text) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(text))).ToLowerInvariant();
+
+    /// <summary>Whether a save's checksum matches the rest of it: worked out from the save with its checksum taken
+    /// out, written the way the game writes it (so spacing changed by hand does not count, but any value does).</summary>
+    static bool ChecksumMatches(JsonObject save)
+    {
+        if (save["checksum"] is not JsonValue v || !v.TryGetValue(out string? stated))
+            return false;
+        var rest = save.DeepClone().AsObject();
+        rest.Remove("checksum");
+        return Hash(rest.ToJsonString(Indented)) == stated;
+    }
 
     /// <summary>A short fingerprint of the colony's whole state (SHA-256 of its save text): equal fingerprints mean
     /// equal colonies.</summary>
     public static string Fingerprint(Colony colony) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(Text(colony)))).ToLowerInvariant();
 
-    /// <summary>Saves `colony` to `path`: written beside it first, then moved into place.</summary>
-    public static void Save(string path, Colony colony)
+    /// <summary>
+    /// Saves `colony` to `path` without ever putting a bad save in place of a good one (step 16, library Review 35):
+    ///
+    /// 1. written beside it first (`path.writing`);
+    /// 2. read back and checked as if loading it: if that fails, nothing is replaced;
+    /// 3. moved into place; the save it replaces is kept as `path.bak` (if `backup`).
+    ///
+    /// If any step fails (a full disk, a folder that is not there, no permission), it throws ColonySaveException
+    /// saying so, the half-written file is removed, and the save that was at `path` is as it was.
+    /// </summary>
+    public static void Save(string path, Colony colony, bool backup = true) => Save(path, colony, backup, text => text);
+
+    /// <summary>As `Save`, with `tamper` changing the text before it is written (only for the tests: a way to
+    /// make a writing go wrong on purpose).</summary>
+    internal static void Save(string path, Colony colony, bool backup, Func<string, string> tamper)
     {
-        string text = Text(colony);
         string fresh = path + ".writing";
-        File.WriteAllText(fresh, text, new UTF8Encoding(false));
-        File.Move(fresh, path, overwrite: true);
+        try
+        {
+            File.WriteAllText(fresh, tamper(Text(colony)), new UTF8Encoding(false));
+            Read(File.ReadAllText(fresh), colony.Content);
+            if (File.Exists(path))
+                File.Replace(fresh, path, backup ? path + ".bak" : null);
+            else
+                File.Move(fresh, path);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or ColonySaveException)
+        {
+            try
+            {
+                if (File.Exists(fresh))
+                    File.Delete(fresh);
+            }
+            catch (Exception tidy) when (tidy is IOException or UnauthorizedAccessException)
+            {
+                // Removing the half-written file is only tidying; the save at `path` is untouched either way.
+            }
+            throw new ColonySaveException("The colony could not be saved to " + path + " (" + e.Message + "). "
+                + (File.Exists(path) ? "The save already there is as it was." : "Nothing was saved."));
+        }
     }
 
-    /// <summary>Loads the colony saved at `path`, or refuses it (ColonySaveException) without changing the file.</summary>
-    public static Colony Load(string path, Content? content = null)
+    /// <summary>Loads the colony saved at `path`, or refuses it (ColonySaveException) without changing the file.
+    /// A save changed outside the game is refused (ColonySaveChangedException) unless `acceptChanged`.</summary>
+    public static Colony Load(string path, Content? content = null, bool acceptChanged = false) =>
+        Open(path, content, acceptChanged).Colony;
+
+    /// <summary>As `Load`, with what the player should be told about the save.</summary>
+    public static Opened Open(string path, Content? content = null, bool acceptChanged = false)
     {
         string text;
         try
@@ -157,7 +227,11 @@ public static class ColonySave
         }
         try
         {
-            return Read(text, content);
+            return Opening(text, content, acceptChanged);
+        }
+        catch (ColonySaveChangedException e)
+        {
+            throw new ColonySaveChangedException(path + ": " + e.Message);
         }
         catch (ColonySaveException e)
         {
@@ -165,9 +239,42 @@ public static class ColonySave
         }
     }
 
+    /// <summary>The colony a save's text holds (see `Opening`), without its warnings.</summary>
+    public static Colony Read(string text, Content? content = null, bool acceptChanged = false) =>
+        Opening(text, content, acceptChanged).Colony;
+
+    /// <summary>
+    /// The colony a save's text holds, checked part by part (with `content`, everything it names must be in the
+    /// content). Then, for a save that reads well (step 16, library Review 35):
+    ///
+    /// - its **checksum**: if it does not match, the save was changed outside the game or is damaged. It is refused
+    ///   (ColonySaveChangedException) unless the player chose to load it anyway (`acceptChanged`), and then a
+    ///   warning says so.
+    /// - its **content fingerprint**: if the content was changed since, a warning says so, and the colony goes on
+    ///   with the current values.
+    /// </summary>
+    public static Opened Opening(string text, Content? content = null, bool acceptChanged = false)
+    {
+        var colony = Build(text, content);
+        var save = (JsonObject)JsonNode.Parse(text)!;
+        var warnings = new List<string>();
+        if (!ChecksumMatches(save))
+        {
+            if (!acceptChanged)
+                throw new ColonySaveChangedException("this save was changed outside the game, or is damaged: its checksum does not "
+                    + "match. Load it anyway only if you changed it yourself.");
+            warnings.Add("This save was changed outside the game (its checksum does not match); it was loaded as you asked.");
+        }
+        string? made = save["content"] is JsonValue cv && cv.TryGetValue(out string? c) ? c : null;
+        if (content != null && made != content.Fingerprint)
+            warnings.Add("The game's content (goods, recipes, values) has changed since this save was made; the colony goes on "
+                + "with the current values, so it may play out differently from before.");
+        return new Opened(colony, warnings);
+    }
+
     /// <summary>The colony a save's text holds, checked part by part; with `content`, every good it names must be
     /// one the content knows.</summary>
-    public static Colony Read(string text, Content? content = null)
+    static Colony Build(string text, Content? content)
     {
         JsonObject save;
         try
@@ -597,6 +704,15 @@ public static class ColonySave
                 throw new ColonySaveException(at + " claims more " + good + " than inventory " + where + " has");
             stocks.PutReservation(new Reservation(new ReservationId(id), new InventoryId(where), good, amount, purpose));
         }
+        // Closed inventories (a finished building site's pile): gone, but the ledger's past lines may name them.
+        var closed = new HashSet<long>();
+        foreach (var node in Get<JsonArray>(save, "closed_inventories"))
+        {
+            long id = Number(node, "closed_inventories");
+            if (id < 1 || id > colony.Ids.Last.GetValueOrDefault(InventoryId.Family) || known.Contains(id) || !closed.Add(id))
+                throw new ColonySaveException("closed_inventories names " + id + ", which was never given out, is still open, or is named twice");
+            stocks.PutClosed(new InventoryId(id));
+        }
         foreach (var (node, i) in Get<JsonArray>(save, "ledger").Select((n, i) => (n, i)))
         {
             string at = "ledger[" + i + "]";
@@ -607,7 +723,8 @@ public static class ColonySave
                 if (n is null)
                     return null;
                 long place = Number(n, at);
-                return known.Contains(place) ? new InventoryId(place) : throw new ColonySaveException(at + " names inventory " + place + ", which does not exist");
+                return known.Contains(place) || closed.Contains(place) ? new InventoryId(place)
+                    : throw new ColonySaveException(at + " names inventory " + place + ", which does not exist");
             }
             stocks.PutEntry(new Entry(new OperationId(Number(e[0], at)), Number(e[1], at), change, Good(e[3], at),
                                       Count(e[4], at), Place(e[5]), Place(e[6])));

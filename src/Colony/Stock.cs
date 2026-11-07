@@ -271,7 +271,16 @@ public sealed class Stocks(IdCounters ids)
         if (this[id].Goods.Count > 0 || reservations.Values.Any(r => r.Inventory == id))
             throw new InvalidOperationException(this[id].Name + " still holds goods or claims");
         inventories.Remove(id.Value);
+        closed.Add(id.Value);
     }
+
+    // Inventories closed (step 16): the ledger may still name them, so a save keeps their numbers.
+    readonly SortedSet<long> closed = new();
+
+    /// <summary>The inventories closed so far: gone, but named in the ledger's past lines.</summary>
+    public IEnumerable<InventoryId> Closed => closed.Select(c => new InventoryId(c));
+
+    internal void PutClosed(InventoryId id) => closed.Add(id.Value);
 
     // For loading a save.
     internal void Put(Inventory inventory) => inventories[inventory.Id.Value] = inventory;

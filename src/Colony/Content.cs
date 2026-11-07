@@ -127,6 +127,13 @@ public sealed class Content
     /// <summary>The construction pieces, by id (step 15a).</summary>
     public IReadOnlyDictionary<string, PieceKind> Pieces { get; private init; } = new Dictionary<string, PieceKind>();
     public TestGround TestGround { get; private init; } = new(1, 1, Array.Empty<Obstacle>());
+    /// <summary>
+    /// A fingerprint of all the content (step 16): the SHA-256 of every file's JSON in a fixed form (spacing and
+    /// line endings do not count, so a file checked out with Windows line endings has the same fingerprint). A save
+    /// records it, so loading can say when the values were changed since.
+    /// </summary>
+    public string Fingerprint { get; private init; } = "";
+
     /// <summary>The surfaces, by id (step 15c).</summary>
     public IReadOnlyDictionary<string, Surface> Surfaces { get; private init; } = new Dictionary<string, Surface>();
     /// <summary>The building templates, by id (step 15b).</summary>
@@ -155,6 +162,15 @@ public sealed class Content
     }
 
     static readonly Regex IdShape = new("^[a-z][a-z0-9_]*$");
+
+    /// <summary>The fingerprint of a set of content files that read without problems.</summary>
+    static string FingerprintOf(IReadOnlyDictionary<string, string?> files)
+    {
+        var all = new System.Text.StringBuilder();
+        foreach (string name in Files)
+            all.Append(name).Append('\n').Append(JsonNode.Parse(files[name]!)!.ToJsonString()).Append('\n');
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(all.ToString()))).ToLowerInvariant();
+    }
 
     /// <summary>The content's files.</summary>
     public static readonly string[] Files = { "goods.json", "recipes.json", "colony.json", "needs.json", "schedules.json", "construction.json", "founding.json" };
@@ -559,6 +575,7 @@ public sealed class Content
             Needs = needs, Eat = eat!, Drink = drink!, BedrollPerHour = bedroll, GroundPerHour = ground, SpringPerDay = spring,
             Schedules = schedules, DefaultSchedule = defaultSchedule!, Pieces = pieces, TestGround = testGround!,
             Templates = templates, Founding = founding!, Surfaces = surfaces,
+            Fingerprint = FingerprintOf(files),
         };
     }
 
