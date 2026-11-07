@@ -30,10 +30,18 @@ what is wrong, before anything runs.
 - `construction.json`: the construction `pieces` (a wall, a door, a floor):
   each takes one tile; what it is made of (`materials`, good id to whole
   units), how long building it takes (`work_minutes`) and whether it blocks
-  walking (`blocks`). And the `test_ground` the colony stands on until the
+  walking (`blocks`) and closes a room in (`encloses`: a wall and a door do,
+  a floor does not). The `templates`: buildings to plan in one go, drawn as
+  `rows` of letters, one per tile, with a `key` saying which piece each letter
+  is (`.` leaves the tile as it is). And the `test_ground` the colony stands on until the
   world generator makes local terrain: its `width` and `height` in tiles (a
   tile is 1 m square) and its `obstacles` (a `kind` such as rock or tree, on a
   tile `x`, `y`, counted from 0 at the top left).
+
+- `founding.json`: who founds the colony: how many `founders`, the `names`
+  they are drawn from (by the colony's dice; at least as many names as
+  founders), the `supplies` they bring (good id to whole units) and whether
+  each brings a bedroll (`bedroll_each`).
 
 Every file has `"version": 1`: the shape of the file, raised when it changes.
 Unknown keys are refused, so a misspelt key is caught rather than ignored.

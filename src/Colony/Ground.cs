@@ -11,6 +11,10 @@ namespace WardensReckoning.Colony;
 /// The ground also finds the colonists' ways (path-finding): from any tile to any other, around what blocks
 /// walking, moving to any of the 8 tiles around (a step across costs 1 m, a step on the slant √2 = 1.41 m), and
 /// never cutting a corner past a wall or a rock (a slanting step needs both tiles beside it to be open).
+///
+/// And it finds the **rooms** (step 15b, library Review 33): a room is a group of open tiles closed in on every
+/// side by walls, doors or anything else that blocks, with no open way out to the edge of the ground. Its tiles
+/// count as indoors. There are no roofs yet.
 /// </summary>
 public sealed class Ground
 {
@@ -20,8 +24,12 @@ public sealed class Ground
     readonly string?[] obstacles;
     readonly string?[] pieces;
     readonly bool[] blocked;
+    readonly bool[] encloses;
     // Ways already worked out, by the tile they lead to; forgotten whenever something that blocks is built.
     readonly Dictionary<int, double[]> ways = new();
+    // The rooms, once worked out; forgotten whenever anything is built.
+    List<IReadOnlyList<(int X, int Y)>>? rooms;
+    int[]? roomOf;
 
     public Ground(int width, int height)
     {
@@ -31,6 +39,7 @@ public sealed class Ground
         obstacles = new string?[width * height];
         pieces = new string?[width * height];
         blocked = new bool[width * height];
+        encloses = new bool[width * height];
     }
 
     /// <summary>The test ground of the content: its size and what is in the way.</summary>
@@ -76,16 +85,93 @@ public sealed class Ground
         obstacles[Index(x, y)] = kind;
         blocked[Index(x, y)] = true;
         ways.Clear();
+        rooms = null;
     }
 
-    /// <summary>A finished piece put on a tile (`blocks`: whether it blocks walking).</summary>
-    internal void AddPiece(string piece, bool blocks, int x, int y)
+    /// <summary>A finished piece put on a tile (`blocks`: whether it blocks walking; `closes`: whether it closes
+    /// a room in, as a wall or a door does; if not given, the same as `blocks`).</summary>
+    internal void AddPiece(string piece, bool blocks, int x, int y, bool? closes = null)
     {
         pieces[Index(x, y)] = piece;
+        encloses[Index(x, y)] = closes ?? blocks;
+        rooms = null;
         if (blocks)
         {
             blocked[Index(x, y)] = true;
             ways.Clear();
+        }
+    }
+
+    // ---- Rooms -------------------------------------------------------------------------------------------
+
+    /// <summary>Every room: its tiles, row by row. Rooms are listed by their first tile (top row first, then left
+    /// to right), so they always come in the same order.</summary>
+    public IReadOnlyList<IReadOnlyList<(int X, int Y)>> Rooms
+    {
+        get
+        {
+            FindRooms();
+            return rooms!;
+        }
+    }
+
+    /// <summary>The room a tile is in (its place in `Rooms`), or null: outdoors, or not an open tile.</summary>
+    public int? RoomAt(int x, int y)
+    {
+        if (!Inside(x, y))
+            return null;
+        FindRooms();
+        int r = roomOf![Index(x, y)];
+        return r < 0 ? null : r;
+    }
+
+    /// <summary>Whether a tile is indoors: in a room.</summary>
+    public bool Indoors(int x, int y) => RoomAt(x, y) != null;
+
+    /// <summary>
+    /// Works the rooms out: every group of tiles a person could stand on (open, and not closing a room in, as a
+    /// door does), joined across
+    /// (not on the slant: a slanting gap cannot be walked through either), is filled out from its first tile. A
+    /// group that reaches the edge of the ground is outdoors; any other group is a room.
+    /// </summary>
+    void FindRooms()
+    {
+        if (rooms != null)
+            return;
+        rooms = new();
+        roomOf = new int[Width * Height];
+        Array.Fill(roomOf, -1);
+        var seen = new bool[Width * Height];
+        bool Space(int x, int y) => Open(x, y) && !encloses[Index(x, y)];
+        for (int start = 0; start < Width * Height; start++)
+        {
+            if (seen[start] || !Space(start % Width, start / Width))
+                continue;
+            var group = new List<int>();
+            var todo = new Stack<int>();
+            todo.Push(start);
+            seen[start] = true;
+            bool outdoors = false;
+            while (todo.Count > 0)
+            {
+                int i = todo.Pop();
+                group.Add(i);
+                int x = i % Width, y = i / Width;
+                if (x == 0 || y == 0 || x == Width - 1 || y == Height - 1)
+                    outdoors = true;
+                foreach (var (dx, dy) in new[] { (0, -1), (1, 0), (0, 1), (-1, 0) })
+                    if (Space(x + dx, y + dy) && !seen[Index(x + dx, y + dy)])
+                    {
+                        seen[Index(x + dx, y + dy)] = true;
+                        todo.Push(Index(x + dx, y + dy));
+                    }
+            }
+            if (outdoors)
+                continue;
+            group.Sort();
+            foreach (int i in group)
+                roomOf[i] = rooms.Count;
+            rooms.Add(group.Select(i => (i % Width, i / Width)).ToList());
         }
     }
 

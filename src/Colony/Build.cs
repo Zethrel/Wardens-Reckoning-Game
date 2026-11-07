@@ -89,7 +89,7 @@ public sealed partial class Work
             return "The " + content.Workshops[site.Workshop].Name.ToLowerInvariant() + " stands";
         if (bedrolls.Values.Any(b => On(b.X, b.Y)))
             return "A bedroll is laid";
-        if (Stocks.Inventories.FirstOrDefault(i => i.Holder == Holder.Store && On(i.X, i.Y)) is Inventory store)
+        if (Stocks.Inventories.FirstOrDefault(i => i.Holder == Holder.Store && (i.Area?.Covers(x, y) ?? On(i.X, i.Y))) is Inventory store)
             return "A store (" + store.Name + ") is";
         return null;
     }
@@ -108,6 +108,43 @@ public sealed partial class Work
         var project = new Project(colony.Ids.Next<BuildingId>(), piece, x, y, stock.Id);
         projects[project.Id.Value] = project;
         return (project, placement);
+    }
+
+    /// <summary>
+    /// Plans a whole template (library Construction §3.3) with its top left corner on tile (x, y), turned
+    /// `turns` quarter turns clockwise and, if `mirror`, flipped left to right first. All or nothing: if any piece
+    /// may not go where it would, nothing is planned and the first such piece is named. The pieces are then
+    /// ordinary projects, so the player may still cancel or add to them one by one.
+    /// </summary>
+    public (IReadOnlyList<Project> Projects, Placement Placement) PlanTemplate(string template, int x, int y, int turns = 0, bool mirror = false)
+    {
+        if (!content.Templates.TryGetValue(template, out var t))
+            throw new ArgumentException("no template \"" + template + "\" in the content", nameof(template));
+        var laid = Lay(t, turns, mirror).Select(p => (p.Piece, X: x + p.X, Y: y + p.Y)).ToList();
+        var warnings = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (var (piece, px, py) in laid)
+        {
+            var check = Check(piece, px, py);
+            if (!check.Ok)
+                return (Array.Empty<Project>(), new Placement(false, "At (" + px + ", " + py + "): " + check.Why));
+            if (check.Warning != null)
+                warnings.Add(check.Warning);
+        }
+        var planned = laid.Select(p => Plan(p.Piece, p.X, p.Y).Project!).ToList();
+        return (planned, new Placement(true, Warning: warnings.Count == 0 ? null : string.Join(" ", warnings)));
+    }
+
+    /// <summary>A template's pieces, flipped and turned, still counted from the top left (0, 0).</summary>
+    internal static IEnumerable<(string Piece, int X, int Y)> Lay(Template t, int turns, bool mirror)
+    {
+        int quarter = ((turns % 4) + 4) % 4;
+        foreach (var (piece, px, py) in t.Pieces)
+        {
+            int x = mirror ? t.Width - 1 - px : px, y = py, w = t.Width, h = t.Height;
+            for (int i = 0; i < quarter; i++)
+                (x, y, w, h) = (h - 1 - y, x, h, w);         // a quarter turn clockwise
+            yield return (piece, x, y);
+        }
     }
 
     /// <summary>Pauses or resumes a project. Paused, nothing more is brought to it and its building is put down
@@ -202,7 +239,7 @@ public sealed partial class Work
         var kind = content.Pieces[project.Piece];
         Stocks.Make(job.First, now, job.Claims, project.Stock, new Dictionary<string, int>());
         job.Claims.Clear();
-        Ground!.AddPiece(project.Piece, kind.Blocks, project.X, project.Y);
+        Ground!.AddPiece(project.Piece, kind.Blocks, project.X, project.Y, kind.Encloses);
         projects.Remove(project.Id.Value);
         Stocks.Close(project.Stock);
     }

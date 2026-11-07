@@ -302,6 +302,7 @@ public sealed partial class Work
             Ask(site);
         foreach (var project in projects.Values.ToList())
             Supply(project);
+        Tidy();
         Care();
         Assign();
     }
@@ -472,6 +473,46 @@ public sealed partial class Work
 
     /// <summary>Units of `good` one person can carry.</summary>
     int CarryUnits(string good) => Math.Max(1, (int)Math.Floor(content.CarryKg / content.Goods[good].MassKg));
+
+    /// <summary>A stockpile (step 15b, library Construction §13.1): a store laid over a block of tiles, `width` by
+    /// `height` from tile (x, y), all of them open ground. It takes every good until told otherwise
+    /// (`Accepts`).</summary>
+    public Inventory AddStockpile(string name, int x, int y, int width, int height)
+    {
+        var ground = Ground ?? throw new InvalidOperationException("a stockpile needs ground to lie on");
+        if (width < 1 || height < 1)
+            throw new ArgumentOutOfRangeException(nameof(width), "a stockpile covers at least one tile");
+        var area = new Area(x, y, width, height);
+        foreach (var (tx, ty) in area.Tiles)
+            if (!ground.Open(tx, ty))
+                throw new ArgumentException("tile (" + tx + ", " + ty + ") is not open ground");
+        var pile = Stocks.Open(name, Holder.Store, x + width / 2.0, y + height / 2.0);
+        pile.Area = area;
+        return pile;
+    }
+
+    /// <summary>
+    /// Empties stores marked `Emptying` (the founders' carts, once there is a stockpile): when nobody has other work
+    /// waiting, the goods are carried to the nearest store that takes them, a load at a time (one waiting haul per
+    /// good and store, so goods are not claimed long before anyone carries them, and stay free to eat).
+    /// </summary>
+    void Tidy()
+    {
+        if (jobs.Values.Any(j => j.Step == Step.Open))
+            return;
+        foreach (var store in Stocks.Inventories.Where(i => i.Holder == Holder.Store && i.Emptying).ToList())
+            foreach (var (good, _) in store.Goods.ToList())
+            {
+                int free = Stocks.Free(store.Id, good);
+                if (free == 0)
+                    continue;
+                var to = NearestStore(good, store.X, store.Y);
+                if (to == null)
+                    continue;
+                NewHaul(store.Id, to.Id, good, Math.Min(free, CarryUnits(good)), "move " + content.Goods[good].Name.ToLowerInvariant() + " to " + to.Name);
+                return;                                          // one at a time
+            }
+    }
 
     // ---- What workshops ask for ---------------------------------------------------------------------------
 

@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "founders": 3,
+  "names": [ "Ada", "Bram", "Cael", "Dagny", "Eirik", "Freya", "Gunnar", "Hild", "Ivar", "Jorunn", "Kari", "Leif" ],
+  "supplies": { "timber": 60, "ration": 30, "wheat": 50 },
+  "bedroll_each": true
+}

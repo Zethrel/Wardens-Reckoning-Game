@@ -44,8 +44,17 @@ public sealed record Recipe(string Id, string Name, string Workshop, IReadOnlyDi
                             IReadOnlyDictionary<string, int> Outputs, int WorkMinutes);
 
 /// <summary>A construction piece (construction.json): a wall, a door, a floor. It takes one tile; what it is made
-/// of and how long building it takes; whether it blocks walking (a wall does, a door and a floor do not).</summary>
-public sealed record PieceKind(string Id, string Name, IReadOnlyDictionary<string, int> Materials, int WorkMinutes, bool Blocks);
+/// of and how long building it takes; whether it blocks walking (a wall does, a door and a floor do not); and
+/// whether it closes a room in (a wall and a door do, a floor does not).</summary>
+public sealed record PieceKind(string Id, string Name, IReadOnlyDictionary<string, int> Materials, int WorkMinutes, bool Blocks,
+                               bool Encloses = false);
+
+/// <summary>A building template (construction.json): pieces laid out on tiles, from the top left (0, 0), to plan
+/// in one go (library Construction §3.3). The player may still change it after planning.</summary>
+public sealed record Template(string Id, string Name, int Width, int Height, IReadOnlyList<(string Piece, int X, int Y)> Pieces);
+
+/// <summary>Who arrives to found the colony and what they bring (founding.json; library Review 33).</summary>
+public sealed record FoundingRules(int Founders, IReadOnlyList<string> Names, IReadOnlyDictionary<string, int> Supplies, bool BedrollEach);
 
 /// <summary>Something in the way on the ground (a rock, a tree), on one tile.</summary>
 public sealed record Obstacle(string Kind, int X, int Y);
@@ -94,6 +103,9 @@ public sealed class Content
     /// <summary>The construction pieces, by id (step 15a).</summary>
     public IReadOnlyDictionary<string, PieceKind> Pieces { get; private init; } = new Dictionary<string, PieceKind>();
     public TestGround TestGround { get; private init; } = new(1, 1, Array.Empty<Obstacle>());
+    /// <summary>The building templates, by id (step 15b).</summary>
+    public IReadOnlyDictionary<string, Template> Templates { get; private init; } = new Dictionary<string, Template>();
+    public FoundingRules Founding { get; private init; } = new(0, Array.Empty<string>(), new Dictionary<string, int>(), false);
 
     Content(Dictionary<string, Good> goods, Dictionary<string, Workshop> workshops, Dictionary<string, Recipe> recipes,
             double carryKg, double walk, int pickup, int drop)
@@ -119,7 +131,7 @@ public sealed class Content
     static readonly Regex IdShape = new("^[a-z][a-z0-9_]*$");
 
     /// <summary>The content's files.</summary>
-    public static readonly string[] Files = { "goods.json", "recipes.json", "colony.json", "needs.json", "schedules.json", "construction.json" };
+    public static readonly string[] Files = { "goods.json", "recipes.json", "colony.json", "needs.json", "schedules.json", "construction.json", "founding.json" };
 
     /// <summary>Checks content given as file name to text (null: the file is missing).</summary>
     public static Content Read(IReadOnlyDictionary<string, string?> files)
@@ -327,22 +339,83 @@ public sealed class Content
         // Construction pieces and the test ground.
         var pieces = new SortedDictionary<string, PieceKind>(StringComparer.Ordinal);
         TestGround? testGround = null;
-        if (Open("construction.json", "pieces", "test_ground") is JsonObject k)
+        var templates = new SortedDictionary<string, Template>(StringComparer.Ordinal);
+        if (Open("construction.json", "pieces", "templates", "test_ground") is JsonObject k)
         {
             foreach (var (item, at) in check.List(k, "construction.json", "pieces"))
             {
-                check.Keys(item, at, "id", "name", "materials", "work_minutes", "blocks");
+                check.Keys(item, at, "id", "name", "materials", "work_minutes", "blocks", "encloses");
                 string? id = check.Id(item, at, IdShape);
                 string? name = check.Text(item, at, "name");
                 var materials = check.Amounts(item, at, "materials", goods);
                 int? minutes = check.Int(item, at, "work_minutes", 1);
                 bool? blocks = check.Bool(item, at, "blocks");
+                bool? encloses = check.Bool(item, at, "encloses");
                 if (id == null)
                     continue;
                 if (pieces.ContainsKey(id))
                     problems.Add(at + ": a second piece with the id \"" + id + "\"");
-                else if (name != null && materials != null && minutes != null && blocks != null)
-                    pieces[id] = new PieceKind(id, name, materials, minutes.Value, blocks.Value);
+                else if (name != null && materials != null && minutes != null && blocks != null && encloses != null)
+                    pieces[id] = new PieceKind(id, name, materials, minutes.Value, blocks.Value, encloses.Value);
+            }
+            foreach (var (item, at) in check.List(k, "construction.json", "templates"))
+            {
+                check.Keys(item, at, "id", "name", "rows", "key");
+                string? id = check.Id(item, at, IdShape);
+                string? name = check.Text(item, at, "name");
+                // The key: one letter for each piece ('.' is a tile left as it is).
+                var key = new Dictionary<char, string>();
+                if (item["key"] is JsonObject keys)
+                    foreach (var (letter, node) in keys)
+                    {
+                        string? piece = node is JsonValue v && v.TryGetValue(out string? s) ? s : null;
+                        if (letter.Length != 1 || letter == ".")
+                            problems.Add(at + ".key: \"" + letter + "\" should be one letter, not \".\"");
+                        else if (piece == null || !pieces.ContainsKey(piece))
+                            problems.Add(at + ".key." + letter + ": no piece \"" + (piece ?? "") + "\"");
+                        else
+                            key[letter[0]] = piece;
+                    }
+                else if (item.ContainsKey("key"))
+                    problems.Add(at + ".key: should be a table of letters and pieces");
+                var laid = new List<(string, int, int)>();
+                int width = 0, height = 0;
+                bool rowsOk = item["rows"] is JsonArray rows && rows.Count > 0;
+                if (rowsOk)
+                {
+                    var lines = ((JsonArray)item["rows"]!).Select(n => n is JsonValue v && v.TryGetValue(out string? s) ? s : null).ToList();
+                    width = lines[0]?.Length ?? 0;
+                    height = lines.Count;
+                    for (int y = 0; y < lines.Count; y++)
+                    {
+                        if (lines[y] is not string line || line.Length != width || width == 0)
+                        {
+                            problems.Add(at + ".rows[" + y + "]: every row should be text of the same length, not empty");
+                            rowsOk = false;
+                            break;
+                        }
+                        for (int x = 0; x < line.Length; x++)
+                            if (line[x] == '.')
+                                continue;
+                            else if (key.TryGetValue(line[x], out var piece))
+                                laid.Add((piece, x, y));
+                            else if (item["key"] is JsonObject && !((JsonObject)item["key"]!).ContainsKey(line[x].ToString()))
+                            {
+                                problems.Add(at + ".rows[" + y + "]: \"" + line[x] + "\" is not in the key");
+                                rowsOk = false;
+                            }
+                    }
+                }
+                else if (item.ContainsKey("rows"))
+                    problems.Add(at + ".rows: should be a list of text rows, not empty");
+                if (id == null)
+                    continue;
+                if (templates.ContainsKey(id))
+                    problems.Add(at + ": a second template with the id \"" + id + "\"");
+                else if (name != null && rowsOk && laid.Count > 0)
+                    templates[id] = new Template(id, name, width, height, laid);
+                else if (name != null && rowsOk)
+                    problems.Add(at + ".rows: no pieces at all");
             }
             if (k["test_ground"] is JsonObject tg)
             {
@@ -374,12 +447,39 @@ public sealed class Content
                 problems.Add("construction.json.test_ground: should be an object { ... }");
         }
 
+        // Who founds the colony.
+        FoundingRules? founding = null;
+        if (Open("founding.json", "founders", "names", "supplies", "bedroll_each") is JsonObject f)
+        {
+            int? founders = check.Int(f, "founding.json", "founders", 1);
+            var names = new List<string>();
+            if (f["names"] is JsonArray list)
+                for (int i = 0; i < list.Count; i++)
+                    if (list[i] is JsonValue v && v.TryGetValue(out string? s) && s.Trim().Length > 0)
+                    {
+                        if (names.Contains(s))
+                            problems.Add("founding.json.names[" + i + "]: \"" + s + "\" is there twice");
+                        names.Add(s);
+                    }
+                    else
+                        problems.Add("founding.json.names[" + i + "]: should be text that is not empty");
+            else if (f.ContainsKey("names"))
+                problems.Add("founding.json.names: should be a list of names");
+            if (founders != null && names.Count < founders)
+                problems.Add("founding.json.names: " + names.Count + " names for " + founders + " founders; there should be at least as many names");
+            var supplies = check.Amounts(f, "founding.json", "supplies", goods);
+            bool? each = check.Bool(f, "founding.json", "bedroll_each");
+            if (founders != null && supplies != null && each != null)
+                founding = new FoundingRules(founders.Value, names, supplies, each.Value);
+        }
+
         if (problems.Count > 0)
             throw new ContentException(problems);
         return new Content(goods, workshops, recipes, carry, walk, pickup, drop)
         {
             Needs = needs, Eat = eat!, Drink = drink!, BedrollPerHour = bedroll, GroundPerHour = ground, SpringPerDay = spring,
             Schedules = schedules, DefaultSchedule = defaultSchedule!, Pieces = pieces, TestGround = testGround!,
+            Templates = templates, Founding = founding!,
         };
     }
 

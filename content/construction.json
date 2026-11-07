@@ -1,9 +1,24 @@
 {
   "version": 1,
   "pieces": [
-    { "id": "wall", "name": "Timber wall", "materials": { "timber": 2 }, "work_minutes": 45, "blocks": true },
-    { "id": "door", "name": "Timber door", "materials": { "timber": 3 }, "work_minutes": 60, "blocks": false },
-    { "id": "floor", "name": "Plank floor", "materials": { "timber": 1 }, "work_minutes": 15, "blocks": false }
+    { "id": "wall", "name": "Timber wall", "materials": { "timber": 2 }, "work_minutes": 45, "blocks": true, "encloses": true },
+    { "id": "door", "name": "Timber door", "materials": { "timber": 3 }, "work_minutes": 60, "blocks": false, "encloses": true },
+    { "id": "floor", "name": "Plank floor", "materials": { "timber": 1 }, "work_minutes": 15, "blocks": false, "encloses": false }
+  ],
+  "templates": [
+    {
+      "id": "small_house",
+      "name": "Small house",
+      "rows": [
+        "WWWWWW",
+        "W....W",
+        "W....W",
+        "W....W",
+        "W....W",
+        "WWDWWW"
+      ],
+      "key": { "W": "wall", "D": "door" }
+    }
   ],
   "test_ground": {
     "width": 48,

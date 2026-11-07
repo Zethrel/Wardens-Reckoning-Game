@@ -31,8 +31,8 @@ public static class ColonySave
     // store takes, the workers, the workshops and their orders, the jobs. 4: the colonists' day (step 14a): needs,
     // schedule, sleep, collapse, what they do for themselves; the bedrolls; the springs. 5: the kinds of work each
     // colonist is not allowed (step 14b). 6: the ground (its size, what is in the way, the finished pieces) and the
-    // construction projects (step 15a).
-    public const int Version = 6;
+    // construction projects (step 15a). 7: stockpiles (a store's tiles) and stores being emptied (step 15b).
+    public const int Version = 7;
 
     /// <summary>The colony as JSON.</summary>
     public static JsonObject Write(Colony colony) => new()
@@ -56,6 +56,8 @@ public static class ColonySave
             ["goods"] = Amounts(i.Goods),
             ["kept"] = Amounts(i.Kept),
             ["accepts"] = new JsonArray(i.Accepts.Select(g => (JsonNode?)g).ToArray()),
+            ["emptying"] = i.Emptying,
+            ["area"] = i.Area is not Area a ? null : new JsonArray(a.X, a.Y, a.Width, a.Height),
         }).ToArray()),
         ["reservations"] = new JsonArray(colony.Stocks.Reservations.Select(r => (JsonNode?)new JsonObject
         {
@@ -208,6 +210,9 @@ public static class ColonySave
         }
         ReadStocks(save, colony, content);
         colony.SetGround(ReadGround(save, content));
+        foreach (var pile in colony.Stocks.Inventories.Where(i => i.Area != null))
+            if (colony.Ground is not Ground g || pile.Area!.Tiles.Any(tile => !g.Inside(tile.X, tile.Y)))
+                throw new ColonySaveException("the stockpile \"" + pile.Name + "\" lies off the ground");
         if (colony.Work != null)
             ReadWork(Get<JsonObject>(save, "work"), colony, content!);
         return colony;
@@ -474,7 +479,7 @@ public static class ColonySave
         {
             if (content == null || !content.Pieces.TryGetValue(piece, out var kind))
                 throw new ColonySaveException("ground.pieces names \"" + piece + "\", which " + (content == null ? "needs the colony's content to load" : "is not in the content"));
-            ground.AddPiece(piece, kind.Blocks, x, y);
+            ground.AddPiece(piece, kind.Blocks, x, y, kind.Encloses);
         }
         return ground;
     }
@@ -512,6 +517,17 @@ public static class ColonySave
                 inventory.Keep(Good(JsonValue.Create(good), at + ".kept"), Count(n, at + ".kept." + good));
             foreach (var g in o["accepts"] as JsonArray ?? throw new ColonySaveException(at + ".accepts is not a list"))
                 inventory.Accepts.Add(Good(g, at + ".accepts"));
+            inventory.Emptying = o["emptying"] is JsonValue ev && ev.TryGetValue(out bool emptying)
+                ? emptying : throw new ColonySaveException(at + ".emptying is not true or false");
+            if (o["area"] is not null)
+            {
+                if (o["area"] is not JsonArray area || area.Count != 4)
+                    throw new ColonySaveException(at + ".area is not [x, y, width, height]");
+                long[] v = area.Select((n, k) => Number(n, at + ".area[" + k + "]")).ToArray();
+                if (v[2] < 1 || v[3] < 1 || v.Any(n => n < 0 || n > int.MaxValue) || holder != Holder.Store)
+                    throw new ColonySaveException(at + ".area is not a block of tiles of a store");
+                inventory.Area = new Area((int)v[0], (int)v[1], (int)v[2], (int)v[3]);
+            }
             stocks.Put(inventory);
         }
         var claimed = new Dictionary<(long, string), int>();

@@ -52,6 +52,9 @@ public class ContentTests
         Assert.False(content.Pieces["door"].Blocks);
         Assert.Equal((48, 48), (content.TestGround.Width, content.TestGround.Height));
         Assert.Contains(new Obstacle("rock", 30, 8), content.TestGround.Obstacles);
+        Assert.True(content.Pieces["door"].Encloses);
+        Assert.False(content.Pieces["floor"].Encloses);
+        Assert.Equal((3, 60, true), (content.Founding.Founders, content.Founding.Supplies["timber"], content.Founding.BedrollEach));
     }
 
     public static IEnumerable<object[]> Broken()
@@ -125,6 +128,19 @@ public class ContentTests
         yield return Case("construction.json", r => Rock(r)["kind"] = "Big Rock", "construction.json.test_ground.obstacles[0].kind: \"Big Rock\" should be lowercase");
         yield return Case("construction.json", r => r.Remove("test_ground"), "construction.json: \"test_ground\" is missing");
         yield return Case("construction.json", r => r["test_ground"] = 5, "construction.json.test_ground: should be an object");
+        // Templates and the founding.
+        JsonObject House(JsonObject r) => r["templates"]![0]!.AsObject();
+        yield return Case("construction.json", r => House(r)["rows"]![1] = "W...W", "construction.json.templates[0].rows[1]: every row should be text of the same length");
+        yield return Case("construction.json", r => House(r)["rows"]![1] = "W.X..W", "construction.json.templates[0].rows[1]: \"X\" is not in the key");
+        yield return Case("construction.json", r => House(r)["key"]!["W"] = "tower", "construction.json.templates[0].key.W: no piece \"tower\"");
+        yield return Case("construction.json", r => House(r)["rows"] = new JsonArray("....", "...."), "construction.json.templates[0].rows: no pieces at all");
+        yield return Case("construction.json", r => r["templates"]!.AsArray().Add(House(r).DeepClone()), "a second template with the id \"small_house\"");
+        yield return Case("construction.json", r => r["pieces"]![1]!.AsObject().Remove("encloses"), "construction.json.pieces[1]: \"encloses\" is missing");
+        yield return Case("founding.json", r => r["founders"] = 13, "founding.json.names: 12 names for 13 founders");
+        yield return Case("founding.json", r => r["founders"] = 0, "founding.json.founders: should be a whole number of 1 or more");
+        yield return Case("founding.json", r => r["names"]![1] = "Ada", "founding.json.names[1]: \"Ada\" is there twice");
+        yield return Case("founding.json", r => r["supplies"]!["gold"] = 5, "founding.json.supplies.gold: no good \"gold\"");
+        yield return Case("founding.json", r => r["bedroll_each"] = 1, "founding.json.bedroll_each: should be true or false");
         // Goods made from themselves.
         yield return Case("recipes.json", r => Recipe(r)["outputs"] = new JsonObject { ["flour"] = 4, ["wheat"] = 1 },
                           "\"wheat\" is made from itself");

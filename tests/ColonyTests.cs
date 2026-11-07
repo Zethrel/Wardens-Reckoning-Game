@@ -289,7 +289,7 @@ public class ColonyTests
         yield return new object[] { text(s => s["format"] = "wardens-reckoning-save"), "not a colony save of this game" };
         yield return new object[] { text(s => s.Remove("format")), "\"format\" is missing" };
         yield return new object[] { text(s => s["version"] = 0), "older saves are not converted" };
-        yield return new object[] { text(s => s["version"] = 7), "made by a newer game" };
+        yield return new object[] { text(s => s["version"] = 8), "made by a newer game" };
         yield return new object[] { text(s => s["version"] = "2"), "\"version\" is not a whole number" };
         yield return new object[] { text(s => s["seed"] = "forty-two"), "seed is not a whole number" };
         yield return new object[] { text(s => s["seed"] = 42), "\"seed\" is not text" };
@@ -314,7 +314,7 @@ public class ColonyTests
     public void A_refused_save_is_left_as_it_was()
     {
         string path = Path.Combine(Scratch.Root, "refused.json");
-        string text = Saved().ToJsonString().Replace("\"version\":6", "\"version\":99");
+        string text = Saved().ToJsonString().Replace("\"version\":7", "\"version\":99");
         File.WriteAllText(path, text);
         var e = Assert.Throws<ColonySaveException>(() => ColonySave.Load(path));
         Assert.StartsWith(path + ": colony save version 99", e.Message);

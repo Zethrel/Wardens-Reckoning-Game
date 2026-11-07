@@ -28,9 +28,20 @@ public sealed partial class Work
     /// <summary>A bedroll laid out at (`x`, `y`), for `owner` (or nobody yet).</summary>
     public Bedroll AddBedroll(double x, double y, ColonistId? owner)
     {
+        OnOpenGround(x, y);
         var bedroll = new Bedroll(colony.Ids.Next<BuildingId>(), x, y, owner);
         bedrolls[bedroll.Id.Value] = bedroll;
         return bedroll;
+    }
+
+    /// <summary>Lays a bedroll out somewhere else (step 15b: at once, as the player places it; carrying it
+    /// comes later). Someone already going to sleep there finds their way to its new place the next time.</summary>
+    public Bedroll MoveBedroll(BuildingId id, double x, double y)
+    {
+        OnOpenGround(x, y);
+        var moved = bedrolls[id.Value] with { X = x, Y = y };
+        bedrolls[id.Value] = moved;
+        return moved;
     }
 
     /// <summary>The spring (a stand-in for rivers and wells): a store of water at (`x`, `y`), filled to

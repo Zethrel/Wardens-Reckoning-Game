@@ -35,8 +35,17 @@ public sealed class Inventory(InventoryId id, string name, Holder holder, double
     /// <summary>For a store: the goods it takes (empty: every good). Carriers and workshops ignore it.</summary>
     public SortedSet<string> Accepts { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>For a store: being emptied (step 15b), as the founders' carts are once there is somewhere better:
+    /// its goods are carried to other stores that take them, when nobody has other work, and nothing is brought
+    /// here.</summary>
+    public bool Emptying { get; set; }
+
+    /// <summary>For a stockpile (step 15b): the tiles it covers, or null for a store at a point. Its goods are
+    /// counted at its middle (X, Y).</summary>
+    public Area? Area { get; internal set; }
+
     /// <summary>Whether goods of `good` may be brought here to be stored.</summary>
-    public bool Takes(string good) => Holder == Holder.Store && (Accepts.Count == 0 || Accepts.Contains(good));
+    public bool Takes(string good) => Holder == Holder.Store && !Emptying && (Accepts.Count == 0 || Accepts.Contains(good));
 
     /// <summary>Units of each good here (goods with none are left out).</summary>
     public IReadOnlyDictionary<string, int> Goods => goods;
@@ -67,6 +76,14 @@ public sealed class Inventory(InventoryId id, string name, Holder holder, double
         else
             goods[good] = now;
     }
+}
+
+/// <summary>A block of tiles: `Width` by `Height` from tile (X, Y).</summary>
+public sealed record Area(int X, int Y, int Width, int Height)
+{
+    public bool Covers(int x, int y) => x >= X && y >= Y && x < X + Width && y < Y + Height;
+    public IEnumerable<(int X, int Y)> Tiles =>
+        Enumerable.Range(Y, Height).SelectMany(y => Enumerable.Range(X, Width).Select(x => (x, y)));
 }
 
 /// <summary>A claim on goods in an inventory, for one purpose: claimed goods stay where they are, but nobody else
