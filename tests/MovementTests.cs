@@ -358,8 +358,11 @@ public class MovementTests
         }
         yield return Case(s => s["ground"]!["surfaces"]![0]![2] = 1.5, "ground.surfaces[0] has a speed that cannot be");
         yield return Case(s => s["ground"]!["surface"] = "sand", "ground.surface \"sand\" is not in ground.surfaces");
-        yield return Case(s => s["ground"]!["patches"]![0]![0] = "sand", "ground.patches[0] is not [surface, x, y]");
-        yield return Case(s => s["ground"]!["patches"]![1] = s["ground"]!["patches"]![0]!.DeepClone(), "ground.patches[1] is off the ground, or a second patch on its tile");
+        yield return Case(s => s["ground"]!["surfaces"]![0]![2] = -1, "ground.surfaces[0] has a speed that cannot be");
+        yield return Case(s => s["ground"]!["surfaces"]![0] = new JsonArray("grass", "Grass", 0), "ground.surface \"grass\" is not in ground.surfaces, or cannot be walked on");
+        yield return Case(s => s["ground"]!["surfaces"]!.AsArray().Add(s["ground"]!["surfaces"]![0]!.DeepClone()), "ground.surfaces[2] has a speed that cannot be, or is named twice");
+        yield return Case(s => s["ground"]!["rows"] = new JsonArray(), "ground.rows should be 48 rows");
+        yield return Case(s => s["ground"]!["rows"]![0] = 7, "ground.rows[0] should be 48 letters");
         yield return Case(s => s["ground"]!["pieces"] = new JsonArray(), "work.projects[0] is planned where it cannot be (10, 10)");
     }
 

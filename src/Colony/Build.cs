@@ -76,6 +76,8 @@ public sealed partial class Work
                 return new Placement(false, at + "It is outside the ground (" + ground.Width + " by " + ground.Height + " tiles).");
             if (ground.ObstacleAt(tx, ty) is string obstacle)
                 return new Placement(false, at + "A " + obstacle + " is in the way.");
+            if (ground.Water(tx, ty))
+                return new Placement(false, at + "It is " + ground.SurfaceAt(tx, ty).Name.ToLowerInvariant() + ": nothing can be built on it yet.");
             if (ground.PieceAt(tx, ty) is string built)
                 return new Placement(false, at + "There is already " + Article(content.Pieces[built].Name) + " there.");
             if (projects.Values.FirstOrDefault(p => Covers(p, tx, ty)) is Project planned)

@@ -3,7 +3,12 @@
   "surfaces": [
     { "id": "road", "name": "Road", "speed": 1.0 },
     { "id": "grass", "name": "Grass", "speed": 0.8 },
-    { "id": "rough", "name": "Rough ground", "speed": 0.55 }
+    { "id": "rough", "name": "Rough ground", "speed": 0.55 },
+    { "id": "sand", "name": "Sand", "speed": 0.7 },
+    { "id": "snow", "name": "Snow", "speed": 0.6 },
+    { "id": "mud", "name": "Mud", "speed": 0.5 },
+    { "id": "fresh_water", "name": "Fresh water", "speed": 0 },
+    { "id": "salt_water", "name": "Salt water", "speed": 0 }
   ],
   "pieces": [
     { "id": "wall", "name": "Timber wall", "materials": { "timber": 2 }, "work_minutes": 45, "blocks": true, "encloses": true,

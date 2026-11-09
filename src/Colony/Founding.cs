@@ -1,23 +1,82 @@
 // Copyright (c) 2026 Zethrel. All rights reserved. See LICENSE.
+using WardensReckoning.World;
+
 namespace WardensReckoning.Colony;
 
 /// <summary>
 /// How a game begins (library Review 26, R26-04, and Review 33): the founders arrive at the spot the player chose,
-/// with the supplies they brought. For now the spot is on the flat test ground (step 17 brings the world's own
-/// local terrain), and who the founders are is only their names, drawn by the colony's dice from founding.json
-/// (their skills, traits and age come later).
+/// with the supplies they brought. The spot is a founding site of the world's export, on its local map (step 17b,
+/// library Review 36), or a tile of the flat test ground. Who the founders are is only their names, drawn by the
+/// colony's dice from founding.json (their skills, traits and age come later).
 /// </summary>
 public static class Founding
 {
+    /// <summary>
+    /// The founders' arrival on a founding site's local map: the carts on the open tile nearest the middle of the map
+    /// (the generator keeps the middle clear of trees and rocks), the founders and their bedrolls beside them, as on
+    /// the test ground. If the map has fresh water, the founders drink from it: a drinking place (a spring, filled to
+    /// the content's spring_litres_per_day each morning) on the bank tile nearest the carts, named for the water
+    /// ("The river", "The brook", "The lake"). A site without fresh water has none: the founders live on the water
+    /// they brought (founding.json) until they build a well.
+    /// </summary>
+    public static (Colony Colony, Inventory Carts) Found(long seed, Moment arrival, Content content, LocalMap map)
+    {
+        var ground = Ground.FromMap(map, content);
+        var (x, y) = OpenNear(ground, map.Size / 2, map.Size / 2, new HashSet<(int, int)>());
+        var (colony, carts, used) = Arrive(seed, arrival, content, ground, x, y);
+        if (Bank(ground, map, x, y, used) is var (bx, by))
+            colony.Work!.AddSpring(bx + 0.5, by + 0.5, WaterName(map.Water));
+        return (colony, carts);
+    }
+
+    /// <summary>What the founders call the water they drink from, by what the generator moved the site to.</summary>
+    public static string WaterName(string? water) => water switch
+    {
+        "river" => "The river",
+        "stream" => "The brook",
+        "lake" => "The lake",
+        _ => "The water",
+    };
+
+    /// <summary>The open tile beside fresh water (across, not on the slant) that is the shortest walk from (x, y),
+    /// and not taken by the carts, a founder or a bedroll; or null if there is none the founders can reach. On a
+    /// tie, the first row by row.</summary>
+    static (int X, int Y)? Bank(Ground ground, LocalMap map, int x, int y, HashSet<(int, int)> used)
+    {
+        (int, int)? best = null;
+        double near = double.PositiveInfinity;
+        for (int ty = 0; ty < map.Size; ty++)
+            for (int tx = 0; tx < map.Size; tx++)
+            {
+                if (!ground.Open(tx, ty) || used.Contains((tx, ty)) || !new[] { (0, -1), (1, 0), (0, 1), (-1, 0) }.Any(d =>
+                        ground.Inside(tx + d.Item1, ty + d.Item2) && map.SurfaceAt(tx + d.Item1, ty + d.Item2) == "fresh_water"))
+                    continue;
+                double metres = ground.Metres(tx, ty, x, y);
+                if (metres < near)
+                    (best, near) = ((tx, ty), metres);
+            }
+        return best;
+    }
+
     /// <summary>The founders' arrival: a colony on the test ground with the founders' carts on tile (x, y), holding
     /// the supplies; the founders and their bedrolls on the open tiles nearest the carts; and a stream (the
     /// stand-in spring) a little way south, until step 17 brings the world's rivers (library Review 34).</summary>
     public static (Colony Colony, Inventory Carts) Found(long seed, Moment arrival, Content content, int x, int y)
     {
-        var colony = new Colony(seed, arrival, content);
         var ground = Ground.Test(content);
         if (!ground.Open(x, y))
             throw new ArgumentException("the founders cannot arrive on (" + x + ", " + y + "): it is not open ground");
+        var (colony, carts, used) = Arrive(seed, arrival, content, ground, x, y);
+        var (sx, sy) = OpenNear(ground, x, y + 6, used);
+        colony.Work!.AddSpring(sx + 0.5, sy + 0.5, "The stream");
+        return (colony, carts);
+    }
+
+    /// <summary>The colony on `ground`, with the carts on tile (x, y) holding the supplies, and the founders and
+    /// their bedrolls on the open tiles nearest; and the tiles used.</summary>
+    static (Colony, Inventory, HashSet<(int, int)>) Arrive(long seed, Moment arrival, Content content, Ground ground, int x, int y)
+    {
+        var colony = new Colony(seed, arrival, content);
         colony.Lay(ground);
         var work = colony.Work!;
         var used = new HashSet<(int, int)> { (x, y) };
@@ -39,9 +98,7 @@ public static class Founding
                 work.AddBedroll(bx + 0.5, by + 0.5, founder.Id);
             }
         }
-        var (sx, sy) = OpenNear(ground, x, y + 6, used);
-        work.AddSpring(sx + 0.5, sy + 0.5, "The stream");
-        return (colony, carts);
+        return (colony, carts, used);
     }
 
     /// <summary>The open tile nearest (x, y) not yet used: rings outwards, each ring row by row.</summary>

@@ -63,7 +63,11 @@ public sealed record PieceKind(string Id, string Name, IReadOnlyDictionary<strin
 
 /// <summary>What the ground is (construction.json): grass, rough ground, a road. Walking on it goes at `Speed` of
 /// a road's speed (1 = 100%).</summary>
-public sealed record Surface(string Id, string Name, double Speed);
+public sealed record Surface(string Id, string Name, double Speed)
+{
+    /// <summary>Whether the surface can be walked on (and built on): water has a speed of 0 and cannot.</summary>
+    public bool CanWalk => Speed > 0;
+}
 
 /// <summary>A block of one surface on the test ground.</summary>
 public sealed record Patch(string Surface, int X, int Y, int Width, int Height);
@@ -390,7 +394,7 @@ public sealed class Content
                 check.Keys(item, at, "id", "name", "speed");
                 string? id = check.Id(item, at, IdShape);
                 string? name = check.Text(item, at, "name");
-                double? speed = check.Share(item, at, "speed");
+                double? speed = check.Share(item, at, "speed", zeroAllowed: true);
                 if (id == null)
                     continue;
                 if (surfaces.ContainsKey(id))
@@ -501,6 +505,8 @@ public sealed class Content
                 string? surface = check.Text(tg, at, "surface");
                 if (surface != null && !surfaces.ContainsKey(surface))
                     problems.Add(at + ".surface: no surface \"" + surface + "\"");
+                else if (surface != null && !surfaces[surface].CanWalk)
+                    problems.Add(at + ".surface: \"" + surface + "\" cannot be walked on, so the ground cannot be made of it");
                 var patches = new List<Patch>();
                 foreach (var (item, pat) in check.List(tg, at, "patches"))
                 {
@@ -682,14 +688,16 @@ public sealed class Content
             return null;
         }
 
-        /// <summary>A share above 0 and at most 1 (a speed: 0.8 is 80%).</summary>
-        public double? Share(JsonObject item, string at, string key)
+        /// <summary>A share above 0 and at most 1 (a speed: 0.8 is 80%); with `zeroAllowed`, 0 too (a surface that
+        /// cannot be walked on, such as water).</summary>
+        public double? Share(JsonObject item, string at, string key, bool zeroAllowed = false)
         {
             if (!item.ContainsKey(key))
                 return null;
-            if (item[key] is JsonValue v && v.TryGetValue(out double d) && d > 0 && d <= 1)
+            if (item[key] is JsonValue v && v.TryGetValue(out double d) && (d > 0 || (zeroAllowed && d == 0)) && d <= 1)
                 return d;
-            problems.Add(at + "." + key + ": should be a number above 0 and at most 1 (1 is a road's speed)");
+            problems.Add(at + "." + key + ": should be a number " + (zeroAllowed ? "from 0 (cannot be walked on)" : "above 0")
+                         + " and at most 1 (1 is a road's speed)");
             return null;
         }
 

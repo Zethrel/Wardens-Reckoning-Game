@@ -138,13 +138,15 @@ public class ContentTests
         // Surfaces, speeds, footprints.
         JsonObject Well(JsonObject r) => r["pieces"]![4]!.AsObject();
         JsonObject Grass(JsonObject r) => r["surfaces"]![1]!.AsObject();
-        yield return Case("construction.json", r => Grass(r)["speed"] = 1.2, "construction.json.surfaces[1].speed: should be a number above 0 and at most 1");
-        yield return Case("construction.json", r => Grass(r)["speed"] = 0, "construction.json.surfaces[1].speed: should be a number above 0 and at most 1");
-        yield return Case("construction.json", r => r["surfaces"]!.AsArray().Add(Grass(r).DeepClone()), "construction.json.surfaces[3]: a second surface with the id \"grass\"");
-        yield return Case("construction.json", r => r["test_ground"]!["surface"] = "sand", "construction.json.test_ground.surface: no surface \"sand\"");
-        yield return Case("construction.json", r => r["test_ground"]!["patches"]![0]!["surface"] = "sand", "construction.json.test_ground.patches[0].surface: no surface \"sand\"");
+        yield return Case("construction.json", r => Grass(r)["speed"] = 1.2, "construction.json.surfaces[1].speed: should be a number from 0 (cannot be walked on) and at most 1");
+        yield return Case("construction.json", r => Grass(r)["speed"] = -0.1, "construction.json.surfaces[1].speed: should be a number from 0 (cannot be walked on) and at most 1");
+        yield return Case("construction.json", r => r["surfaces"]!.AsArray().Add(Grass(r).DeepClone()), "construction.json.surfaces[8]: a second surface with the id \"grass\"");
+        yield return Case("construction.json", r => r["test_ground"]!["surface"] = "gravel", "construction.json.test_ground.surface: no surface \"gravel\"");
+        yield return Case("construction.json", r => r["test_ground"]!["surface"] = "fresh_water", "construction.json.test_ground.surface: \"fresh_water\" cannot be walked on");
+        yield return Case("construction.json", r => r["test_ground"]!["patches"]![0]!["surface"] = "gravel", "construction.json.test_ground.patches[0].surface: no surface \"gravel\"");
         yield return Case("construction.json", r => r["test_ground"]!["patches"]![0]!["width"] = 20, "construction.json.test_ground.patches[0]: it reaches outside the ground");
         yield return Case("construction.json", r => Wall(r)["speed"] = 2, "construction.json.pieces[0].speed: should be a number above 0 and at most 1");
+        yield return Case("construction.json", r => Wall(r)["speed"] = 0, "construction.json.pieces[0].speed: should be a number above 0 and at most 1");
         yield return Case("construction.json", r => Well(r)["access"] = new JsonArray(1, 1), "construction.json.pieces[4].access: (1, 1) is under the piece itself");
         yield return Case("construction.json", r => Well(r)["access"] = null, "construction.json.pieces[4].access: a piece bigger than one tile needs a tile it is built and used from");
         yield return Case("construction.json", r => Well(r)["size"] = new JsonArray(0, 2), "construction.json.pieces[4].size: should be two whole numbers [a, b] of 1 or more");

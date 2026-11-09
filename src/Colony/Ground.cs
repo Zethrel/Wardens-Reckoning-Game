@@ -1,16 +1,20 @@
 // Copyright (c) 2026 Zethrel. All rights reserved. See LICENSE.
+using WardensReckoning.World;
+
 namespace WardensReckoning.Colony;
 
 /// <summary>
 /// The ground the colony stands on (step 15a): a grid of tiles, each 1 m square (Review 32), and what is on each
 /// one: something in the way (a rock, a tree) or a finished construction piece (a wall, a door, a floor). Until the
-/// world generator makes local terrain (step 17), this is the flat test ground of construction.json.
+/// colony is founded on a local map of the world generator's export (step 17b, `FromMap`), or on the flat test
+/// ground of construction.json (`Test`).
 ///
 /// Tile (x, y) covers the metres from x to x + 1 across and y to y + 1 down; its centre is (x + 0.5, y + 0.5).
 ///
 /// Each tile has a **surface** (grass, rough ground; step 15c, library Review 34), and walking on it goes at that
 /// surface's speed: 1 is a road's (100%), grass 0.8, rough ground 0.55. A piece may set its own speed (a road, a
-/// floor: 1); otherwise the surface beneath it counts.
+/// floor: 1); otherwise the surface beneath it counts. A surface of speed 0 (fresh water, salt water; library
+/// Review 36) cannot be walked on or built on: it blocks, like a rock.
 ///
 /// The ground also finds the colonists' ways (path-finding): from any tile to any other, around what blocks
 /// walking, moving to any of the 8 tiles around, and never cutting a corner past a wall or a rock (a slanting step
@@ -18,9 +22,10 @@ namespace WardensReckoning.Colony;
 /// by the speed of the tile it steps onto: so a metre of grass counts as 1.25 m of road, and the way found is the
 /// quickest, not always the shortest.
 ///
-/// And it finds the **rooms** (step 15b, library Review 33): a room is a group of open tiles closed in on every
-/// side by walls, doors or anything else that blocks, with no open way out to the edge of the ground. Its tiles
-/// count as indoors. There are no roofs yet.
+/// And it finds the **rooms** (step 15b, library Review 33): a room is space closed in by walls and doors (pieces
+/// that close a room in), with no way out to the edge of the ground. Its open tiles count as indoors. There are no
+/// roofs yet. Trees and rocks close nothing in (step 17b: on a local map, a tile ringed by trees is not a room),
+/// and water is open to the sky: space that holds water is outdoors, so a wall built round a pond is no room.
 /// </summary>
 public sealed class Ground
 {
@@ -30,6 +35,7 @@ public sealed class Ground
     readonly string?[] obstacles;
     readonly string?[] pieces;
     readonly bool[] blocked;
+    readonly bool[] pieceBlocks;
     readonly bool[] encloses;
     // Ways already worked out, by the tile they lead to; forgotten whenever something that blocks is built.
     readonly Dictionary<int, double[]> ways = new();
@@ -50,8 +56,11 @@ public sealed class Ground
         obstacles = new string?[width * height];
         pieces = new string?[width * height];
         blocked = new bool[width * height];
+        pieceBlocks = new bool[width * height];
         encloses = new bool[width * height];
         var everywhere = surface ?? new Surface("ground", "Ground", 1);
+        if (!everywhere.CanWalk)
+            throw new ArgumentException("a ground cannot be made of \"" + everywhere.Id + "\" everywhere: it cannot be walked on", nameof(surface));
         surfaces[everywhere.Id] = everywhere;
         surfaceOf = new string[width * height];
         Array.Fill(surfaceOf, everywhere.Id);
@@ -60,7 +69,7 @@ public sealed class Ground
         Surface = everywhere;
     }
 
-    /// <summary>The surface the ground was made of everywhere (patches aside).</summary>
+    /// <summary>The surface the ground was made of everywhere (other tiles aside).</summary>
     public Surface Surface { get; }
 
     /// <summary>The test ground of the content: its size, its surfaces and what is in the way.</summary>
@@ -77,6 +86,38 @@ public sealed class Ground
         return ground;
     }
 
+    /// <summary>
+    /// The ground of a local map (step 17b): a tile for each of the map's, with its surface (each must be one of the
+    /// content's, by its id) and its tree or rock as an obstacle. The ground's own surface (`Surface`) is the one
+    /// most of its tiles have (on a tie, the first by name), so a save lists as few other tiles as can be.
+    /// </summary>
+    public static Ground FromMap(LocalMap map, Content content)
+    {
+        var missing = map.Surfaces.Where(s => !content.Surfaces.ContainsKey(s)).ToList();
+        if (missing.Count > 0)
+            throw new ArgumentException("the local map has surfaces the content does not know: " + string.Join(", ", missing)
+                                        + " (construction.json needs a surface of each name)", nameof(map));
+        var count = new SortedDictionary<string, int>(StringComparer.Ordinal);
+        for (int y = 0; y < map.Size; y++)
+            for (int x = 0; x < map.Size; x++)
+                count[map.SurfaceAt(x, y)] = count.GetValueOrDefault(map.SurfaceAt(x, y)) + 1;
+        // The most common surface that can be walked on (a ground is never made all of water).
+        var walkable = count.Where(c => content.Surfaces[c.Key].CanWalk).ToList();
+        if (walkable.Count == 0)
+            throw new ArgumentException("the local map is all water: there is nowhere to stand", nameof(map));
+        string own = walkable.First(c => c.Value == walkable.Max(w => w.Value)).Key;
+        var ground = new Ground(map.Size, map.Size, content.Surfaces[own]);
+        for (int y = 0; y < map.Size; y++)
+            for (int x = 0; x < map.Size; x++)
+            {
+                if (map.SurfaceAt(x, y) != own)
+                    ground.SetSurface(x, y, content.Surfaces[map.SurfaceAt(x, y)]);
+                if (map.ThingAt(x, y) is string thing)
+                    ground.AddObstacle(thing, x, y);
+            }
+        return ground;
+    }
+
     /// <summary>The surface of a tile.</summary>
     public Surface SurfaceAt(int x, int y) => surfaces[surfaceOf[Index(x, y)]];
 
@@ -87,17 +128,16 @@ public sealed class Ground
         return double.IsNaN(own) ? surfaces[surfaceOf[Index(x, y)]].Speed : own;
     }
 
-    /// <summary>Every tile whose surface is not the ground's own, row by row, as (surface, x, y) (for a save).</summary>
-    public IEnumerable<(Surface Surface, int X, int Y)> Patches =>
-        Enumerable.Range(0, Width * Height).Where(i => surfaceOf[i] != Surface.Id).Select(i => (surfaces[surfaceOf[i]], i % Width, i / Width));
-
     internal void SetSurface(int x, int y, Surface surface)
     {
         if (surfaces.TryGetValue(surface.Id, out var known) && known != surface)
             throw new ArgumentException("a different surface called \"" + surface.Id + "\" is already on this ground");
         surfaces[surface.Id] = surface;
-        surfaceOf[Index(x, y)] = surface.Id;
+        int i = Index(x, y);
+        surfaceOf[i] = surface.Id;
+        Reblock(i);
         ways.Clear();
+        rooms = null;
     }
 
     public bool Inside(int x, int y) => x >= 0 && y >= 0 && x < Width && y < Height;
@@ -119,10 +159,6 @@ public sealed class Ground
     /// <summary>Whether someone can walk onto a tile: on the ground, and nothing blocking on it.</summary>
     public bool Open(int x, int y) => Inside(x, y) && !blocked[Index(x, y)];
 
-    /// <summary>Every obstacle, row by row (for a save).</summary>
-    public IEnumerable<Obstacle> Obstacles =>
-        Enumerable.Range(0, Width * Height).Where(i => obstacles[i] != null).Select(i => new Obstacle(obstacles[i]!, i % Width, i / Width));
-
     /// <summary>Every finished piece, row by row, as (piece, x, y) (for a save).</summary>
     public IEnumerable<(string Piece, int X, int Y)> Pieces =>
         Enumerable.Range(0, Width * Height).Where(i => pieces[i] != null).Select(i => (pieces[i]!, i % Width, i / Width));
@@ -132,7 +168,7 @@ public sealed class Ground
         if (!Inside(x, y))
             throw new ArgumentOutOfRangeException(nameof(x), "(" + x + ", " + y + ") is not on the ground");
         obstacles[Index(x, y)] = kind;
-        blocked[Index(x, y)] = true;
+        Reblock(Index(x, y));
         ways.Clear();
         rooms = null;
     }
@@ -145,8 +181,8 @@ public sealed class Ground
         encloses[Index(x, y)] = closes ?? blocks;
         pieceSpeed[Index(x, y)] = speed ?? double.NaN;
         rooms = null;
-        if (blocks)
-            blocked[Index(x, y)] = true;
+        pieceBlocks[Index(x, y)] = blocks;
+        Reblock(Index(x, y));
         if (blocks || speed != null)
             ways.Clear();
     }
@@ -158,10 +194,18 @@ public sealed class Ground
         pieces[i] = null;
         encloses[i] = false;
         pieceSpeed[i] = double.NaN;
-        blocked[i] = obstacles[i] != null;
+        pieceBlocks[i] = false;
+        Reblock(i);
         rooms = null;
         ways.Clear();
     }
+
+    /// <summary>Whether a tile is blocked: something in the way on it, a piece that blocks, or a surface that cannot be
+    /// walked on (water).</summary>
+    void Reblock(int i) => blocked[i] = obstacles[i] != null || pieceBlocks[i] || !surfaces[surfaceOf[i]].CanWalk;
+
+    /// <summary>Whether a tile is water, or anything else that cannot be walked on by its surface.</summary>
+    public bool Water(int x, int y) => Inside(x, y) && !surfaces[surfaceOf[Index(x, y)]].CanWalk;
 
     // ---- Rooms -------------------------------------------------------------------------------------------
 
@@ -190,10 +234,10 @@ public sealed class Ground
     public bool Indoors(int x, int y) => RoomAt(x, y) != null;
 
     /// <summary>
-    /// Works the rooms out: every group of tiles a person could stand on (open, and not closing a room in, as a
-    /// door does), joined across
-    /// (not on the slant: a slanting gap cannot be walked through either), is filled out from its first tile. A
-    /// group that reaches the edge of the ground is outdoors; any other group is a room.
+    /// Works the rooms out: every group of tiles that do not close a room in (everything but walls and doors),
+    /// joined across (not on the slant: a slanting gap cannot be walked through either), is filled out from its
+    /// first tile. A group that reaches the edge of the ground, or holds water, is outdoors; in any other group, the
+    /// tiles a person can stand on (not a tree, a rock or a well) are a room.
     /// </summary>
     void FindRooms()
     {
@@ -203,7 +247,7 @@ public sealed class Ground
         roomOf = new int[Width * Height];
         Array.Fill(roomOf, -1);
         var seen = new bool[Width * Height];
-        bool Space(int x, int y) => Open(x, y) && !encloses[Index(x, y)];
+        bool Space(int x, int y) => Inside(x, y) && !encloses[Index(x, y)];
         for (int start = 0; start < Width * Height; start++)
         {
             if (seen[start] || !Space(start % Width, start / Width))
@@ -218,7 +262,7 @@ public sealed class Ground
                 int i = todo.Pop();
                 group.Add(i);
                 int x = i % Width, y = i / Width;
-                if (x == 0 || y == 0 || x == Width - 1 || y == Height - 1)
+                if (x == 0 || y == 0 || x == Width - 1 || y == Height - 1 || Water(x, y))
                     outdoors = true;
                 foreach (var (dx, dy) in new[] { (0, -1), (1, 0), (0, 1), (-1, 0) })
                     if (Space(x + dx, y + dy) && !seen[Index(x + dx, y + dy)])
@@ -227,13 +271,17 @@ public sealed class Ground
                         todo.Push(Index(x + dx, y + dy));
                     }
             }
-            if (outdoors)
+            group.RemoveAll(i => !Open(i % Width, i / Width));
+            if (outdoors || group.Count == 0)
                 continue;
             group.Sort();
-            foreach (int i in group)
-                roomOf[i] = rooms.Count;
             rooms.Add(group.Select(i => (i % Width, i / Width)).ToList());
         }
+        // Listed by their first tile (a group can begin at a tree, before its first open tile).
+        rooms.Sort((a, b) => Index(a[0].X, a[0].Y).CompareTo(Index(b[0].X, b[0].Y)));
+        for (int r = 0; r < rooms.Count; r++)
+            foreach (var (x, y) in rooms[r])
+                roomOf[Index(x, y)] = r;
     }
 
     // The 8 steps from a tile, always in this order (so that ties always go the same way): across first, then

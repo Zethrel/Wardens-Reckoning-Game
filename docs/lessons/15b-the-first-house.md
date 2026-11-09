@@ -30,9 +30,9 @@ always the same.
 
 ## Rooms (`Ground.Rooms`, `RoomAt`, `Indoors`)
 
-A room is a group of open tiles closed in on every side by walls, doors or
-anything else that blocks, with no open way out to the edge of the ground. Its
-tiles count as indoors. There are no roofs yet: this is the simplified
+A room is a group of open tiles closed in on every side by walls and doors,
+with no open way out to the edge of the ground. Its tiles count as indoors.
+(Until step 17b, rocks closed rooms in too; lesson 17b says why that changed.) There are no roofs yet: this is the simplified
 indoor rule the library allows for the first prototype.
 
 How it is found: a **flood fill**. Start at a tile a person could stand on,

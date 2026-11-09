@@ -25,8 +25,8 @@ public class FoundingTests(ITestOutputHelper output)
         Assert.Equal(3, work.Workers.Count);
         Assert.Equal(3, work.Workers.Select(w => w.Name).Distinct().Count());
         Assert.All(work.Workers, w => Assert.Contains(w.Name, Real.Founding.Names));
-        Assert.Equal((60, 30, 50), (carts.Count("timber"), carts.Count("ration"), carts.Count("wheat")));
-        Assert.Equal(3, colony.Stocks.Ledger.Count(e => e.Change == Change.Arrived && e.To == carts.Id));
+        Assert.Equal((60, 30, 50, 60), (carts.Count("timber"), carts.Count("ration"), carts.Count("wheat"), carts.Count("water")));
+        Assert.Equal(4, colony.Stocks.Ledger.Count(e => e.Change == Change.Arrived && e.To == carts.Id));
         Assert.Equal(work.Workers.Select(w => w.Id).OrderBy(i => i.Value), work.Bedrolls.Select(b => b.Owner!.Value).OrderBy(i => i.Value));
         var tiles = work.Workers.Select(w => Ground.TileOf(w.X, w.Y)).Concat(work.Bedrolls.Select(b => Ground.TileOf(b.X, b.Y))).ToList();
         Assert.Equal(tiles.Count, tiles.Distinct().Count());                     // nobody on top of another

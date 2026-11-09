@@ -52,6 +52,24 @@ public sealed class ExportedWorld
     /// <summary>The last year there is a record of: the export's last year, then the game's.</summary>
     public int Years { get; private set; }
 
+    /// <summary>How wide a map cell is, in metres (null for an export made before the generator's step 17a).</summary>
+    public double? MetresPerCell => Data["metres_per_cell"] is JsonValue m && m.TryGetValue(out double d) ? d : null;
+
+    /// <summary>The places a colony can be founded, best first with those with fresh water first (step 17a;
+    /// empty for an older export).</summary>
+    public IReadOnlyList<FoundingSite> FoundingSites =>
+        (Data["founding_sites"] as JsonArray ?? new JsonArray()).Select(n => n!.AsObject()).Select(o => new FoundingSite(
+            (int)o["site"]!, (int)o["x"]!, (int)o["y"]!, (double)o["score"]!, (string)o["file"]!, (string?)o["biome"],
+            (bool)o["fresh_water"]!, (string?)o["water"])).ToList();
+
+    /// <summary>Founding site `site`'s local map (its number in FoundingSites), read and checked.</summary>
+    public LocalMap LocalMap(int site)
+    {
+        var found = FoundingSites.FirstOrDefault(s => s.Site == site)
+                    ?? throw new WorldFileException(Folder + " has no founding site " + site);
+        return World.LocalMap.Read(PathOf(found.File));
+    }
+
     /// <summary>The export's own last year (where the generator's history ended and the game's began).</summary>
     public int ExportYears { get; }
 

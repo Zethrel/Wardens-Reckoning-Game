@@ -41,8 +41,9 @@ public static class ColonySave
     // colonist is not allowed (step 14b). 6: the ground (its size, what is in the way, the finished pieces) and the
     // construction projects (step 15a). 7: stockpiles (a store's tiles) and stores being emptied (step 15b). 8: the
     // ground's surfaces, each colonist's legs, the litres of each spring and well, takings-down (step 15c). 9: a
-    // checksum and the content's fingerprint (step 16).
-    public const int Version = 9;
+    // checksum and the content's fingerprint (step 16). 10: the ground's surfaces and obstacles as rows of letters,
+    // one a tile, so that a local map of 256 by 256 tiles stays small (step 17b).
+    public const int Version = 10;
 
     /// <summary>The colony as JSON.</summary>
     public static JsonObject Write(Colony colony) => new()
@@ -75,16 +76,7 @@ public static class ColonySave
         {
             ["id"] = r.Id.Value, ["inventory"] = r.Inventory.Value, ["good"] = r.Good, ["amount"] = r.Amount, ["purpose"] = r.Purpose,
         }).ToArray()),
-        ["ground"] = colony.Ground is not Ground g ? null : new JsonObject
-        {
-            ["width"] = g.Width, ["height"] = g.Height,
-            ["surfaces"] = new JsonArray(g.Patches.Select(p => p.Surface).Append(g.Surface).DistinctBy(s => s.Id).OrderBy(s => s.Id, StringComparer.Ordinal)
-                                          .Select(s => (JsonNode?)new JsonArray(s.Id, s.Name, s.Speed)).ToArray()),
-            ["surface"] = g.Surface.Id,
-            ["patches"] = new JsonArray(g.Patches.Select(p => (JsonNode?)new JsonArray(p.Surface.Id, p.X, p.Y)).ToArray()),
-            ["obstacles"] = new JsonArray(g.Obstacles.Select(o => (JsonNode?)new JsonArray(o.Kind, o.X, o.Y)).ToArray()),
-            ["pieces"] = new JsonArray(g.Pieces.Select(p => (JsonNode?)new JsonArray(p.Piece, p.X, p.Y)).ToArray()),
-        },
+        ["ground"] = colony.Ground is not Ground g ? null : WriteGround(g),
         ["ledger"] = new JsonArray(colony.Stocks.Ledger.Select(e => (JsonNode?)new JsonArray(
             e.Operation.Value, e.Tick, e.Change.ToString(), e.Good, e.Amount,
             e.From is InventoryId f ? f.Value : null, e.To is InventoryId to ? to.Value : null)).ToArray()),
@@ -574,6 +566,61 @@ public static class ColonySave
                 throw new ColonySaveException("work.jobs: job " + job + " names worker " + worker + ", who is not doing it");
     }
 
+    /// <summary>The letters a save's rows use: the first surface (or obstacle kind) in its list is 'a', the next 'b',
+    /// and so on; '.' is no obstacle.</summary>
+    const string Letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+    /// <summary>
+    /// The ground as JSON. Its surfaces and its obstacles are rows of letters, one row a line of tiles, top first:
+    ///
+    ///     "surfaces": [["grass", "Grass", 0.8], ["rough", "Rough ground", 0.55]],
+    ///     "rows": ["aab", ...],                 // a, a: grass; b: rough ground
+    ///     "obstacle_kinds": ["rock", "tree"],
+    ///     "obstacle_rows": ["..b", ...],        // a tree on the third tile
+    ///
+    /// The finished pieces are few, so they stay a list of [piece, x, y].
+    /// </summary>
+    static JsonObject WriteGround(Ground g)
+    {
+        var surfaces = new SortedDictionary<string, Surface>(StringComparer.Ordinal) { [g.Surface.Id] = g.Surface };
+        var kinds = new SortedSet<string>(StringComparer.Ordinal);
+        for (int y = 0; y < g.Height; y++)
+            for (int x = 0; x < g.Width; x++)
+            {
+                surfaces.TryAdd(g.SurfaceAt(x, y).Id, g.SurfaceAt(x, y));
+                if (g.ObstacleAt(x, y) is string kind)
+                    kinds.Add(kind);
+            }
+        if (surfaces.Count > Letters.Length || kinds.Count > Letters.Length)
+            throw new InvalidOperationException("a ground of more than " + Letters.Length + " surfaces or kinds of obstacle cannot be saved");
+        var surfaceLetter = surfaces.Keys.Select((id, i) => (id, Letters[i])).ToDictionary(p => p.id, p => p.Item2);
+        var kindLetter = kinds.Select((k, i) => (k, Letters[i])).ToDictionary(p => p.k, p => p.Item2);
+        var rows = new JsonArray();
+        var obstacleRows = new JsonArray();
+        var line = new System.Text.StringBuilder();
+        for (int y = 0; y < g.Height; y++)
+        {
+            line.Clear();
+            for (int x = 0; x < g.Width; x++)
+                line.Append(surfaceLetter[g.SurfaceAt(x, y).Id]);
+            rows.Add((JsonNode?)JsonValue.Create(line.ToString()));
+            line.Clear();
+            for (int x = 0; x < g.Width; x++)
+                line.Append(g.ObstacleAt(x, y) is string kind ? kindLetter[kind] : '.');
+            obstacleRows.Add((JsonNode?)JsonValue.Create(line.ToString()));
+        }
+        return new JsonObject
+        {
+            ["width"] = g.Width, ["height"] = g.Height,
+            ["surfaces"] = new JsonArray(surfaces.Values.Select(s => (JsonNode?)new JsonArray(s.Id, s.Name, s.Speed)).ToArray()),
+            ["surface"] = g.Surface.Id,
+            ["rows"] = rows,
+            ["obstacle_kinds"] = new JsonArray(kinds.Select(k => (JsonNode?)k).ToArray()),
+            ["obstacle_rows"] = obstacleRows,
+            ["pieces"] = new JsonArray(g.Pieces.Select(p => (JsonNode?)new JsonArray(p.Piece, p.X, p.Y)).ToArray()),
+        };
+    }
+
     /// <summary>The ground a save holds (or null: none), checked: every tile on it, no two things on one tile, and
     /// every piece one the content knows.</summary>
     static Ground? ReadGround(JsonObject save, Content? content)
@@ -595,45 +642,66 @@ public static class ColonySave
             if (node is not JsonArray e || e.Count != 3 || !(e[0] is JsonValue v0 && v0.TryGetValue(out string? sid))
                 || !(e[1] is JsonValue v1 && v1.TryGetValue(out string? sname)) || !(e[2] is JsonValue v2 && v2.TryGetValue(out double speed)))
                 throw new ColonySaveException(at + " is not [id, name, speed]");
-            if (!(speed > 0 && speed <= 1) || !surfaces.TryAdd(sid, new Surface(sid, sname, speed)))
+            if (!(speed >= 0 && speed <= 1) || !surfaces.TryAdd(sid, new Surface(sid, sname, speed)))
                 throw new ColonySaveException(at + " has a speed that cannot be, or is named twice");
         }
         string own = g["surface"] is JsonValue ov && ov.TryGetValue(out string? os) ? os : throw new ColonySaveException("ground.surface is not text");
-        if (!surfaces.ContainsKey(own))
-            throw new ColonySaveException("ground.surface \"" + own + "\" is not in ground.surfaces");
-        var ground = new Ground((int)width, (int)height, surfaces[own]);
-        var used = new HashSet<(long, long)>();
-        IEnumerable<(string What, int X, int Y)> Things(string key)
+        if (!surfaces.TryGetValue(own, out var ownSurface) || !ownSurface.CanWalk)
+            throw new ColonySaveException("ground.surface \"" + own + "\" is not in ground.surfaces, or cannot be walked on");
+        if (surfaces.Count > Letters.Length)
+            throw new ColonySaveException("ground.surfaces has more than " + Letters.Length + " surfaces");
+        var ground = new Ground((int)width, (int)height, ownSurface);
+        // The order the surfaces are listed in gives their letters ('a' the first).
+        var bySurfaceLetter = ((JsonArray)g["surfaces"]!).Select((n, i) => (surfaces[(string)n![0]!], Letters[i])).ToDictionary(p => p.Item2, p => p.Item1);
+        var kinds = new List<string>();
+        foreach (var (node, i) in (g["obstacle_kinds"] as JsonArray ?? throw new ColonySaveException("ground.obstacle_kinds is not a list")).Select((n, i) => (n, i)))
         {
-            foreach (var (node, i) in (g[key] as JsonArray ?? throw new ColonySaveException("ground." + key + " is not a list")).Select((n, i) => (n, i)))
+            if (node is not JsonValue v || !v.TryGetValue(out string? kind) || kinds.Contains(kind) || kinds.Count == Letters.Length)
+                throw new ColonySaveException("ground.obstacle_kinds[" + i + "] is not text, or is named twice");
+            kinds.Add(kind);
+        }
+        // Each row: as many letters as the ground is wide, each one a letter its list gives.
+        IEnumerable<(int X, int Y, char Letter)> Rows(string key)
+        {
+            if (g[key] is not JsonArray rows || rows.Count != height)
+                throw new ColonySaveException("ground." + key + " should be " + height + " rows");
+            for (int y = 0; y < height; y++)
             {
-                string at = "ground." + key + "[" + i + "]";
-                if (node is not JsonArray e || e.Count != 3 || !(e[0] is JsonValue v && v.TryGetValue(out string? what)))
-                    throw new ColonySaveException(at + " is not [what, x, y]");
-                long x = Number(e[1], at), y = Number(e[2], at);
-                if (!ground.Inside((int)Math.Clamp(x, -1, int.MaxValue), (int)Math.Clamp(y, -1, int.MaxValue)) || !used.Add((x, y)))
-                    throw new ColonySaveException(at + " is off the ground, or on a tile that already holds something");
-                yield return (what, (int)x, (int)y);
+                if (rows[y] is not JsonValue rv || !rv.TryGetValue(out string? row) || row.Length != width)
+                    throw new ColonySaveException("ground." + key + "[" + y + "] should be " + width + " letters");
+                for (int x = 0; x < width; x++)
+                    yield return (x, y, row[x]);
             }
         }
-        var patched = new HashSet<(int, int)>();
-        foreach (var (node, i) in (g["patches"] as JsonArray ?? throw new ColonySaveException("ground.patches is not a list")).Select((n, i) => (n, i)))
+        foreach (var (x, y, letter) in Rows("rows").ToList())
         {
-            string at = "ground.patches[" + i + "]";
-            if (node is not JsonArray e || e.Count != 3 || !(e[0] is JsonValue v && v.TryGetValue(out string? sid)) || !surfaces.ContainsKey(sid))
-                throw new ColonySaveException(at + " is not [surface, x, y] of a surface in ground.surfaces");
-            long x = Number(e[1], at), y = Number(e[2], at);
-            if (x < 0 || y < 0 || x >= width || y >= height || !patched.Add(((int)x, (int)y)))
-                throw new ColonySaveException(at + " is off the ground, or a second patch on its tile");
-            ground.SetSurface((int)x, (int)y, surfaces[sid]);
+            if (!bySurfaceLetter.TryGetValue(letter, out var surface))
+                throw new ColonySaveException("ground.rows[" + y + "] has '" + letter + "', which is not the letter of a surface in ground.surfaces");
+            if (surface.Id != own)
+                ground.SetSurface(x, y, surface);
         }
-        foreach (var (kind, x, y) in Things("obstacles").ToList())
-            ground.AddObstacle(kind, x, y);
-        foreach (var (piece, x, y) in Things("pieces").ToList())
+        foreach (var (x, y, letter) in Rows("obstacle_rows").ToList())
         {
+            if (letter == '.')
+                continue;
+            int k = Letters.IndexOf(letter);
+            if (k < 0 || k >= kinds.Count)
+                throw new ColonySaveException("ground.obstacle_rows[" + y + "] has '" + letter + "', which is not the letter of a kind in ground.obstacle_kinds");
+            ground.AddObstacle(kinds[k], x, y);
+        }
+        var used = new HashSet<(long, long)>();
+        foreach (var (node, i) in (g["pieces"] as JsonArray ?? throw new ColonySaveException("ground.pieces is not a list")).Select((n, i) => (n, i)))
+        {
+            string at = "ground.pieces[" + i + "]";
+            if (node is not JsonArray e || e.Count != 3 || !(e[0] is JsonValue v && v.TryGetValue(out string? piece)))
+                throw new ColonySaveException(at + " is not [piece, x, y]");
+            long x = Number(e[1], at), y = Number(e[2], at);
+            if (x < 0 || y < 0 || x >= width || y >= height || !used.Add((x, y))
+                || ground.ObstacleAt((int)x, (int)y) != null || ground.Water((int)x, (int)y))
+                throw new ColonySaveException(at + " is off the ground, or on a tile that already holds something or is water");
             if (content == null || !content.Pieces.TryGetValue(piece, out var kind))
                 throw new ColonySaveException("ground.pieces names \"" + piece + "\", which " + (content == null ? "needs the colony's content to load" : "is not in the content"));
-            ground.AddPiece(piece, kind.Blocks, x, y, kind.Encloses, kind.Speed);
+            ground.AddPiece(piece, kind.Blocks, (int)x, (int)y, kind.Encloses, kind.Speed);
         }
         return ground;
     }

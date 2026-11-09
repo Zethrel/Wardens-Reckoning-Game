@@ -579,8 +579,14 @@ public class BuildTests
         }
         JsonObject Project(JsonObject s) => s["work"]!["projects"]![0]!.AsObject();
         yield return Case(s => s["ground"]!["width"] = 0, "its ground is 0 by 48 tiles");
-        yield return Case(s => s["ground"]!["obstacles"]![0]![1] = 99, "ground.obstacles[0] is off the ground");
-        yield return Case(s => s["ground"]!["obstacles"]![2]![1] = 30, "ground.obstacles[2] is off the ground, or on a tile that already holds something");
+        yield return Case(s => s["ground"]!["obstacle_rows"]![0] = "...", "ground.obstacle_rows[0] should be 48 letters");
+        yield return Case(s => s["ground"]!["obstacle_rows"]!.AsArray().RemoveAt(0), "ground.obstacle_rows should be 48 rows");
+        yield return Case(s => s["ground"]!["obstacle_rows"]![0] = new string('z', 48), "ground.obstacle_rows[0] has 'z', which is not the letter of a kind");
+        yield return Case(s => s["ground"]!["obstacle_kinds"] = new JsonArray("rock", "rock"), "ground.obstacle_kinds[1] is not text, or is named twice");
+        yield return Case(s => s["ground"]!["rows"]![3] = new string('z', 48), "ground.rows[3] has 'z', which is not the letter of a surface");
+        yield return Case(s => s["ground"]!["pieces"] = new JsonArray(new JsonArray("wall", 30, 8)), "ground.pieces[0] is off the ground, or on a tile that already holds something");
+        yield return Case(s => s["ground"]!["pieces"] = new JsonArray(new JsonArray("wall", 48, 8)), "ground.pieces[0] is off the ground");
+        yield return Case(s => s["ground"]!["pieces"] = new JsonArray(new JsonArray("wall", 1, 1), new JsonArray("door", 1, 1)), "ground.pieces[1] is off the ground, or on a tile that already holds something");
         yield return Case(s => s["ground"]!["pieces"] = new JsonArray(new JsonArray("tower", 1, 1)), "ground.pieces names \"tower\", which is not in the content");
         yield return Case(s => s.Remove("ground"), "its \"ground\" is missing");
         yield return Case(s => Project(s)["piece"] = "tower", "work.projects[0].piece \"tower\" is not in the content");

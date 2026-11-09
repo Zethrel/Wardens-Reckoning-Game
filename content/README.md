@@ -28,8 +28,12 @@ what is wrong, before anything runs.
 - `schedules.json`: schedule templates: 24 hours, each one of `sleep`,
   `work`, `meals`, `recreation`, `flexible`; and the `default` template.
 - `construction.json`:
-  - `surfaces`: what the ground may be (road, grass, rough ground), each with
-    its walking `speed` as a share of a road's (1 = 100%, grass 0.8).
+  - `surfaces`: what the ground may be (road, grass, rough ground, sand,
+    snow, mud, fresh and salt water), each with its walking `speed` as a share
+    of a road's (1 = 100%, grass 0.8). A speed of 0 cannot be walked or built
+    on (water). A local map of the world generator names its surfaces by these
+    ids (`fresh_water`, `salt_water` and the rest), so each one it uses must
+    be here.
   - `pieces`: what can be built (a wall, a door, a floor, a road, a well).
     Each piece states what it is made of (`materials`, good id to whole
     units; a road needs none), how long building it takes (`work_minutes`),
@@ -42,8 +46,8 @@ what is wrong, before anything runs.
   - `templates`: buildings to plan in one go, drawn as `rows` of letters, one
     per tile, with a `key` saying which piece each letter is (`.` leaves the
     tile as it is).
-  - `test_ground`: the ground the colony stands on until the world generator
-    makes local terrain: its `width` and `height` in tiles (a tile is 1 m
+  - `test_ground`: the ground of a colony founded without a world (the tests,
+    trying things out): its `width` and `height` in tiles (a tile is 1 m
     square), its `surface` everywhere, its `patches` of other surfaces (blocks
     of tiles) and its `obstacles` (a `kind` such as rock or tree, on a tile
     `x`, `y`, counted from 0 at the top left).
