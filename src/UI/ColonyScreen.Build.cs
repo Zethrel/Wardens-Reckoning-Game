@@ -34,6 +34,8 @@ public partial class ColonyScreen
     int turns;
     bool mirror;
     Control? buildPanel;
+    ScrollContainer? buildScroll;
+    Control? buildColumn;
 
     const string Stockpile = "stockpile";
     const string TakeDown = "take down";
@@ -61,8 +63,9 @@ public partial class ColonyScreen
         yield return new Tool(TakeDown, "Take down", Shape.Line);
     }
 
-    /// <summary>Opens or closes the build panel (B): a column of buttons over the map's bottom left corner. The
-    /// first has the keyboard's focus: the arrows move between them, Enter picks one.</summary>
+    /// <summary>Opens or closes the build panel (B): a column of buttons over the map's top left corner, as tall as
+    /// fits above the bar and scrolling if there are more (at a large interface size). The first has the keyboard's
+    /// focus: the arrows move between them (scrolling with them), Enter picks one.</summary>
     void ToggleBuildPanel()
     {
         if (buildPanel != null)
@@ -70,10 +73,12 @@ public partial class ColonyScreen
             CloseBuildPanel();
             return;
         }
-        var panel = new PanelContainer { Position = new Vector2(8, 120) };
+        var panel = new PanelContainer { Position = new Vector2(8, 8) };
+        var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FollowFocus = true };
+        panel.AddChild(scroll);
         var column = new VBoxContainer();
         column.AddThemeConstantOverride("separation", 2);
-        panel.AddChild(column);
+        scroll.AddChild(column);
         column.AddChild(Ui.Label("Build (B)", 16));
         Button? first = null;
         foreach (var t in Tools())
@@ -87,13 +92,41 @@ public partial class ColonyScreen
         }
         hudLayer!.AddChild(panel);
         buildPanel = panel;
+        buildScroll = scroll;
+        buildColumn = column;
+        FitBuildPanel();
         first?.GrabFocus();
+    }
+
+    /// <summary>Keeps the build panel as tall as its buttons but above the bar (each frame: the bar may wrap onto a
+    /// second line, or the interface size change).</summary>
+    void FitBuildPanel()
+    {
+        if (buildScroll == null || buildColumn == null || buildPanel == null)
+            return;
+        var needed = buildColumn.GetCombinedMinimumSize();
+        float room = bar!.GetGlobalRect().Position.Y - 16 - buildPanel.Position.Y;
+        var size = new Vector2(needed.X + 16, Math.Max(80, Math.Min(needed.Y, room)));
+        if (buildScroll.CustomMinimumSize != size)
+        {
+            buildScroll.CustomMinimumSize = size;
+            buildPanel.ResetSize();         // shrink back too, not only grow
+        }
+    }
+
+    /// <summary>Opens the build panel (for testing: `-- --panel x`).</summary>
+    public void OpenBuildPanel()
+    {
+        if (buildPanel == null)
+            ToggleBuildPanel();
     }
 
     void CloseBuildPanel()
     {
         buildPanel?.QueueFree();
         buildPanel = null;
+        buildScroll = null;
+        buildColumn = null;
     }
 
     // What a tool does, in a sentence (the button's tooltip, and the bar's words while it is in hand).

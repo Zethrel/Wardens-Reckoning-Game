@@ -89,6 +89,9 @@ public partial class Main : Node
                     case "--inspect" when value.Split(',').Select(int.Parse).ToArray() is [var px, var py]:
                         building.PickTile(px, py);
                         break;
+                    case "--panel":
+                        building.OpenBuildPanel();
+                        break;
                     case "--do" when value.Split(',') is [var key, var dx, var dy]:
                         building.DoAt(key[0], int.Parse(dx), int.Parse(dy));
                         break;

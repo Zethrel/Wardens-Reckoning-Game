@@ -116,6 +116,11 @@ nothing cut off or overlapping (note where it is).
 red; the speed in use is named in the Pause button's tooltip; paused projects
 are crossed through; each surface has a symbol.
 
+Your check on 9 November found that at 200% the build panel ran into the bar
+and the bar ran off the right edge. Now the bar is an `HFlowContainer` (a row
+that wraps onto a second line when it does not fit) and the build panel sits in
+a `ScrollContainer` that `FitBuildPanel` keeps above the bar every frame.
+
 One gap I know of: picking a tile to inspect needs the mouse (or J's list).
 A keyboard tile cursor for inspecting, like the build cursor, would close it;
 tell me if you want it.

@@ -35,6 +35,7 @@ public partial class ColonyScreen : Node
     string shownCommands = "";
     Label? inspectorTitle;
     CanvasLayer? hudLayer;
+    PanelContainer? bar;
     bool trace;
     bool listWaiting;
     double refresh;
@@ -101,10 +102,12 @@ public partial class ColonyScreen : Node
         column.AddChild(commandBox);
 
         // The bar along the bottom.
-        var bar = new PanelContainer { CustomMinimumSize = new Vector2(0, 48) };
+        // The bar wraps onto a second line when it does not fit (a large interface size, a narrow window).
+        bar = new PanelContainer { CustomMinimumSize = new Vector2(0, 48) };
         screen.AddChild(bar);
-        var row = new HBoxContainer();
-        row.AddThemeConstantOverride("separation", 8);
+        var row = new HFlowContainer();
+        row.AddThemeConstantOverride("h_separation", 8);
+        row.AddThemeConstantOverride("v_separation", 4);
         bar.AddChild(row);
         pause = Bar(row, "Pause", "Pause or play (Space)", TogglePause);
         for (int i = 0; i < 3; i++)
@@ -113,7 +116,8 @@ public partial class ColonyScreen : Node
             speeds[i] = Bar(row, (i + 1) + "x", "Speed " + (i + 1) + " (key " + (i + 1) + ")", () => SetSpeed(speed));
             speeds[i].ToggleMode = true;
         }
-        clock = new Label { CustomMinimumSize = new Vector2(250, 0), VerticalAlignment = VerticalAlignment.Center };
+        clock = new Label { CustomMinimumSize = new Vector2(250, 0), VerticalAlignment = VerticalAlignment.Center,
+                            SizeFlagsVertical = Control.SizeFlags.ShrinkCenter };
         row.AddChild(clock);
         Bar(row, "Build", "Build walls, floors, the house, stockpiles (B)", ToggleBuildPanel);
         Bar(row, "Waiting", "What waits, and why (J)", ShowWaiting);
@@ -123,7 +127,7 @@ public partial class ColonyScreen : Node
             Bar(row, w.Name, "Inspect " + w.Name + " (Tab: the next colonist)", () => PickWorker(id, true));
         }
         said = new Label { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, VerticalAlignment = VerticalAlignment.Center,
-                           ClipText = true };
+                           ClipText = true, CustomMinimumSize = new Vector2(240, 0), SizeFlagsVertical = Control.SizeFlags.ShrinkCenter };
         said.AddThemeColorOverride("font_color", new Color(1f, 0.75f, 0.5f));
         row.AddChild(said);
 
@@ -140,7 +144,7 @@ public partial class ColonyScreen : Node
     }
 
     // A button on the bar. Buttons do not take the keyboard's focus there, so Space and the arrows stay the map's.
-    static Button Bar(HBoxContainer row, string text, string tooltip, Action pressed)
+    static Button Bar(Container row, string text, string tooltip, Action pressed)
     {
         var button = new Button { Text = text, TooltipText = tooltip, FocusMode = Control.FocusModeEnum.None };
         button.Pressed += pressed;
@@ -151,6 +155,7 @@ public partial class ColonyScreen : Node
     public override void _Process(double delta)
     {
         session.Frame(delta);
+        FitBuildPanel();
         clock!.Text = Colony.Now.ToString();
         // Anything the session has to tell (a failed autosave, a warning about a loaded save) is shown on the bar.
         if (session.Reports.Count > reportsShown)
