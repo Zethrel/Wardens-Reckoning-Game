@@ -10,6 +10,8 @@ namespace WardensReckoning.UI;
 /// the year shown, the factions alive that year on the right, and the in-game menu (Esc).
 /// With a game (a world exported with "continue"), the years run on: Next year runs one, Play runs them one
 /// after another. Without one (an older export), the world can only be looked at.
+/// The export's founding sites (step 18a) are on the map as numbered diamonds and listed on the right; picking one
+/// shows what it is like and offers to found a colony there.
 /// </summary>
 public partial class MapScreen : Node
 {
@@ -28,6 +30,11 @@ public partial class MapScreen : Node
     BookPanel? book;
     IReadOnlyList<BookEntry>? exportBook;   // the book of a world that can only be looked at (no game to add to it)
     double untilNextYear;
+    Control? siteBox;
+    CanvasLayer? hudLayer;
+
+    /// <summary>The world shown.</summary>
+    public ExportedWorld World => world;
 
     public MapScreen() : this(null!, null!, null, "") { }
 
@@ -48,6 +55,7 @@ public partial class MapScreen : Node
         // panels leave and grows when the book is closed.
         var hud = new CanvasLayer();
         AddChild(hud);
+        hudLayer = hud;
         var screen = new VBoxContainer();
         screen.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
         screen.AddThemeConstantOverride("separation", 0);
@@ -67,6 +75,7 @@ public partial class MapScreen : Node
         frame.AddChild(view);
         map = new MapView(world);
         map.TownClicked += town => { if (town.Faction is int f) OpenFaction(f); };
+        map.SiteClicked += OpenSite;
         view.AddChild(map);
         view.AddChild(new MapCamera(world.Size));
 
@@ -224,6 +233,79 @@ public partial class MapScreen : Node
         book.Open(faction);
     }
 
+    // The founding sites, as buttons at the top of the list (so they can be picked with the keyboard too).
+    void ShowSites()
+    {
+        var sites = world.FoundingSites;
+        if (sites.Count == 0)
+        {
+            var none = new Label { Text = "No founding sites: export this world again with the newer generator to found a colony on it.",
+                                   AutowrapMode = TextServer.AutowrapMode.WordSmart };
+            none.AddThemeFontSizeOverride("font_size", 12);
+            legend!.AddChild(none);
+            return;
+        }
+        legend!.AddChild(Ui.Label("Founding sites", 15));
+        foreach (var site in sites)
+        {
+            var chosen = site;
+            var button = new Button { Text = SiteLine(site), Alignment = HorizontalAlignment.Left, ClipText = true,
+                                      TooltipText = "Look at site " + site.Site + ", and found a colony there" };
+            button.AddThemeFontSizeOverride("font_size", 13);
+            button.Pressed += () => OpenSite(chosen);
+            legend.AddChild(button);
+        }
+        legend.AddChild(new HSeparator());
+    }
+
+    // "3: monsoon forest, a brook".
+    static string SiteLine(FoundingSite site) => site.Site + ": " + (site.Biome ?? "unknown land").Replace('_', ' ') + ", " + WaterWords(site);
+
+    static string WaterWords(FoundingSite site) => site.Water switch
+    {
+        "river" => "a river",
+        "stream" => "a brook",
+        "lake" => "a lake",
+        "sea" => "the sea (salt)",
+        _ => site.FreshWater ? "fresh water" : "no water",
+    };
+
+    /// <summary>Shows founding site number `number` (for testing: `-- --site <number>`).</summary>
+    public void OpenSiteNumber(int number)
+    {
+        if (world.FoundingSites.FirstOrDefault(s => s.Site == number) is FoundingSite site)
+            OpenSite(site);
+    }
+
+    /// <summary>Shows founding site `site`: what it is like, and the offer to found a colony there.</summary>
+    public void OpenSite(FoundingSite site)
+    {
+        siteBox?.QueueFree();
+        var box = new Control();
+        box.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        box.MouseFilter = Control.MouseFilterEnum.Ignore;
+        hudLayer!.AddChild(box);
+        siteBox = box;
+        var column = Ui.CentredColumn(box);
+        column.AddChild(Ui.Label("Founding site " + site.Site, 24));
+        string drink = site.FreshWater ? "The founders can drink from " + WaterWords(site) + "."
+                                       : "No fresh water: the founders live on the 60 litres they bring until they build a well.";
+        var about = Ui.Label((site.Biome ?? "Unknown land").Replace('_', ' ') + ", at " + site.X + ", " + site.Y + " on the world map. " + drink, 14);
+        about.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        about.CustomMinimumSize = new Vector2(420, 0);
+        column.AddChild(about);
+        var found = Ui.Button("Found a colony here", () => main.FoundColony(world, site.Site));
+        column.AddChild(found);
+        column.AddChild(Ui.Button("Not here", CloseSite));
+        found.GrabFocus();
+    }
+
+    void CloseSite()
+    {
+        siteBox?.QueueFree();
+        siteBox = null;
+    }
+
     // The year shown, and the factions alive in it, the most people first, each with its colour and path.
     void ShowLegend()
     {
@@ -238,6 +320,7 @@ public partial class MapScreen : Node
             why.AddThemeColorOverride("font_color", new Color(1f, 0.75f, 0.5f));
             legend.AddChild(why);
         }
+        ShowSites();
         foreach (var (faction, people) in MapYear.Alive(world, map.Year))
         {
             var info = world.Factions[faction];

@@ -1,5 +1,6 @@
 // Copyright (c) 2026 Zethrel. All rights reserved. See LICENSE.
 using Godot;
+using WardensReckoning.Colony;
 using WardensReckoning.Sim;
 using WardensReckoning.World;
 
@@ -7,7 +8,7 @@ namespace WardensReckoning.UI;
 
 /// <summary>
 /// The game's first node (src/UI/Main.tscn): it shows the main menu, and swaps it for the map when a
-/// world is opened. Everything on screen is a child of this node.
+/// world is opened, or for the colony when one is founded or loaded. Everything on screen is a child of this node.
 /// </summary>
 public partial class Main : Node
 {
@@ -29,7 +30,8 @@ public partial class Main : Node
         int run = Array.IndexOf(arguments, "--run");
         if (run >= 0 && run + 1 < arguments.Length && screen is MapScreen played && int.TryParse(arguments[run + 1], out int count))
             played.RunYears(count);
-        // `-- --save` saves the game into the saves folder, as the in-game menu's Save does.
+        // `-- --save` saves the game into the saves folder, as the in-game menu's Save does (a colony: after
+        // --found, into the colonies folder).
         if (Array.IndexOf(arguments, "--save") >= 0 && screen is MapScreen saving)
             GD.Print(saving.SaveNow());
         // `-- --load <save>` loads a saved game.
@@ -48,6 +50,25 @@ public partial class Main : Node
         int sought = Array.IndexOf(arguments, "--search");
         if (sought >= 0 && sought + 1 < arguments.Length && screen is MapScreen searching)
             searching.CallDeferred(MapScreen.MethodName.SearchBook, arguments[sought + 1]);
+        // `-- --site <site>` shows that founding site's offer on the world map (with --world, for testing).
+        int shown = Array.IndexOf(arguments, "--site");
+        if (shown >= 0 && shown + 1 < arguments.Length && screen is MapScreen offering && int.TryParse(arguments[shown + 1], out int offered))
+            offering.CallDeferred(MapScreen.MethodName.OpenSiteNumber, offered);
+        // `-- --found <site>` founds a colony at that founding site of the opened world (with --world).
+        int found = Array.IndexOf(arguments, "--found");
+        if (found >= 0 && found + 1 < arguments.Length && screen is MapScreen founding && int.TryParse(arguments[found + 1], out int site))
+            FoundColony(founding.World, site);
+        if (Array.IndexOf(arguments, "--save") >= 0 && screen is ColonyScreen savingColony)
+            GD.Print(savingColony.Save());
+        // `-- --colony <save>` loads a saved colony.
+        int colony = Array.IndexOf(arguments, "--colony");
+        if (colony >= 0 && colony + 1 < arguments.Length)
+            LoadColony(arguments[colony + 1]);
+        // `-- --inspect <x>,<y>` inspects that tile of the colony (with --found or --colony).
+        int inspect = Array.IndexOf(arguments, "--inspect");
+        if (inspect >= 0 && inspect + 1 < arguments.Length && screen is ColonyScreen looking
+            && arguments[inspect + 1].Split(',') is [var ix, var iy] && int.TryParse(ix, out int tx) && int.TryParse(iy, out int ty))
+            looking.CallDeferred(ColonyScreen.MethodName.PickTile, tx, ty);
         // `-- --screenshot <file.png>` saves what is on screen after a few frames and quits (for testing).
         int shot = Array.IndexOf(arguments, "--screenshot");
         if (shot >= 0 && shot + 1 < arguments.Length)
@@ -123,6 +144,93 @@ public partial class Main : Node
         }
         GetTree().Paused = false;
         Show(new MapScreen(this, game.World, game));
+    }
+
+    /// <summary>The colony's content (content/*.json in the game's folder), checked; null, with the main menu
+    /// showing why, if it has problems.</summary>
+    Content? LoadContent()
+    {
+        try
+        {
+            return Content.Load(ProjectSettings.GlobalizePath("res://content"));
+        }
+        catch (Exception e) when (e is ContentException or IOException or UnauthorizedAccessException)
+        {
+            ShowMainMenu("The colony's content could not be read: " + e.Message);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Founds a colony at founding site `site` of `world` (step 18a): the founders arrive on its local map at 08:00
+    /// on the first day of Year 1, with the colony's own seed (drawn at random, or `-- --seed`). Back to the main
+    /// menu with the reason if the map cannot be read.
+    /// </summary>
+    public void FoundColony(ExportedWorld world, int site)
+    {
+        if (LoadContent() is not Content content)
+            return;
+        Colony.Colony colony;
+        try
+        {
+            var map = world.LocalMap(site);
+            long seed = SeedFromArguments() ?? Game.NewSeed();
+            colony = Founding.Found(seed, new Moment(Calendar.TickOf(1, 1, 1, 8, 0)), content, map).Colony;
+        }
+        catch (Exception e) when (e is WorldFileException or ArgumentException or IOException)
+        {
+            ShowMainMenu("The colony could not be founded: " + e.Message);
+            return;
+        }
+        Play(colony);
+    }
+
+    /// <summary>
+    /// Loads a saved colony. A save changed outside the game is only loaded if the player says so (library Review
+    /// 35): they are asked first. Back to the main menu with the reason if it cannot be loaded.
+    /// </summary>
+    public void LoadColony(string path, bool acceptChanged = false)
+    {
+        if (LoadContent() is not Content content)
+            return;
+        Opened opened;
+        try
+        {
+            opened = ColonySave.Open(path, content, acceptChanged);
+        }
+        catch (ColonySaveChangedException e)
+        {
+            var ask = new ConfirmationDialog
+            {
+                Title = "This save was changed",
+                DialogText = e.Message + "\n\nLoad it anyway?",
+                OkButtonText = "Load it",
+                CancelButtonText = "Do not load",
+                ProcessMode = ProcessModeEnum.Always,
+            };
+            ask.Confirmed += () => LoadColony(path, true);
+            AddChild(ask);
+            ask.PopupCentered();
+            return;
+        }
+        catch (ColonySaveException e)
+        {
+            ShowMainMenu("That colony could not be loaded: " + e.Message);
+            return;
+        }
+        Play(opened.Colony, opened.Warnings);
+    }
+
+    // The colony screen for `colony`, its autosaves in a folder of their own, any warnings shown on its bar.
+    void Play(Colony.Colony colony, IReadOnlyList<string>? warnings = null)
+    {
+        GetTree().Paused = false;
+        string name = "colony-" + colony.Seed;
+        var session = new Session(colony, Saves.AutosavesOf(name));
+        var shown = new ColonyScreen(this, session, name);
+        Show(shown);
+        foreach (var warning in warnings ?? Array.Empty<string>())
+            shown.Tell(warning);
     }
 
     // `-- --seed <number>` starts the game with that seed (for testing).

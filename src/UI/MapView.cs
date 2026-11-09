@@ -5,7 +5,8 @@ using WardensReckoning.World;
 namespace WardensReckoning.UI;
 
 /// <summary>
-/// The map of one year: the terrain, the borders over the land, and the towns with their pictures.
+/// The map of one year: the terrain, the borders over the land, the towns with their pictures, and the export's
+/// founding sites (step 18a: white diamonds with their numbers, where the player may found a colony).
 /// One map cell is one unit here, so the map is Size units wide and the camera zooms in on it.
 /// </summary>
 public partial class MapView : Node2D
@@ -54,15 +55,29 @@ public partial class MapView : Node2D
     /// <summary>Called when the player clicks a town on the map (the topmost town under the mouse).</summary>
     public event Action<TownDrawing>? TownClicked;
 
+    /// <summary>Called when the player clicks a founding site on the map (a site is picked before a town under it).</summary>
+    public event Action<FoundingSite>? SiteClicked;
+
     public override void _UnhandledInput(InputEvent @event)
     {
-        if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true }
-            && TownAt(GetGlobalMousePosition()) is TownDrawing town)
-        {
+        if (@event is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true })
+            return;
+        var point = GetGlobalMousePosition();
+        if (SiteAt(point) is FoundingSite site)
+            SiteClicked?.Invoke(site);
+        else if (TownAt(point) is TownDrawing town)
             TownClicked?.Invoke(town);
-            GetViewport().SetInputAsHandled();
-        }
+        else
+            return;
+        GetViewport().SetInputAsHandled();
     }
+
+    // How big a site's diamond is, in map cells: at least a cell and a half, so it can be clicked when zoomed out.
+    float SiteSize => Math.Max(1.5f, side * 0.6f);
+
+    /// <summary>The founding site whose diamond is at map point `point`, or null.</summary>
+    public FoundingSite? SiteAt(Vector2 point) =>
+        world.FoundingSites.FirstOrDefault(s => Math.Abs(point.X - (s.X + 0.5f)) + Math.Abs(point.Y - (s.Y + 0.5f)) <= SiteSize);
 
     /// <summary>The town drawn at map point `point` in the year shown (the topmost, as drawn last), or null.</summary>
     public TownDrawing? TownAt(Vector2 point) => MapYear.TownAt(towns, point.X, point.Y, side);
@@ -90,10 +105,32 @@ public partial class MapView : Node2D
         townLayer?.QueueRedraw();
     }
 
-    // Draws every town on townLayer (its Draw signal calls this whenever it is asked to redraw).
+    // Draws every town on townLayer (its Draw signal calls this whenever it is asked to redraw), then the
+    // founding sites over them.
     void DrawTowns()
     {
         var layer = townLayer!;
+        DrawTownPictures(layer);
+        var font = ThemeDB.FallbackFont;
+        float size = SiteSize;
+        foreach (var site in world.FoundingSites)
+        {
+            var middle = new Vector2(site.X + 0.5f, site.Y + 0.5f);
+            var diamond = new[] { middle + new Vector2(0, -size), middle + new Vector2(size, 0), middle + new Vector2(0, size), middle + new Vector2(-size, 0) };
+            layer.DrawColoredPolygon(diamond, new Color(0.98f, 0.97f, 0.92f));
+            layer.DrawPolyline(diamond.Append(diamond[0]).ToArray(), new Color(0.1f, 0.1f, 0.1f), size * 0.15f);
+            // The number, at a size of its own (fonts are drawn in pixels, so it is drawn small and scaled up).
+            string number = site.Site.ToString();
+            float scale = size / 12f;
+            layer.DrawSetTransform(middle, 0, new Vector2(scale, scale));
+            float width = font.GetStringSize(number, HorizontalAlignment.Left, -1, 14).X;
+            layer.DrawString(font, new Vector2(-width / 2, 5), number, HorizontalAlignment.Left, -1, 14, new Color(0.1f, 0.1f, 0.1f));
+            layer.DrawSetTransform(Vector2.Zero, 0, Vector2.One);
+        }
+    }
+
+    void DrawTownPictures(Node2D layer)
+    {
         foreach (var town in towns)
         {
             var picture = Sprite(town);

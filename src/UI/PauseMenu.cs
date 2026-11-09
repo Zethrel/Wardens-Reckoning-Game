@@ -11,6 +11,7 @@ public partial class PauseMenu : Control
 {
     readonly Main main;
     readonly Func<string>? save;
+    readonly Func<Main, LoadPanel> loader;
     Control? panel;
     Label? said;
 
@@ -19,11 +20,13 @@ public partial class PauseMenu : Control
 
     public PauseMenu() : this(null!, null) { }
 
-    /// <summary>`save` saves the game and returns what to tell the player; null when there is no game.</summary>
-    public PauseMenu(Main main, Func<string>? save)
+    /// <summary>`save` saves the game and returns what to tell the player; null when there is no game. `loader`
+    /// makes the list Load shows (the world's games if not given; LoadPanel.Colonies for a colony).</summary>
+    public PauseMenu(Main main, Func<string>? save, Func<Main, LoadPanel>? loader = null)
     {
         this.main = main;
         this.save = save;
+        this.loader = loader ?? (m => new LoadPanel(m));
     }
 
     public override void _Ready()
@@ -68,7 +71,7 @@ public partial class PauseMenu : Control
     void OpenLoad()
     {
         panel!.Visible = false;
-        var loading = new LoadPanel(main);
+        var loading = loader(main);
         loading.Closed += () => panel.Visible = true;
         AddChild(loading);
     }

@@ -27,6 +27,17 @@ public partial class MapCamera : Camera2D
         GetViewport().SizeChanged += () => { if (!touched) Fit(); };
     }
 
+    /// <summary>Puts the middle of the screen over map point `at`, at `zoom` screen pixels a map unit (the colony
+    /// screen starts on the founders' carts).</summary>
+    public void Look(Vector2 at, float zoom)
+    {
+        touched = true;
+        zoom = Math.Clamp(zoom, Smallest, Largest);
+        Zoom = new Vector2(zoom, zoom);
+        Position = at;
+        Keep();
+    }
+
     // The whole map in view, in the middle.
     void Fit()
     {

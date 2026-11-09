@@ -30,6 +30,8 @@ public partial class MainMenu : Control
         if (Settings.LastWorld != "" && File.Exists(Settings.LastWorld))
             column.AddChild(Ui.Button("Open the last world", () => main.OpenWorld(Settings.LastWorld), Settings.LastWorld));
         column.AddChild(Ui.Button("Load a game", OpenLoad));
+        column.AddChild(Ui.Button("Load a colony", () => OpenLoad(LoadPanel.Colonies(main)),
+                                  "Colonies are founded from a world's map: open a world, then pick a founding site"));
         column.AddChild(Ui.Button("Settings", OpenSettings));
         column.AddChild(Ui.Button("Quit", main.Quit));
         if (message != "")
@@ -59,11 +61,12 @@ public partial class MainMenu : Control
         dialog.PopupCentered(new Vector2I(900, 600));
     }
 
-    void OpenLoad()
+    void OpenLoad() => OpenLoad(new LoadPanel(main));
+
+    void OpenLoad(LoadPanel panel)
     {
         var box = column!.GetParent().GetParent<Control>();
         box.Visible = false;
-        var panel = new LoadPanel(main);
         panel.Closed += () => box.Visible = true;
         AddChild(panel);
     }

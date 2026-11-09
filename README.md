@@ -19,6 +19,14 @@ shown, **Book** (B) opens everything that happened, and a click on a faction
 in the list or on one of its towns opens that faction's own history. Esc
 closes the book, or opens the menu (save, load, settings).
 
+**A colony** (step 18a): the white diamonds on the world map are the export's
+founding sites (also listed on the right). Pick one, then **Found a colony
+here**. On the colony's local map: the wheel zooms, the right mouse button or
+W, A, S, D moves, a left click inspects a colonist or a tile, **Space** pauses
+or plays, **1**, **2** and **3** set the speed, **Tab** picks the next
+colonist, Esc opens the menu (save, load). A saved colony loads from the main
+menu's **Load a colony**.
+
 ## The tests
 
 `dotnet test` in this folder runs the tests of `src/World`, `src/Sim` and `src/Colony`,
@@ -30,8 +38,8 @@ The plan, step by step: `docs/plan.md`.
 
 - `src/World`: reads an exported world (as the generator's north/world_file.py does).
 - `src/Sim`: the history systems in C#, running the years on (so far: harvest, trade, mines, food, growth, ruin, memories, opinions, rulers, grievance, revolutions, your rules, war, alliances, conquest, rebellion, splits, merging and empires, feeding by tastes, drift, migration, rulers who age by their people's lifespan, learned paths and hybrids, capitals, attunement's mark, the harvest ritual, the great ritual in war, offshoot paths, the god of death and her signs, named threats and the great rituals against them, happenings and eras, and the chokepoints: needs, embargoes, stand-ins, smugglers, supply contracts, sabotage, labour displacement, secrets, legitimacy, the tech leak and debased coin, and whom a shortage is blamed on), and the chronicle telling the game's own eras in your sentences.
-- `src/Colony`: the colony, the Wardens' settlement played up close, as the design library describes it (so far: the clock and calendar, speed, identifiers, dice, the save and the autosave's timing; the content files in `content/`, checked at start; inventories, claims and the ledger; workers who carry and grind, workshops asking for what they lack, and stopping, resuming and cancelling work; the colonists' needs, schedules, meals, sleep and collapse; who may do which work, and why work waits; the ground with its tiles and ways, and construction: walls, doors and floors; rooms, stockpiles, templates, and the founders' arrival; walking speed by ground and legs, roads, the well, taking pieces down; safe saving and loading, and the session that runs the colony; the founding on a local map of the export's founding sites).
-- `src/UI`: the screens, in Godot. The map is drawn in a SubViewport between the book and the factions, so no panel covers it.
+- `src/Colony`: the colony, the Wardens' settlement played up close, as the design library describes it (so far: the clock and calendar, speed, identifiers, dice, the save and the autosave's timing; the content files in `content/`, checked at start; inventories, claims and the ledger; workers who carry and grind, workshops asking for what they lack, and stopping, resuming and cancelling work; the colonists' needs, schedules, meals, sleep and collapse; who may do which work, and why work waits; the ground with its tiles and ways, and construction: walls, doors and floors; rooms, stockpiles, templates, and the founders' arrival; walking speed by ground and legs, roads, the well, taking pieces down; safe saving and loading, and the session that runs the colony; the founding on a local map of the export's founding sites; what the inspector shows of a tile or a colonist).
+- `src/UI`: the screens, in Godot. The map is drawn in a SubViewport between the book and the factions, so no panel covers it; the colony's local map likewise, beside the inspector.
 - `tests/`: the tests, and a small exported world to test with.
 
 Copyright (c) 2026 Zethrel. All rights reserved. See LICENSE.
