@@ -3,10 +3,20 @@
   "needs": {
     "hunger": { "per_hour": 6, "asleep_per_hour": 3, "peckish": 15, "wants": 35, "urgent": 65, "critical": 90, "collapse_hours": 72 },
     "thirst": { "per_hour": 8, "asleep_per_hour": 4, "peckish": 15, "wants": 35, "urgent": 65, "critical": 90, "collapse_hours": 24 },
-    "fatigue": { "per_hour": 5, "asleep_per_hour": 0, "peckish": 50, "wants": 70, "urgent": 85, "critical": 95, "collapse_hours": 0 }
+    "fatigue": { "per_hour": 5, "asleep_per_hour": 0, "peckish": 50, "wants": 70, "urgent": 85, "critical": 95, "collapse_hours": 0 },
+    "hygiene": { "per_hour": 2, "asleep_per_hour": 1, "peckish": 20, "wants": 35, "urgent": 65, "critical": 90, "collapse_hours": null }
   },
   "eat": { "good": "ration", "eases": 60, "minutes": 20 },
   "drink": { "good": "water", "eases": 50, "minutes": 2 },
+  "wash": { "good": "water", "litres": 9, "eases": 100, "minutes": 15 },
   "sleep": { "bedroll_per_hour": 15, "ground_per_hour": 10 },
-  "spring_litres_per_day": 200
+  "spring_litres_per_day": 200,
+  "water": {
+    "load_litres": 20,
+    "plenty_litres": 1000,
+    "brook_litres_by_month": [600, 600, 600, 250, 250, 250, 400, 400, 400, 300, 300, 300],
+    "freezing_months": [10, 11, 12],
+    "cold_biomes": ["glacier", "ice_field", "permafrost", "tundra", "taiga", "alpine_meadow", "cold_desert"],
+    "ice_hole": "ice_hole"
+  }
 }

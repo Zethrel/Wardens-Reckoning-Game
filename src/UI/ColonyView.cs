@@ -161,7 +161,8 @@ public partial class ColonyView : Node2D
         }
         // Stores: a stockpile's area outlined, the carts and other stores as a box with their first letter.
         var springs = work.Springs.ToHashSet();
-        foreach (var inventory in c.Stocks.Inventories.Where(i => i.Holder == Holder.Store))
+        // (A water barrel's or a wash basin's water is its piece: drawn with the pieces, not as a store.)
+        foreach (var inventory in c.Stocks.Inventories.Where(i => i.Holder == Holder.Store && i.Capacity == null))
         {
             if (inventory.Area is Area area)
             {
@@ -171,9 +172,11 @@ public partial class ColonyView : Node2D
             var middle = new Vector2((float)inventory.X, (float)inventory.Y);
             if (springs.Contains(inventory.Id))
             {
-                DrawCircle(middle, 0.42f, new Color(0.55f, 0.8f, 1f));
+                // A water source: a blue round marked W; frozen, a pale one marked I (ice).
+                bool frozen = work.SourceOf(inventory.Id).Frozen;
+                DrawCircle(middle, 0.42f, frozen ? new Color(0.88f, 0.94f, 1f) : new Color(0.55f, 0.8f, 1f));
                 DrawArc(middle, 0.42f, 0, Mathf.Tau, 20, Ink, 0.06f);
-                Letter(font, "W", middle, pixels);
+                Letter(font, frozen ? "I" : "W", middle, pixels);
             }
             else
             {
@@ -307,6 +310,18 @@ public partial class ColonyView : Node2D
                 break;
             case "road":
                 DrawRect(tile, ColourOf("road"));
+                break;
+            case "water_barrel":
+                // A barrel: round, its staves' wood with water on top.
+                DrawCircle(at + new Vector2(0.5f, 0.5f), 0.42f, new Color(0.55f, 0.38f, 0.2f));
+                DrawCircle(at + new Vector2(0.5f, 0.5f), 0.28f, new Color(0.35f, 0.6f, 0.9f));
+                DrawArc(at + new Vector2(0.5f, 0.5f), 0.42f, 0, Mathf.Tau, 20, Ink, 0.05f);
+                break;
+            case "wash_basin":
+                // A basin: a square tub, water inside, a wide rim.
+                DrawRect(new Rect2(at + new Vector2(0.1f, 0.2f), new Vector2(0.8f, 0.6f)), new Color(0.6f, 0.45f, 0.28f));
+                DrawRect(new Rect2(at + new Vector2(0.22f, 0.32f), new Vector2(0.56f, 0.36f)), new Color(0.45f, 0.7f, 0.95f));
+                DrawRect(new Rect2(at + new Vector2(0.1f, 0.2f), new Vector2(0.8f, 0.6f)), Ink, false, 0.05f);
                 break;
             default:
                 DrawRect(tile, new Color(0.5f, 0.5f, 0.55f));

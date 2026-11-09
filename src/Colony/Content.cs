@@ -19,12 +19,26 @@ public sealed record Good(string Id, string Name, double MassKg, double VolumeL)
 /// <summary>A kind of workshop (a hand quern...).</summary>
 public sealed record Workshop(string Id, string Name);
 
-/// <summary>How one need grows and when it matters (needs.json), on a scale from 0 (none) to 100 (the limit).</summary>
+/// <summary>How one need grows and when it matters (needs.json), on a scale from 0 (none) to 100 (the limit). A
+/// need that never fells anyone (hygiene) has `"collapse_hours": null`: CollapseHours is then infinity.</summary>
 public sealed record NeedRule(string Name, double PerHour, double AsleepPerHour, double Peckish, double Wants, double Urgent,
                               double Critical, double CollapseHours);
 
 /// <summary>Eating or drinking: the good, how many points of the need one unit eases, and how long it takes.</summary>
 public sealed record Consumption(string Good, double Eases, int Minutes);
+
+/// <summary>Washing (step 19a, library Review 37: Daily Life §7.2): the litres of `Good` a wash at a wash basin
+/// uses (at the bank of fresh water: none), the points of hygiene it eases, and how long it takes.</summary>
+public sealed record Washing(string Good, int Litres, double Eases, int Minutes);
+
+/// <summary>
+/// The water rules (step 19a, library Review 37; needs.json "water"): the litres one load carries; how much a
+/// river or a lake has (more than a colony draws: topped up every hour); a brook's litres a day for each month
+/// (January first); the months a cold biome's water freezes; the biomes that are cold; and the piece that is the
+/// ice hole.
+/// </summary>
+public sealed record WaterRules(int LoadLitres, int PlentyLitres, IReadOnlyList<int> BrookByMonth, IReadOnlySet<int> FreezingMonths,
+                                IReadOnlySet<string> ColdBiomes, string IceHole);
 
 /// <summary>The five schedule blocks of the design library (Daily Life §4.2).</summary>
 public enum Block
@@ -59,6 +73,13 @@ public sealed record PieceKind(string Id, string Name, IReadOnlyDictionary<strin
     public (int X, int Y)? Access { get; init; }
     /// <summary>Litres of water it gives each morning (a well), or 0.</summary>
     public int WaterPerDay { get; init; }
+    /// <summary>Litres of water it holds, carried to it (step 19a: a water barrel, a wash basin), or 0.</summary>
+    public int HoldsLitres { get; init; }
+    /// <summary>Whether colonists wash at it (a wash basin).</summary>
+    public bool WashPlace { get; init; }
+    /// <summary>Whether it is the work of opening frozen water (the ice hole): it opens the water it is planned on,
+    /// leaves nothing standing, and is planned by the colony itself, not from the build panel.</summary>
+    public bool OpensIce { get; init; }
 }
 
 /// <summary>What the ground is (construction.json): grass, rough ground, a road. Walking on it goes at `Speed` of
@@ -114,13 +135,16 @@ public sealed class Content
     public int PickupMinutes { get; }
     public int DropMinutes { get; }
 
-    /// <summary>The needs: "hunger", "thirst", "fatigue".</summary>
+    /// <summary>The needs: "hunger", "thirst", "fatigue", "hygiene".</summary>
     public IReadOnlyDictionary<string, NeedRule> Needs { get; private init; } = new Dictionary<string, NeedRule>();
     public NeedRule Hunger => Needs["hunger"];
     public NeedRule Thirst => Needs["thirst"];
     public NeedRule Fatigue => Needs["fatigue"];
+    public NeedRule Hygiene => Needs["hygiene"];
     public Consumption Eat { get; private init; } = new("", 0, 0);
     public Consumption Drink { get; private init; } = new("", 0, 0);
+    public Washing Wash { get; private init; } = new("", 0, 0, 0);
+    public WaterRules Water { get; private init; } = new(1, 1, Array.Empty<int>(), new HashSet<int>(), new HashSet<string>(), "");
     /// <summary>Points of fatigue an hour of sleep eases, on a bedroll and on the bare ground.</summary>
     public double BedrollPerHour { get; private init; }
     public double GroundPerHour { get; private init; }
@@ -285,13 +309,15 @@ public sealed class Content
         // Needs, eating, drinking, sleeping, the spring.
         var needs = new SortedDictionary<string, NeedRule>(StringComparer.Ordinal);
         Consumption? eat = null, drink = null;
+        Washing? wash = null;
+        WaterRules? waterRules = null;
         double bedroll = 0, ground = 0;
         int spring = 0;
-        if (Open("needs.json", "needs", "eat", "drink", "sleep", "spring_litres_per_day") is JsonObject n)
+        if (Open("needs.json", "needs", "eat", "drink", "wash", "sleep", "spring_litres_per_day", "water") is JsonObject n)
         {
             if (n["needs"] is JsonObject table)
             {
-                check.Keys(table, "needs.json.needs", "hunger", "thirst", "fatigue");
+                check.Keys(table, "needs.json.needs", "hunger", "thirst", "fatigue", "hygiene");
                 foreach (var (name, node) in table)
                 {
                     string at = "needs.json.needs." + name;
@@ -301,15 +327,17 @@ public sealed class Content
                         continue;
                     }
                     check.Keys(rule, at, "per_hour", "asleep_per_hour", "peckish", "wants", "urgent", "critical", "collapse_hours");
+                    // "collapse_hours": null is a need that never fells anyone (hygiene).
+                    bool never = rule.ContainsKey("collapse_hours") && rule["collapse_hours"] is null;
                     double?[] v = { check.NotNegative(rule, at, "per_hour"), check.NotNegative(rule, at, "asleep_per_hour"),
                                     check.NotNegative(rule, at, "peckish"), check.NotNegative(rule, at, "wants"),
                                     check.NotNegative(rule, at, "urgent"), check.NotNegative(rule, at, "critical"),
-                                    check.NotNegative(rule, at, "collapse_hours") };
+                                    never ? double.PositiveInfinity : check.NotNegative(rule, at, "collapse_hours") };
                     if (v.Any(x => x == null))
                         continue;
                     if (!(v[2] < v[3] && v[3] < v[4] && v[4] < v[5] && v[5] <= 100))
                         problems.Add(at + ": should have peckish < wants < urgent < critical <= 100");
-                    else if (table.ContainsKey(name) && new[] { "hunger", "thirst", "fatigue" }.Contains(name))
+                    else if (table.ContainsKey(name) && new[] { "hunger", "thirst", "fatigue", "hygiene" }.Contains(name))
                         needs[name] = new NeedRule(name, v[0]!.Value, v[1]!.Value, v[2]!.Value, v[3]!.Value, v[4]!.Value, v[5]!.Value, v[6]!.Value);
                 }
             }
@@ -337,6 +365,52 @@ public sealed class Content
             }
             eat = Use("eat");
             drink = Use("drink");
+            if (n["wash"] is JsonObject wo)
+            {
+                const string at = "needs.json.wash";
+                check.Keys(wo, at, "good", "litres", "eases", "minutes");
+                string? good = check.Text(wo, at, "good");
+                if (good != null && !goods.ContainsKey(good))
+                {
+                    problems.Add(at + ".good: no good \"" + good + "\"");
+                    good = null;
+                }
+                int? litres = check.Int(wo, at, "litres", 1);
+                double? eases = check.Positive(wo, at, "eases");
+                int? minutes = check.Int(wo, at, "minutes", 1);
+                if (good != null && litres != null && eases != null && minutes != null)
+                    wash = new Washing(good, litres.Value, eases.Value, minutes.Value);
+            }
+            else if (n.ContainsKey("wash"))
+                problems.Add("needs.json.wash: should be an object { ... }");
+            if (n["water"] is JsonObject wr)
+            {
+                const string at = "needs.json.water";
+                check.Keys(wr, at, "load_litres", "plenty_litres", "brook_litres_by_month", "freezing_months", "cold_biomes", "ice_hole");
+                int? load = check.Int(wr, at, "load_litres", 1);
+                int? plenty = check.Int(wr, at, "plenty_litres", 1);
+                var brook = new List<int>();
+                if (wr["brook_litres_by_month"] is JsonArray bl && bl.Count == Calendar.MonthsPerYear
+                    && bl.All(x => x is JsonValue xv && xv.TryGetValue(out int l) && l >= 0))
+                    brook.AddRange(bl.Select(x => (int)x!));
+                else if (wr.ContainsKey("brook_litres_by_month"))
+                    problems.Add(at + ".brook_litres_by_month: should be " + Calendar.MonthsPerYear + " whole numbers of 0 or more, January first");
+                var freezing = new HashSet<int>();
+                if (wr["freezing_months"] is JsonArray fm && fm.All(x => x is JsonValue xv && xv.TryGetValue(out int m) && m is >= 1 and <= Calendar.MonthsPerYear))
+                    freezing.UnionWith(fm.Select(x => (int)x!));
+                else if (wr.ContainsKey("freezing_months"))
+                    problems.Add(at + ".freezing_months: should be a list of months, 1 to " + Calendar.MonthsPerYear);
+                var cold = new HashSet<string>(StringComparer.Ordinal);
+                if (wr["cold_biomes"] is JsonArray cb && cb.All(x => x is JsonValue xv && xv.TryGetValue(out string? _)))
+                    cold.UnionWith(cb.Select(x => (string)x!));
+                else if (wr.ContainsKey("cold_biomes"))
+                    problems.Add(at + ".cold_biomes: should be a list of biome names");
+                string? ice = check.Text(wr, at, "ice_hole");
+                if (load != null && plenty != null && brook.Count == Calendar.MonthsPerYear && ice != null)
+                    waterRules = new WaterRules(load.Value, plenty.Value, brook, freezing, cold, ice);
+            }
+            else if (n.ContainsKey("water"))
+                problems.Add("needs.json.water: should be an object { ... }");
             if (n["sleep"] is JsonObject s)
             {
                 check.Keys(s, "needs.json.sleep", "bedroll_per_hour", "ground_per_hour");
@@ -404,7 +478,8 @@ public sealed class Content
             }
             foreach (var (item, at) in check.List(k, "construction.json", "pieces"))
             {
-                check.Keys(item, at, "id", "name", "materials", "work_minutes", "blocks", "encloses", "speed", "size", "access", "water_per_day");
+                check.Keys(item, at, "id", "name", "materials", "work_minutes", "blocks", "encloses", "speed", "size", "access", "water_per_day",
+                           "holds_litres", "wash_place", "opens_ice");
                 string? id = check.Id(item, at, IdShape);
                 string? name = check.Text(item, at, "name");
                 var materials = check.Amounts(item, at, "materials", goods, emptyAllowed: true);
@@ -414,6 +489,14 @@ public sealed class Content
                 (int, int)? access = item["access"] is null ? null : check.Pair(item, at, "access", -1);
                 bool accessOk = item["access"] is null || access != null;
                 int? water = check.Int(item, at, "water_per_day", 0);
+                int? holds = check.Int(item, at, "holds_litres", 0);
+                bool? washes = check.Bool(item, at, "wash_place");
+                bool? opensIce = check.Bool(item, at, "opens_ice");
+                if (washes == true && holds == 0)
+                {
+                    problems.Add(at + ".wash_place: a wash place holds water (holds_litres above 0)");
+                    washes = null;
+                }
                 if (size is var (sw, sh) && access is var (ax, ay) && ax >= 0 && ay >= 0 && ax < sw && ay < sh)
                 {
                     problems.Add(at + ".access: (" + ax + ", " + ay + ") is under the piece itself; it should be a tile beside it");
@@ -432,10 +515,11 @@ public sealed class Content
                 if (pieces.ContainsKey(id))
                     problems.Add(at + ": a second piece with the id \"" + id + "\"");
                 else if (name != null && materials != null && minutes != null && blocks != null && encloses != null
-                         && speedOk && size != null && accessOk && water != null)
+                         && speedOk && size != null && accessOk && water != null && holds != null && washes != null && opensIce != null)
                     pieces[id] = new PieceKind(id, name, materials, minutes.Value, blocks.Value, encloses.Value)
                     {
                         Speed = pieceSpeed, Width = size.Value.Item1, Height = size.Value.Item2, Access = access, WaterPerDay = water.Value,
+                        HoldsLitres = holds.Value, WashPlace = washes.Value, OpensIce = opensIce.Value,
                     };
             }
             foreach (var (item, at) in check.List(k, "construction.json", "templates"))
@@ -574,11 +658,16 @@ public sealed class Content
                 founding = new FoundingRules(founders.Value, names, supplies, each.Value);
         }
 
+        // The ice hole named by the water rules is a piece that opens ice; the wash's good is the drink's.
+        if (waterRules != null && pieces.Count > 0 && !(pieces.TryGetValue(waterRules.IceHole, out var hole) && hole.OpensIce))
+            problems.Add("needs.json.water.ice_hole: \"" + waterRules.IceHole + "\" is not a piece of construction.json with \"opens_ice\": true");
+        if (wash != null && drink != null && wash.Good != drink.Good)
+            problems.Add("needs.json.wash.good: should be the drink's good, \"" + drink.Good + "\" (colonists wash in water)");
         if (problems.Count > 0)
             throw new ContentException(problems);
         return new Content(goods, workshops, recipes, carry, walk, pickup, drop)
         {
-            Needs = needs, Eat = eat!, Drink = drink!, BedrollPerHour = bedroll, GroundPerHour = ground, SpringPerDay = spring,
+            Needs = needs, Eat = eat!, Drink = drink!, Wash = wash!, Water = waterRules!, BedrollPerHour = bedroll, GroundPerHour = ground, SpringPerDay = spring,
             Schedules = schedules, DefaultSchedule = defaultSchedule!, Pieces = pieces, TestGround = testGround!,
             Templates = templates, Founding = founding!, Surfaces = surfaces,
             Fingerprint = FingerprintOf(files),

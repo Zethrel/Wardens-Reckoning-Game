@@ -255,7 +255,7 @@ public class ColonySaveTests
         yield return new object[] { "\u0001\u0002ÿ not a save", "broken JSON" };
         yield return new object[] { "[1, 2, 3]", "no JSON object" };
         yield return new object[] { "{\"format\": \"something else\"}", "not a colony save of this game" };
-        yield return new object[] { good.Replace("\"version\": 10", "\"version\": 9"), "older saves are not converted" };
+        yield return new object[] { good.Replace("\"version\": 11", "\"version\": 10"), "older saves are not converted" };
     }
 
     [Theory]

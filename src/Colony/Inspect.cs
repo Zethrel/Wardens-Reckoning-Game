@@ -117,8 +117,11 @@ public static class Inspect
         foreach (var inventory in colony.Stocks.Inventories.Where(i => i.Holder == Holder.Store && On(i, x, y)))
         {
             bool spring = work?.Springs.Contains(inventory.Id) == true;
-            lines.Add(new Line(spring ? "Water" : "Store", inventory.Name + ": " + Goods(colony, inventory.Goods)
+            string holds = inventory.Capacity is int capacity ? " (of " + capacity + ")" : "";
+            lines.Add(new Line(spring ? "Water" : "Store", inventory.Name + ": " + Goods(colony, inventory.Goods) + holds
                                                          + (inventory.Emptying ? " (being emptied)" : "")));
+            if (spring)
+                lines.Add(new Line("Source", Source(colony, work!, inventory.Id)));
         }
         foreach (var bed in work?.Bedrolls ?? Array.Empty<Bedroll>())
             if (Ground.TileOf(bed.X, bed.Y) == (x, y))
@@ -165,7 +168,7 @@ public static class Inspect
         if (!underWay && ground.PieceAt(x, y) is string piece)
         {
             var kind = Rules(colony).Pieces[piece];
-            if (kind.Width <= 1 && kind.Height <= 1)
+            if (kind.Width <= 1 && kind.Height <= 1 && kind.HoldsLitres == 0)
                 commands.Add(new Command("Take down", 'X', "Take down this " + kind.Name.ToLowerInvariant() + "; half its materials come back",
                     () => work.TakeDown(x, y)));
         }
@@ -177,7 +180,7 @@ public static class Inspect
         }
         var springs = work.Springs.ToHashSet();
         foreach (var store in colony.Stocks.Inventories.Where(i => i.Holder == Holder.Store && i.Area == null && !i.Emptying
-                     && !springs.Contains(i.Id) && i.Goods.Count > 0 && Ground.TileOf(i.X, i.Y) == (x, y)).ToList())
+                     && !springs.Contains(i.Id) && i.Capacity == null && i.Goods.Count > 0 && Ground.TileOf(i.X, i.Y) == (x, y)).ToList())
             commands.Add(new Command("Empty", 'E', "Carry everything in " + store.Name + " to the stockpiles", () => store.Emptying = true));
         foreach (var pile in colony.Stocks.Inventories.Where(i => i.Area is Area a && a.Covers(x, y) && !i.Emptying).ToList())
         {
@@ -186,6 +189,23 @@ public static class Inspect
                 () => work.RemoveStockpile(id)));
         }
         return commands;
+    }
+
+    // "a brook, 250 litres a day, frozen: nothing to draw until spring".
+    static string Source(Colony colony, Work work, InventoryId id)
+    {
+        var source = work.SourceOf(id);
+        string what = source.Kind switch
+        {
+            WaterKind.River => "a river, more than the colony draws",
+            WaterKind.Lake => "a lake, more than the colony draws",
+            WaterKind.Brook => "a brook, " + work.LitresOf(id) + " litres a day this month",
+            WaterKind.Well => "a well, " + work.LitresOf(id) + " litres a day",
+            _ => "a spring, " + work.LitresOf(id) + " litres a day",
+        };
+        if (source.Frozen)
+            what += source.Kind == WaterKind.Brook ? "; frozen: nothing to draw until the thaw" : "; frozen over: an ice hole must be cut";
+        return what;
     }
 
     /// <summary>Every building under way that waits, and why (FP-06), in the order they were planned.</summary>

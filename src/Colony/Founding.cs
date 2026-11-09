@@ -14,20 +14,31 @@ public static class Founding
     /// <summary>
     /// The founders' arrival on a founding site's local map: the carts on the open tile nearest the middle of the map
     /// (the generator keeps the middle clear of trees and rocks), the founders and their bedrolls beside them, as on
-    /// the test ground. If the map has fresh water, the founders drink from it: a drinking place (a spring, filled to
-    /// the content's spring_litres_per_day each morning) on the bank tile nearest the carts, named for the water
-    /// ("The river", "The brook", "The lake"). A site without fresh water has none: the founders live on the water
-    /// they brought (founding.json) until they build a well.
+    /// the test ground. If the map has fresh water, the founders drink from it: a water source on the bank tile
+    /// nearest the carts, of the water's kind (step 19a: a river or a lake has plenty, a brook its month's litres)
+    /// and named for it ("The river", "The brook", "The lake"). A site without fresh water has none: the founders
+    /// live on the water they brought (founding.json) until they build a well. A colony in a cold biome
+    /// (needs.json water.cold_biomes) has its water freeze in the freezing months.
     /// </summary>
     public static (Colony Colony, Inventory Carts) Found(long seed, Moment arrival, Content content, LocalMap map)
     {
         var ground = Ground.FromMap(map, content);
         var (x, y) = OpenNear(ground, map.Size / 2, map.Size / 2, new HashSet<(int, int)>());
         var (colony, carts, used) = Arrive(seed, arrival, content, ground, x, y);
+        colony.Work!.Cold = map.Biome != null && content.Water.ColdBiomes.Contains(map.Biome);
         if (Bank(ground, map, x, y, used) is var (bx, by))
-            colony.Work!.AddSpring(bx + 0.5, by + 0.5, WaterName(map.Water));
+            colony.Work.AddSpring(bx + 0.5, by + 0.5, WaterName(map.Water), kind: KindOf(map.Water));
         return (colony, carts);
     }
+
+    /// <summary>The kind of water source for what the generator moved the site to: a river, a brook ("stream"), a
+    /// lake; fresh water on a map moved for none of these (or to the sea, with a fresh lake on it too) is a lake.</summary>
+    public static WaterKind KindOf(string? water) => water switch
+    {
+        "river" => WaterKind.River,
+        "stream" => WaterKind.Brook,
+        _ => WaterKind.Lake,
+    };
 
     /// <summary>What the founders call the water they drink from, by what the generator moved the site to.</summary>
     public static string WaterName(string? water) => water switch

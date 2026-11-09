@@ -43,7 +43,9 @@ public static class ColonySave
     // ground's surfaces, each colonist's legs, the litres of each spring and well, takings-down (step 15c). 9: a
     // checksum and the content's fingerprint (step 16). 10: the ground's surfaces and obstacles as rows of letters,
     // one a tile, so that a local map of 256 by 256 tiles stays small (step 17b).
-    public const int Version = 10;
+    // 11: water by its uses (step 19a): each water source's kind, litres and frost, the colony's cold, the stores'
+    // capacity, wash places and sources, and washing.
+    public const int Version = 11;
 
     /// <summary>The colony as JSON.</summary>
     public static JsonObject Write(Colony colony) => new()
@@ -70,6 +72,9 @@ public static class ColonySave
             ["kept"] = Amounts(i.Kept),
             ["accepts"] = new JsonArray(i.Accepts.Select(g => (JsonNode?)g).ToArray()),
             ["emptying"] = i.Emptying,
+            ["source_only"] = i.SourceOnly,
+            ["capacity"] = i.Capacity,
+            ["wash_place"] = i.WashPlace,
             ["area"] = i.Area is not Area a ? null : new JsonArray(a.X, a.Y, a.Width, a.Height),
         }).ToArray()),
         ["reservations"] = new JsonArray(colony.Stocks.Reservations.Select(r => (JsonNode?)new JsonObject
@@ -102,7 +107,9 @@ public static class ColonySave
             {
                 ["id"] = b.Id.Value, ["x"] = b.X, ["y"] = b.Y, ["owner"] = b.Owner is ColonistId o ? o.Value : null,
             }).ToArray()),
-            ["springs"] = new JsonArray(work.Springs.Select(s => (JsonNode?)new JsonArray(s.Value, work.LitresOf(s))).ToArray()),
+            ["springs"] = new JsonArray(work.Springs.Select(s => (JsonNode?)new JsonArray(s.Value, work.SourceOf(s).Kind.ToString(),
+                work.SourceOf(s).Litres, work.SourceOf(s).Frozen)).ToArray()),
+            ["cold"] = work.Cold,
             ["projects"] = new JsonArray(work.Projects.Select(p => (JsonNode?)new JsonObject
             {
                 ["id"] = p.Id.Value, ["piece"] = p.Piece, ["x"] = p.X, ["y"] = p.Y, ["stock"] = p.Stock.Value,
@@ -452,7 +459,7 @@ public static class ColonySave
                 continue;
             string at = "work.workers[" + i + "].personal";
             if (po["kind"]?.ToString() is "Eat" or "Drink" && po["claim"] is null)
-                throw new ColonySaveException(at + ": eating and drinking hold a claim, sleeping none");
+                throw new ColonySaveException(at + ": eating and drinking hold a claim, sleeping none, washing one at a basin");
             if (po["claim"] is null)
                 continue;
             long claim = Number(po["claim"], at + ".claim");
@@ -513,12 +520,12 @@ public static class ColonySave
             {
                 string pat = at + ".personal";
                 if (!Enum.TryParse<PersonalKind>(Text(po, "kind", pat), out var pk) || !Enum.IsDefined(pk))
-                    throw new ColonySaveException(pat + ".kind is not eating, drinking or sleeping");
+                    throw new ColonySaveException(pat + ".kind is not eating, drinking, sleeping or washing");
                 ReservationId? claim = po["claim"] is null ? null : new ReservationId(Id(po, "claim", pat));
                 if (claim is ReservationId rc && !stocks.Reservations.Any(r => r.Id == rc))
                     throw new ColonySaveException(pat + ".claim " + rc.Value + " does not exist");
-                if ((pk == PersonalKind.Sleep) != (claim == null))
-                    throw new ColonySaveException(pat + ": eating and drinking hold a claim, sleeping none");
+                if (pk is PersonalKind.Eat or PersonalKind.Drink && claim == null || pk == PersonalKind.Sleep && claim != null)
+                    throw new ColonySaveException(pat + ": eating and drinking hold a claim, sleeping none, washing one at a basin");
                 int? left = po["left"] is null ? null : (int)Id(po, "left", pat);
                 worker.Personal = new Personal
                 {
@@ -552,15 +559,21 @@ public static class ColonySave
         }
         foreach (var node in work["springs"] as JsonArray ?? throw new ColonySaveException("work.springs is not a list"))
         {
-            if (node is not JsonArray pair || pair.Count != 2)
-                throw new ColonySaveException("work.springs holds something that is not [store, litres]");
-            long id = Number(pair[0], "work.springs"), litres = Number(pair[1], "work.springs");
-            if (!held.Contains(id) || stocks[new InventoryId(id)].Holder != Holder.Store)
-                throw new ColonySaveException("work.springs names " + id + ", which is not a store");
+            if (node is not JsonArray entry || entry.Count != 4)
+                throw new ColonySaveException("work.springs holds something that is not [store, kind, litres, frozen]");
+            long id = Number(entry[0], "work.springs"), litres = Number(entry[2], "work.springs");
+            if (!held.Contains(id) || stocks[new InventoryId(id)].Holder != Holder.Store || !stocks[new InventoryId(id)].SourceOnly)
+                throw new ColonySaveException("work.springs names " + id + ", which is not a store of water that only gives");
+            if (!Enum.TryParse<WaterKind>(entry[1]?.ToString(), out var kind) || !Enum.IsDefined(kind))
+                throw new ColonySaveException("work.springs gives " + id + " the kind \"" + entry[1] + "\", which is no kind of water");
             if (litres < 0 || litres > int.MaxValue)
                 throw new ColonySaveException("work.springs gives " + id + " " + litres + " litres a day, which cannot be");
-            colony.Work!.PutSpring(new InventoryId(id), (int)litres);
+            if (entry[3] is not JsonValue fv || !fv.TryGetValue(out bool frozen))
+                throw new ColonySaveException("work.springs gives " + id + " a frost that is not true or false");
+            colony.Work!.PutSpring(new InventoryId(id), kind, (int)litres, frozen);
         }
+        colony.Work!.Cold = work["cold"] is JsonValue cv && cv.TryGetValue(out bool cold)
+            ? cold : throw new ColonySaveException("work.cold is not true or false");
         foreach (var (job, worker) in jobWorkers)
             if (colony.Work!.Worker(new ColonistId(worker)).Job != new TaskId(job))
                 throw new ColonySaveException("work.jobs: job " + job + " names worker " + worker + ", who is not doing it");
@@ -741,6 +754,17 @@ public static class ColonySave
                 inventory.Accepts.Add(Good(g, at + ".accepts"));
             inventory.Emptying = o["emptying"] is JsonValue ev && ev.TryGetValue(out bool emptying)
                 ? emptying : throw new ColonySaveException(at + ".emptying is not true or false");
+            inventory.SourceOnly = o["source_only"] is JsonValue sv && sv.TryGetValue(out bool sourceOnly)
+                ? sourceOnly : throw new ColonySaveException(at + ".source_only is not true or false");
+            inventory.WashPlace = o["wash_place"] is JsonValue wv && wv.TryGetValue(out bool washPlace)
+                ? washPlace : throw new ColonySaveException(at + ".wash_place is not true or false");
+            if (o["capacity"] is not null)
+            {
+                long capacity = Number(o["capacity"], at + ".capacity");
+                if (capacity < 1 || capacity > int.MaxValue || holder != Holder.Store)
+                    throw new ColonySaveException(at + ".capacity is not a whole number above 0, of a store");
+                inventory.Capacity = (int)capacity;
+            }
             if (o["area"] is not null)
             {
                 if (o["area"] is not JsonArray area || area.Count != 4)

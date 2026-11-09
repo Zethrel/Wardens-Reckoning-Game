@@ -109,7 +109,9 @@ public class PlacingTests
         var work = colony.Work!;
         var pile = work.PlaceStockpile(new Area(26, 22, 2, 2)).Pile!;
         carts.Emptying = true;
-        Assert.True(Until(colony, () => carts.Goods.Count == 0, 24 * 60), "the carts were never emptied");
+        // Until the carts are empty and the last load is out of everyone's arms.
+        Assert.True(Until(colony, () => carts.Goods.Count == 0 && work.Workers.All(w => colony.Stocks[w.Arms].Goods.Count == 0), 24 * 60),
+                    "the carts were never emptied");
         int held = pile.Goods.Values.Sum();
         Assert.True(held > 0);
         var other = work.PlaceStockpile(new Area(2, 30, 3, 3)).Pile!;

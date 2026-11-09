@@ -325,15 +325,24 @@ public sealed partial class Work
         }
         Stocks.Make(job.First, now, job.Claims, project.Stock, new Dictionary<string, int>());
         job.Claims.Clear();
-        foreach (var (tx, ty) in Footprint(kind, project.X, project.Y))
-            Ground!.AddPiece(project.Piece, kind.Blocks, tx, ty, kind.Encloses, kind.Speed);
         projects.Remove(project.Id.Value);
         Stocks.Close(project.Stock);
+        // An ice hole leaves nothing standing: it opens the frozen water it was cut in (Water.cs).
+        if (kind.OpensIce)
+        {
+            OpenIce(project.X, project.Y);
+            return;
+        }
+        foreach (var (tx, ty) in Footprint(kind, project.X, project.Y))
+            Ground!.AddPiece(project.Piece, kind.Blocks, tx, ty, kind.Encloses, kind.Speed);
+        // A water barrel or a wash basin holds water on its tile.
+        if (kind.HoldsLitres > 0)
+            AddContainer(kind, project.X, project.Y);
         // A well gives water from its access tile, every morning.
         if (kind.WaterPerDay > 0 && kind.Access is var (dx, dy))
         {
             var (wx, wy) = Ground.Centre(project.X + dx, project.Y + dy);
-            AddSpring(wx, wy, kind.Name, kind.WaterPerDay);
+            AddSpring(wx, wy, kind.Name, kind.WaterPerDay, WaterKind.Well);
         }
     }
 

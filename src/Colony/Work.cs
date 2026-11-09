@@ -27,10 +27,10 @@ public sealed class Worker(ColonistId id, string name, double x, double y, Inven
     }
 
     /// <summary>Their needs (step 14a), each from 0 (none) to 100 (the limit), by name: "hunger", "thirst",
-    /// "fatigue".</summary>
+    /// "fatigue", "hygiene" (step 19a).</summary>
     public SortedDictionary<string, NeedState> Needs { get; } = new(StringComparer.Ordinal)
     {
-        ["fatigue"] = new(), ["hunger"] = new(), ["thirst"] = new(),
+        ["fatigue"] = new(), ["hunger"] = new(), ["hygiene"] = new(), ["thirst"] = new(),
     };
     /// <summary>Their schedule template's id.</summary>
     public string Schedule { get; internal set; } = "";
@@ -62,6 +62,8 @@ public enum PersonalKind
     Eat,
     Drink,
     Sleep,
+    /// <summary>Washing (step 19a): at a wash basin, or on the bank of fresh water.</summary>
+    Wash,
 }
 
 /// <summary>Something a colonist does for themselves: walk to food, water or their bed, and eat, drink or lie down.</summary>
@@ -185,8 +187,6 @@ public sealed partial class Work
     readonly SortedDictionary<long, Site> sites = new();
     readonly SortedDictionary<long, Job> jobs = new();
     readonly SortedDictionary<long, Bedroll> bedrolls = new();
-    // The springs and wells, each with the litres it has every morning.
-    readonly SortedDictionary<long, int> springs = new();
 
     public Work(Colony colony, Content content)
     {
@@ -298,23 +298,26 @@ public sealed partial class Work
 
     // ---- One minute ---------------------------------------------------------------------------------
 
-    /// <summary>One tick: needs grow and are seen to (Life.cs), workers act, the spring fills in the morning,
-    /// workshops ask, construction projects ask (Build.cs), stores are emptied and emptied stockpiles removed
-    /// (Placing.cs), the collapsed are cared for, workers take jobs.</summary>
+    /// <summary>One tick: needs grow and are seen to (Life.cs), workers act, the water sources fill and freeze in
+    /// the morning and rivers top up each hour (Water.cs), workshops ask, construction projects ask (Build.cs),
+    /// stores are emptied and emptied stockpiles removed (Placing.cs), barrels and basins are filled (Water.cs), the
+    /// collapsed are cared for, workers take jobs.</summary>
     public void Tick()
     {
         foreach (var worker in workers.Values)
             if (Live(worker) && !worker.Stopped && worker.Job is TaskId t)
                 Act(worker, jobs[t.Value]);
         if (colony.Now.MinuteOfDay == Autosave.MorningMinute)
-            foreach (long spring in springs.Keys)
-                Fill(new InventoryId(spring));
+            Morning();
+        if (colony.Now.MinuteOfDay % Calendar.MinutesPerHour == 0)
+            TopUp();
         foreach (var site in sites.Values)
             Ask(site);
         foreach (var project in projects.Values.ToList())
             Supply(project);
         Tidy();
         ClearStockpiles();
+        Fetch();
         Care();
         Assign();
     }
@@ -489,9 +492,9 @@ public sealed partial class Work
         places.Select(i => (Place: i, Far: Far(x, y, i.X, i.Y))).Where(p => !double.IsPositiveInfinity(p.Far))
               .OrderBy(p => p.Far).ThenBy(p => p.Place.Id.Value).Select(p => p.Place).FirstOrDefault();
 
-    /// <summary>The nearest store taking `good` (the lower number on a tie), or null.</summary>
+    /// <summary>The nearest store taking `good` with room for it (the lower number on a tie), or null.</summary>
     Inventory? NearestStore(string good, double x, double y, InventoryId? except = null) =>
-        Nearest(Stocks.Inventories.Where(i => i.Takes(good) && i.Id != except), x, y);
+        Nearest(Stocks.Inventories.Where(i => i.Takes(good) && i.Id != except && RoomIn(i) > 0), x, y);
 
     /// <summary>Units of `good` one person can carry.</summary>
     int CarryUnits(string good) => Math.Max(1, (int)Math.Floor(content.CarryKg / content.Goods[good].MassKg));
@@ -531,7 +534,7 @@ public sealed partial class Work
                 var to = NearestStore(good, store.X, store.Y);
                 if (to == null)
                     continue;
-                NewHaul(store.Id, to.Id, good, Math.Min(free, CarryUnits(good)), "move " + content.Goods[good].Name.ToLowerInvariant() + " to " + to.Name);
+                NewHaul(store.Id, to.Id, good, Math.Min(Math.Min(free, CarryUnits(good)), RoomIn(to)), "move " + content.Goods[good].Name.ToLowerInvariant() + " to " + to.Name);
                 return;                                          // one at a time
             }
     }
@@ -553,7 +556,7 @@ public sealed partial class Work
                 site.Blocked = "no store takes " + good;
                 continue;
             }
-            NewHaul(site.Output, store.Id, good, Math.Min(free, CarryUnits(good)), "store the " + good);
+            NewHaul(site.Output, store.Id, good, Math.Min(Math.Min(free, CarryUnits(good)), RoomIn(store)), "store the " + good);
         }
         if (site.Recipe is not string id)
             return;
@@ -659,5 +662,4 @@ public sealed partial class Work
     internal void Put(Site site) => sites[site.Id.Value] = site;
     internal void Put(Job job) => jobs[job.Id.Value] = job;
     internal void Put(Bedroll bedroll) => bedrolls[bedroll.Id.Value] = bedroll;
-    internal void PutSpring(InventoryId spring, int litres) => springs[spring.Value] = litres;
 }

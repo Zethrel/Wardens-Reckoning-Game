@@ -284,7 +284,9 @@ public class LocalMapTests(ITestOutputHelper output)
         var ground = colony.Ground!;
         double walk = ground.Metres(61, (int)spring.Y, 32, 32);
         Assert.All(Enumerable.Range(0, 64).Where(y => ground.Open(61, y)), y => Assert.True(walk <= ground.Metres(61, y, 32, 32)));
-        Assert.Equal(Real.SpringPerDay, work.LitresOf(spring.Id));
+        // A brook (step 19a): its month's litres, January's 600 (needs.json water.brook_litres_by_month).
+        Assert.Equal(WaterKind.Brook, work.SourceOf(spring.Id).Kind);
+        Assert.Equal(Real.Water.BrookByMonth[0], work.LitresOf(spring.Id));
         // The same seed and map: the same colony.
         Assert.Equal(ColonySave.Text(colony), ColonySave.Text(Founding.Found(7, Arrival, Real, map).Colony));
     }

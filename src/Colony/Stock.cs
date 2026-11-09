@@ -44,8 +44,21 @@ public sealed class Inventory(InventoryId id, string name, Holder holder, double
     /// counted at its middle (X, Y).</summary>
     public Area? Area { get; internal set; }
 
-    /// <summary>Whether goods of `good` may be brought here to be stored.</summary>
-    public bool Takes(string good) => Holder == Holder.Store && !Emptying && (Accepts.Count == 0 || Accepts.Contains(good));
+    /// <summary>For a store that only gives (step 19a): a river, a brook, a lake, a well. Water is drawn from it, but
+    /// nothing is ever carried to it (the founders' water is not poured into the brook).</summary>
+    public bool SourceOnly { get; set; }
+
+    /// <summary>For a store that holds only so much (step 19a, library Review 37: a water barrel, 100 litres; a wash
+    /// basin, 20): how many units in all, or null: no limit.</summary>
+    public int? Capacity { get; set; }
+
+    /// <summary>A wash basin (step 19a): colonists wash here with its water.</summary>
+    public bool WashPlace { get; set; }
+
+    /// <summary>Whether goods of `good` may be brought here to be stored (its room is the hauler's to check:
+    /// Work.RoomIn).</summary>
+    public bool Takes(string good) =>
+        Holder == Holder.Store && !Emptying && !SourceOnly && (Accepts.Count == 0 || Accepts.Contains(good));
 
     /// <summary>Units of each good here (goods with none are left out).</summary>
     public IReadOnlyDictionary<string, int> Goods => goods;

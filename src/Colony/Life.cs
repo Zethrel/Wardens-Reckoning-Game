@@ -5,8 +5,10 @@ namespace WardensReckoning.Colony;
 /// The colonists' needs and day (the design library's Colonist Daily Life and Needs; step 14a). This is the second
 /// half of `Work` (C#'s `partial class`: one class written in two files).
 ///
-/// **Needs.** Hunger, thirst and fatigue each run from 0 (none) to 100 (the limit), growing every minute by the
-/// rates in content/needs.json (hunger and thirst more slowly asleep; fatigue only awake, and sleep eases it).
+/// **Needs.** Hunger, thirst, fatigue and hygiene (step 19a) each run from 0 (none) to 100 (the limit), growing
+/// every minute by the rates in content/needs.json (hunger, thirst and hygiene more slowly asleep; fatigue only
+/// awake, and sleep eases it). Washing eases hygiene (Water.cs says where); a low hygiene fells nobody, and lowers
+/// wellbeing once there is wellbeing (library Review 37, Daily Life §7.2).
 /// Each need has four levels: *peckish* (eats or drinks at mealtimes), *wants* (sees to it when free),
 /// *urgent* (takes no new work and sees to it, but finishes a delivery in hand: library §5.3) and *critical*
 /// (drops what they are doing at once: goods in their arms stay there, with the job, until they come back to it).
@@ -44,30 +46,6 @@ public sealed partial class Work
         return moved;
     }
 
-    /// <summary>A spring (the stand-in stream, until step 17 brings rivers) or a well: a store of water at (`x`,
-    /// `y`), filled to `litres` (if not given: the content's SpringPerDay) when made and every morning.</summary>
-    public Inventory AddSpring(double x, double y, string name = "Spring", int? litres = null)
-    {
-        var spring = Stocks.Open(name, Holder.Store, x, y);
-        spring.Accepts.Add(content.Drink.Good);
-        springs[spring.Id.Value] = litres ?? content.SpringPerDay;
-        Fill(spring.Id);
-        return spring;
-    }
-
-    /// <summary>The springs' inventories.</summary>
-    public IEnumerable<InventoryId> Springs => springs.Keys.Select(s => new InventoryId(s));
-
-    /// <summary>The litres a spring or well has each morning.</summary>
-    public int LitresOf(InventoryId spring) => springs[spring.Value];
-
-    void Fill(InventoryId spring)
-    {
-        int missing = springs[spring.Value] - Stocks[spring].Count(content.Drink.Good);
-        if (missing > 0)
-            Stocks.Arrive(colony.Ids.Next<OperationId>(), colony.Now.Tick, spring, content.Drink.Good, missing);
-    }
-
     /// <summary>Changes a colonist's schedule template.</summary>
     public void SetSchedule(ColonistId id, string schedule)
     {
@@ -86,8 +64,11 @@ public sealed partial class Work
         && BlockOf(w) == Block.Work && Level(w) < 3;
 
     /// <summary>The highest level any need of the colonist has reached: 0 none, 1 peckish, 2 wants, 3 urgent,
-    /// 4 critical.</summary>
-    int Level(Worker w) => content.Needs.Values.Max(rule => LevelOf(rule, w.Needs[rule.Name].Level));
+    /// 4 critical. Hygiene counts only when there is somewhere to wash: a dirty colonist with nowhere to wash goes
+    /// on working (otherwise a colony without a basin or a bank would stop work for good).</summary>
+    int Level(Worker w) => content.Needs.Values
+        .Where(rule => rule.Name != content.Hygiene.Name || WashPlace(w) != null)
+        .Max(rule => LevelOf(rule, w.Needs[rule.Name].Level));
 
     internal static int LevelOf(NeedRule rule, double level) =>
         level >= rule.Critical ? 4 : level >= rule.Urgent ? 3 : level >= rule.Wants ? 2 : level >= rule.Peckish ? 1 : 0;
@@ -218,6 +199,7 @@ public sealed partial class Work
             if (Of(content.Thirst) >= level && Can(w, PersonalKind.Drink)) return (PersonalKind.Drink, level);
             if (Of(content.Hunger) >= level && Can(w, PersonalKind.Eat)) return (PersonalKind.Eat, level);
             if (Of(content.Fatigue) >= level) return (PersonalKind.Sleep, level);
+            if (Of(content.Hygiene) >= level && Can(w, PersonalKind.Wash)) return (PersonalKind.Wash, level);
         }
         if (block == Block.Sleep)
             return (PersonalKind.Sleep, 2);
@@ -231,13 +213,22 @@ public sealed partial class Work
             if (Of(content.Thirst) >= 2 && Can(w, PersonalKind.Drink)) return (PersonalKind.Drink, 2);
             if (Of(content.Hunger) >= 2 && Can(w, PersonalKind.Eat)) return (PersonalKind.Eat, 2);
             if (block != Block.Work && Of(content.Fatigue) >= 2) return (PersonalKind.Sleep, 2);
+            if (Of(content.Hygiene) >= 2 && Can(w, PersonalKind.Wash)) return (PersonalKind.Wash, 2);
         }
         return (null, 0);
     }
 
-    /// <summary>Whether there is food or water to be had (and if not, the colonist notes it for the player).</summary>
+    /// <summary>Whether there is food or water to be had, or somewhere to wash (and if not, the colonist notes it
+    /// for the player).</summary>
     bool Can(Worker w, PersonalKind kind)
     {
+        if (kind == PersonalKind.Wash)
+        {
+            if (WashPlace(w) != null)
+                return true;
+            w.Lacking = "nowhere to wash: no wash basin with water, and no fresh water open on the map";
+            return false;
+        }
         string good = kind == PersonalKind.Eat ? content.Eat.Good : content.Drink.Good;
         if (Source(w, good) != null)
             return true;
@@ -245,10 +236,11 @@ public sealed partial class Work
         return false;
     }
 
-    /// <summary>The nearest inventory with `good` free a colonist may take from: their own arms first, then stores.</summary>
+    /// <summary>The nearest inventory with `good` free a colonist may take from: their own arms first, then stores
+    /// (not frozen water).</summary>
     Inventory? Source(Worker w, string good) =>
         Stocks.Free(w.Arms, good) > 0 ? Stocks[w.Arms]
-        : Nearest(Stocks.Inventories.Where(i => i.Holder == Holder.Store && Stocks.Free(i.Id, good) > 0), w.X, w.Y);
+        : Nearest(Stocks.Inventories.Where(i => i.Holder == Holder.Store && Stocks.Free(i.Id, good) > 0 && Drawable(i)), w.X, w.Y);
 
     /// <summary>Starts seeing to a wish: claims the food or water, or picks the bed.</summary>
     void Start(Worker w, PersonalKind kind)
@@ -258,6 +250,15 @@ public sealed partial class Work
         {
             var bed = bedrolls.Values.FirstOrDefault(b => b.Owner == w.Id);
             w.Personal = new Personal { Kind = kind, X = bed?.X ?? w.X, Y = bed?.Y ?? w.Y, Bedroll = bed != null };
+        }
+        else if (kind == PersonalKind.Wash)
+        {
+            // At a basin its water is claimed for the wash; on a bank, nothing is.
+            var (place, basin) = WashPlace(w)!.Value;
+            ReservationId? claim = basin
+                ? Stocks.Reserve(place.Id, content.Wash.Good, content.Wash.Litres, w.Name + " washes").Reservation!.Id
+                : null;
+            w.Personal = new Personal { Kind = kind, X = place.X, Y = place.Y, Claim = claim, Operation = colony.Ids.Next<OperationId>() };
         }
         else
         {
@@ -300,16 +301,27 @@ public sealed partial class Work
                 w.Personal = null;
                 return;
             }
-            p.Left = (p.Kind == PersonalKind.Eat ? content.Eat : content.Drink).Minutes;
+            p.Left = p.Kind switch
+            {
+                PersonalKind.Eat => content.Eat.Minutes,
+                PersonalKind.Wash => content.Wash.Minutes,
+                _ => content.Drink.Minutes,
+            };
             if (!there)
                 return;
         }
         if (--p.Left > 0)
             return;
-        var use = p.Kind == PersonalKind.Eat ? content.Eat : content.Drink;
-        var rule = p.Kind == PersonalKind.Eat ? content.Hunger : content.Thirst;
-        Stocks.Make(p.Operation, colony.Now.Tick, new[] { p.Claim!.Value }, w.Arms, new Dictionary<string, int>());
-        w.Needs[rule.Name].Level = Math.Max(0, w.Needs[rule.Name].Level - use.Eases);
+        var (rule, eases) = p.Kind switch
+        {
+            PersonalKind.Eat => (content.Hunger, content.Eat.Eases),
+            PersonalKind.Wash => (content.Hygiene, content.Wash.Eases),
+            _ => (content.Thirst, content.Drink.Eases),
+        };
+        // What was claimed is used up (a wash on a bank claimed nothing).
+        if (p.Claim is ReservationId used)
+            Stocks.Make(p.Operation, colony.Now.Tick, new[] { used }, w.Arms, new Dictionary<string, int>());
+        w.Needs[rule.Name].Level = Math.Max(0, w.Needs[rule.Name].Level - eases);
         w.Personal = null;
     }
 
@@ -324,7 +336,7 @@ public sealed partial class Work
                 if (w.Needs[rule.Name].Level < rule.Wants
                     || jobs.Values.Any(j => j.Kind == JobKind.Haul && j.To == w.Arms && j.Good == use.Good))
                     continue;
-                var from = Nearest(Stocks.Inventories.Where(i => i.Holder == Holder.Store && Stocks.Free(i.Id, use.Good) > 0), w.X, w.Y);
+                var from = Nearest(Stocks.Inventories.Where(i => i.Holder == Holder.Store && Stocks.Free(i.Id, use.Good) > 0 && Drawable(i)), w.X, w.Y);
                 if (from != null)
                     NewHaul(from.Id, w.Arms, use.Good, 1, "bring " + content.Goods[use.Good].Name.ToLowerInvariant() + " to " + w.Name);
             }
@@ -347,7 +359,9 @@ public sealed partial class Work
                 (PersonalKind.Eat, null) => "going to eat",
                 (PersonalKind.Eat, _) => "eating",
                 (PersonalKind.Drink, null) => "going to drink",
-                _ => "drinking",
+                (PersonalKind.Drink, _) => "drinking",
+                (PersonalKind.Wash, null) => "going to wash",
+                _ => "washing",
             };
         if (w.Job is TaskId t)
             return jobs[t.Value].Purpose;

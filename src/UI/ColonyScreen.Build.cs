@@ -55,7 +55,7 @@ public partial class ColonyScreen
     IEnumerable<Tool> Tools()
     {
         var content = Colony.Content!;
-        foreach (var (id, piece) in content.Pieces)
+        foreach (var (id, piece) in content.Pieces.Where(p => !p.Value.OpensIce))       // the colony plans its own ice holes
             yield return new Tool(id, piece.Name, piece.Width > 1 || piece.Height > 1 ? Shape.Single : id == "floor" ? Shape.Box : Shape.Line);
         foreach (var (id, template) in content.Templates)
             yield return new Tool(id, template.Name, Shape.Template);

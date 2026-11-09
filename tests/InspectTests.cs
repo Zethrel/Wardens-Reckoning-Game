@@ -24,7 +24,7 @@ public class InspectTests
         var ada = colony.Work!.Workers.First();
         var shown = Inspect.Worker(colony, ada.Id);
         Assert.Equal(ada.Name, shown.Title);
-        Assert.Equal(new[] { "Doing", "Where", "Fatigue", "Hunger", "Thirst", "Schedule", "Carrying" }, shown.Lines.Select(l => l.Label));
+        Assert.Equal(new[] { "Doing", "Where", "Fatigue", "Hunger", "Hygiene", "Thirst", "Schedule", "Carrying" }, shown.Lines.Select(l => l.Label));
         Assert.Equal(colony.Work.Doing(ada.Id), Text(shown, "Doing"));
         var (x, y) = Ground.TileOf(ada.X, ada.Y);
         Assert.Equal("(" + x + ", " + y + "), on grass", Text(shown, "Where"));

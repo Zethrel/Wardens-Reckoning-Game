@@ -12,15 +12,21 @@
   ],
   "pieces": [
     { "id": "wall", "name": "Timber wall", "materials": { "timber": 2 }, "work_minutes": 45, "blocks": true, "encloses": true,
-      "speed": null, "size": [1, 1], "access": null, "water_per_day": 0 },
+      "speed": null, "size": [1, 1], "access": null, "water_per_day": 0, "holds_litres": 0, "wash_place": false, "opens_ice": false },
     { "id": "door", "name": "Timber door", "materials": { "timber": 3 }, "work_minutes": 60, "blocks": false, "encloses": true,
-      "speed": null, "size": [1, 1], "access": null, "water_per_day": 0 },
+      "speed": null, "size": [1, 1], "access": null, "water_per_day": 0, "holds_litres": 0, "wash_place": false, "opens_ice": false },
     { "id": "floor", "name": "Plank floor", "materials": { "timber": 1 }, "work_minutes": 15, "blocks": false, "encloses": false,
-      "speed": 1.0, "size": [1, 1], "access": null, "water_per_day": 0 },
+      "speed": 1.0, "size": [1, 1], "access": null, "water_per_day": 0, "holds_litres": 0, "wash_place": false, "opens_ice": false },
     { "id": "road", "name": "Road", "materials": {}, "work_minutes": 10, "blocks": false, "encloses": false,
-      "speed": 1.0, "size": [1, 1], "access": null, "water_per_day": 0 },
+      "speed": 1.0, "size": [1, 1], "access": null, "water_per_day": 0, "holds_litres": 0, "wash_place": false, "opens_ice": false },
     { "id": "well", "name": "Well", "materials": { "timber": 8 }, "work_minutes": 240, "blocks": true, "encloses": false,
-      "speed": null, "size": [2, 2], "access": [0, 2], "water_per_day": 200 }
+      "speed": null, "size": [2, 2], "access": [0, 2], "water_per_day": 200, "holds_litres": 0, "wash_place": false, "opens_ice": false },
+    { "id": "water_barrel", "name": "Water barrel", "materials": { "timber": 3 }, "work_minutes": 60, "blocks": false, "encloses": false,
+      "speed": null, "size": [1, 1], "access": null, "water_per_day": 0, "holds_litres": 100, "wash_place": false, "opens_ice": false },
+    { "id": "wash_basin", "name": "Wash basin", "materials": { "timber": 2 }, "work_minutes": 30, "blocks": false, "encloses": false,
+      "speed": null, "size": [1, 1], "access": null, "water_per_day": 0, "holds_litres": 20, "wash_place": true, "opens_ice": false },
+    { "id": "ice_hole", "name": "Ice hole", "materials": {}, "work_minutes": 30, "blocks": false, "encloses": false,
+      "speed": null, "size": [1, 1], "access": null, "water_per_day": 0, "holds_litres": 0, "wash_place": false, "opens_ice": true }
   ],
   "templates": [
     {

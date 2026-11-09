@@ -46,7 +46,7 @@ public class ContentTests
         Assert.Equal((Block.Sleep, Block.Meals, Block.Work, Block.Recreation, Block.Flexible, Block.Sleep),
                      (day[6], day[7], day[8], day[17], day[20], day[23]));
         Assert.Equal(70, content.WalkMetresPerMinute);
-        Assert.Equal(new[] { "door", "floor", "road", "wall", "well" }, content.Pieces.Keys);
+        Assert.Equal(new[] { "door", "floor", "ice_hole", "road", "wall", "wash_basin", "water_barrel", "well" }, content.Pieces.Keys);
         Assert.Equal((1.0, 0.8, 0.55), (content.Surfaces["road"].Speed, content.Surfaces["grass"].Speed, content.Surfaces["rough"].Speed));
         var well = content.Pieces["well"];
         Assert.Equal((2, 2, (0, 2), 200, 8), (well.Width, well.Height, well.Access!.Value, well.WaterPerDay, well.Materials["timber"]));
@@ -110,6 +110,25 @@ public class ContentTests
         yield return Case("needs.json", r => Hunger(r)["per_hour"] = -1, "needs.json.needs.hunger.per_hour: should be a number of 0 or more");
         yield return Case("needs.json", r => r["needs"]!.AsObject().Remove("thirst"), "needs.json.needs: \"thirst\" is missing");
         yield return Case("needs.json", r => r["needs"]!["boredom"] = new JsonObject(), "needs.json.needs: unknown key \"boredom\"");
+        // Water (step 19a).
+        JsonObject Water(JsonObject r) => r["water"]!.AsObject();
+        yield return Case("needs.json", r => r["needs"]!.AsObject().Remove("hygiene"), "needs.json.needs: \"hygiene\" is missing");
+        yield return Case("needs.json", r => r["wash"]!["good"] = "timber", "needs.json.wash.good: should be the drink's good, \"water\"");
+        yield return Case("needs.json", r => r["wash"]!["good"] = "soap", "needs.json.wash.good: no good \"soap\"");
+        yield return Case("needs.json", r => r["wash"]!["litres"] = 0, "needs.json.wash.litres: should be a whole number of 1 or more");
+        yield return Case("needs.json", r => r["wash"] = 3, "needs.json.wash: should be an object");
+        yield return Case("needs.json", r => Water(r)["brook_litres_by_month"] = new JsonArray(1, 2), "needs.json.water.brook_litres_by_month: should be 12 whole numbers of 0 or more");
+        yield return Case("needs.json", r => Water(r)["brook_litres_by_month"]![3] = -5, "needs.json.water.brook_litres_by_month: should be 12");
+        yield return Case("needs.json", r => Water(r)["freezing_months"] = new JsonArray(13), "needs.json.water.freezing_months: should be a list of months, 1 to 12");
+        yield return Case("needs.json", r => Water(r)["cold_biomes"] = new JsonArray(4), "needs.json.water.cold_biomes: should be a list of biome names");
+        yield return Case("needs.json", r => Water(r)["load_litres"] = 0, "needs.json.water.load_litres: should be a whole number of 1 or more");
+        yield return Case("needs.json", r => Water(r)["ice_hole"] = "wall", "needs.json.water.ice_hole: \"wall\" is not a piece of construction.json with \"opens_ice\": true");
+        yield return Case("needs.json", r => Water(r).Remove("plenty_litres"), "needs.json.water: \"plenty_litres\" is missing");
+        yield return Case("needs.json", r => r["water"] = "lots", "needs.json.water: should be an object");
+        yield return Case("needs.json", r => r["needs"]!["hygiene"]!["collapse_hours"] = -1, "needs.json.needs.hygiene.collapse_hours: should be a number of 0 or more");
+        yield return Case("construction.json", r => Wall(r)["wash_place"] = true, "construction.json.pieces[0].wash_place: a wash place holds water");
+        yield return Case("construction.json", r => Wall(r).Remove("holds_litres"), "construction.json.pieces[0]: \"holds_litres\" is missing");
+        yield return Case("construction.json", r => Wall(r)["opens_ice"] = "yes", "construction.json.pieces[0].opens_ice: should be true or false");
         yield return Case("needs.json", r => r["needs"]!["hunger"] = 5, "needs.json.needs.hunger: should be an object");
         yield return Case("needs.json", r => r["eat"]!["good"] = "cake", "needs.json.eat.good: no good \"cake\"");
         yield return Case("needs.json", r => r["drink"]!["minutes"] = 0, "needs.json.drink.minutes: should be a whole number of 1 or more");
@@ -125,7 +144,7 @@ public class ContentTests
         JsonObject Wall(JsonObject r) => r["pieces"]![0]!.AsObject();
         JsonObject TestGround(JsonObject r) => r["test_ground"]!.AsObject();
         JsonObject Rock(JsonObject r) => r["test_ground"]!["obstacles"]![0]!.AsObject();
-        yield return Case("construction.json", r => r["pieces"]!.AsArray().Add(Wall(r).DeepClone()), "construction.json.pieces[5]: a second piece with the id \"wall\"");
+        yield return Case("construction.json", r => r["pieces"]!.AsArray().Add(Wall(r).DeepClone()), "construction.json.pieces[8]: a second piece with the id \"wall\"");
         yield return Case("construction.json", r => Wall(r)["materials"] = new JsonObject { ["stone"] = 2 }, "construction.json.pieces[0].materials.stone: no good \"stone\"");
         yield return Case("construction.json", r => Wall(r)["work_minutes"] = 0, "construction.json.pieces[0].work_minutes: should be a whole number of 1 or more");
         yield return Case("construction.json", r => Wall(r)["blocks"] = "yes", "construction.json.pieces[0].blocks: should be true or false");
