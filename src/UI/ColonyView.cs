@@ -93,17 +93,34 @@ public partial class ColonyView : Node2D
         return Color.FromHsv(hash % 360 / 360f, 0.35f, 0.6f);
     }
 
-    /// <summary>Called when the player left-clicks the map, with the point clicked in tiles.</summary>
-    public event Action<Vector2>? Clicked;
+    /// <summary>Called when the left mouse button goes down on the map, with the point in tiles.</summary>
+    public event Action<Vector2>? Pressed;
+
+    /// <summary>Called when the left mouse button comes up again (the end of a click or a drag).</summary>
+    public event Action<Vector2>? Released;
+
+    /// <summary>Called when the mouse moves over the map.</summary>
+    public event Action<Vector2>? Moved;
 
     public override void _UnhandledInput(InputEvent @event)
     {
-        if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true })
+        if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Left } button)
         {
-            Clicked?.Invoke(GetGlobalMousePosition());
+            (button.Pressed ? Pressed : Released)?.Invoke(GetGlobalMousePosition());
             GetViewport().SetInputAsHandled();
         }
+        else if (@event is InputEventMouseMotion)
+            Moved?.Invoke(GetGlobalMousePosition());
     }
+
+    /// <summary>
+    /// What would be placed, shown before it is (step 18b): each tile with whether it may go there. A tile that may
+    /// is outlined in white; one that may not is shaded and crossed out, so the two differ by shape, not colour only.
+    /// </summary>
+    public IReadOnlyList<(int X, int Y, bool Ok)> Ghost { get; set; } = Array.Empty<(int, int, bool)>();
+
+    /// <summary>The build cursor's tile (the mouse's, or moved with the arrows), outlined; null when not building.</summary>
+    public (int X, int Y)? Cursor { get; set; }
 
     public override void _Process(double delta) => QueueRedraw();     // the colonists move: draw again each frame
 
@@ -173,19 +190,47 @@ public partial class ColonyView : Node2D
         }
         if (SelectedTile is var (sx, sy))
             DrawRect(new Rect2(sx, sy, 1, 1), new Color(1, 1, 1), false, 0.12f);
+        foreach (var (gx, gy, ok) in Ghost)
+        {
+            var tile = new Rect2(gx + 0.08f, gy + 0.08f, 0.84f, 0.84f);
+            if (ok)
+            {
+                DrawRect(tile, new Color(1, 1, 1, 0.25f));
+                DrawRect(tile, Paper, false, 0.08f);
+            }
+            else
+            {
+                DrawRect(tile, new Color(0.8f, 0.1f, 0.1f, 0.35f));
+                DrawLine(tile.Position, tile.End, Ink, 0.1f);
+                DrawLine(new Vector2(tile.End.X, tile.Position.Y), new Vector2(tile.Position.X, tile.End.Y), Ink, 0.1f);
+            }
+        }
+        if (Cursor is var (kx, ky))
+        {
+            DrawRect(new Rect2(kx - 0.05f, ky - 0.05f, 1.1f, 1.1f), Ink, false, 0.14f);
+            DrawRect(new Rect2(kx + 0.05f, ky + 0.05f, 0.9f, 0.9f), Paper, false, 0.06f);
+        }
         // The colonists last, on top: a circle (at least 5 screen pixels across, so they show when zoomed out), a ring
-        // when picked, and the name above, every other one a line higher, so names side by side do not overlap.
+        // when picked, and the name above, on the lowest line not taken by a name of a colonist standing within a
+        // name's width, so names side by side (or of colonists on one spot) do not overlap.
         float radius = Math.Max(0.38f, 5f / pixels);
-        int nth = 0;
+        var drawn = new List<(Vector2 At, int Level)>();
         foreach (var w in work.Workers)
         {
-            bool higher = nth++ % 2 == 1;
+            var at = new Vector2((float)w.X, (float)w.Y);
+            // The lowest line no name nearby is on already.
+            var taken = drawn.Where(d => Math.Abs(d.At.X - at.X) * pixels < 70 && Math.Abs(d.At.Y - at.Y) * pixels < 20)
+                             .Select(d => d.Level).ToHashSet();
+            int level = 0;
+            while (taken.Contains(level))
+                level++;
+            drawn.Add((at, level));
             var middle = new Vector2((float)w.X, (float)w.Y);
             DrawCircle(middle, radius, w.Collapsed != null ? new Color(0.6f, 0.6f, 0.6f) : new Color(0.95f, 0.85f, 0.65f));
             DrawArc(middle, radius, 0, Mathf.Tau, 20, Ink, radius * 0.18f);
             if (SelectedWorker == w.Id)
                 DrawArc(middle, radius * 1.6f, 0, Mathf.Tau, 24, Paper, radius * 0.3f);
-            DrawName(font, w.Name, middle - new Vector2(0, radius * 1.6f + (higher ? 19f / pixels : 0)), pixels);
+            DrawName(font, w.Name, middle - new Vector2(0, radius * 1.6f + level * 19f / pixels), pixels);
         }
     }
 

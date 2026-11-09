@@ -38,6 +38,18 @@ public partial class SettingsPanel : Control
         };
         column.AddChild(borders);
 
+        var sizeLabel = new Label { Text = SizeText() };
+        column.AddChild(sizeLabel);
+        var size = new HSlider { MinValue = 0.75, MaxValue = 2, Step = 0.25, Value = Settings.InterfaceSize,
+                                 CustomMinimumSize = new Vector2(260, 24) };
+        size.ValueChanged += value =>
+        {
+            Settings.InterfaceSize = value;
+            sizeLabel.Text = SizeText();
+            Settings.Apply();
+        };
+        column.AddChild(size);
+
         var speedLabel = new Label { Text = SpeedText() };
         column.AddChild(speedLabel);
         var speed = new HSlider { MinValue = 0.5, MaxValue = 20, Step = 0.5, Value = Settings.YearsPerSecond,
@@ -51,6 +63,8 @@ public partial class SettingsPanel : Control
 
         column.AddChild(Ui.Button("Close", Close));
     }
+
+    static string SizeText() => "Interface size: " + Math.Round(Settings.InterfaceSize * 100) + "%";
 
     static string SpeedText() => "Years a second while playing: " + Settings.YearsPerSecond.ToString("0.#");
 

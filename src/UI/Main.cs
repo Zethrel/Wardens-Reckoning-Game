@@ -69,6 +69,36 @@ public partial class Main : Node
         if (inspect >= 0 && inspect + 1 < arguments.Length && screen is ColonyScreen looking
             && arguments[inspect + 1].Split(',') is [var ix, var iy] && int.TryParse(ix, out int tx) && int.TryParse(iy, out int ty))
             looking.CallDeferred(ColonyScreen.MethodName.PickTile, tx, ty);
+        // For trying the colony screen without a mouse: `-- --build <wall|floor|small_house|stockpile|...>` takes
+        // that tool, `-- --place x0,y0,x1,y1` places from one tile to the other (several may follow each other),
+        // `-- --preview x0,y0,x1,y1` only shows it, `-- --do <key>,x,y` does the command of that key on the picked tile (a command needing a tile: on (x, y)),
+        // `-- --run <minutes>` lets the colony work, `-- --waiting` lists
+        // what waits.
+        if (screen is ColonyScreen building)
+            for (int i = 0; i < arguments.Length - 1; i++)
+            {
+                string value = arguments[i + 1];
+                switch (arguments[i])
+                {
+                    case "--build":
+                        building.PickTool(value);
+                        break;
+                    case "--place" or "--preview" when value.Split(',').Select(int.Parse).ToArray() is [var x0, var y0, var x1, var y1]:
+                        building.PlaceAt(x0, y0, x1, y1, arguments[i] == "--place");
+                        break;
+                    case "--inspect" when value.Split(',').Select(int.Parse).ToArray() is [var px, var py]:
+                        building.PickTile(px, py);
+                        break;
+                    case "--do" when value.Split(',') is [var key, var dx, var dy]:
+                        building.DoAt(key[0], int.Parse(dx), int.Parse(dy));
+                        break;
+                    case "--run" when int.TryParse(value, out int minutes):
+                        building.RunFor(minutes);
+                        break;
+                }
+            }
+        if (Array.IndexOf(arguments, "--waiting") >= 0 && screen is ColonyScreen listing)
+            listing.ShowWaiting();
         // `-- --screenshot <file.png>` saves what is on screen after a few frames and quits (for testing).
         int shot = Array.IndexOf(arguments, "--screenshot");
         if (shot >= 0 && shot + 1 < arguments.Length)

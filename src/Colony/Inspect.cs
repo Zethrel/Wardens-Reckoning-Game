@@ -10,6 +10,19 @@ public sealed record Line(string Label, string Text);
 public sealed record Inspection(string Title, IReadOnlyList<Line> Lines);
 
 /// <summary>
+/// Something the player can do from the inspector (step 18b): its button's words, the key that does it too, what it
+/// does in a sentence, and doing it. A command that needs a second tile (moving a bedroll there) has no `Run`, but
+/// `CheckAt` (whether that tile will do, and why not) and `RunAt` (doing it there): the screen lets the player pick
+/// the tile first.
+/// </summary>
+public sealed record Command(string Label, char Key, string Tooltip, Action? Run,
+                             Func<int, int, Placement>? CheckAt = null, Action<int, int>? RunAt = null);
+
+/// <summary>A building that waits (FP-06): where, what, and why in the player's words (with the next step) and in
+/// the developer's.</summary>
+public sealed record Waiting(int X, int Y, string What, Explanation Why);
+
+/// <summary>
 /// What the colony screen shows when the player inspects a tile or a colonist (step 18a, library Review 38;
 /// Shared Systems §19.2: identity, where, what it is doing, needs, what it carries, why something waits).
 ///
@@ -68,7 +81,7 @@ public static class Inspect
     /// A tile: its surface (and how fast it is walked), what is in the way or built on it, a building under way and
     /// why it waits, the stores, the drinking place and bedrolls on it, whether it is indoors, and who stands there.
     /// </summary>
-    public static Inspection Tile(Colony colony, int x, int y)
+    public static Inspection Tile(Colony colony, int x, int y, bool trace = false)
     {
         var ground = colony.Ground ?? throw new InvalidOperationException("the colony has no ground");
         if (!ground.Inside(x, y))
@@ -95,6 +108,10 @@ public static class Inspect
                 lines.Add(new Line("Waiting", why.Player));
                 if (why.NextStep != "")
                     lines.Add(new Line("Next step", why.NextStep));
+                // The developer's trace (FP-06: told apart from the player's words by its label, and shown only
+                // when asked for: F3).
+                if (trace)
+                    lines.Add(new Line("Trace", why.Trace));
             }
         }
         foreach (var inventory in colony.Stocks.Inventories.Where(i => i.Holder == Holder.Store && On(i, x, y)))
@@ -115,6 +132,70 @@ public static class Inspect
         if (here.Count > 0)
             lines.Add(new Line("Here", string.Join(", ", here)));
         return new Inspection("Tile (" + x + ", " + y + ")", lines);
+    }
+
+    /// <summary>
+    /// What the player can do on tile (x, y) (step 18b, library Review 38): pause or resume a building under way,
+    /// cancel it; take down a finished piece; move a bedroll; empty the carts (or another store) into the
+    /// stockpiles; empty and remove a stockpile. Each command's key is shown on its
+    /// button, so the keyboard alone can do it too (FP-11).
+    /// </summary>
+    public static IReadOnlyList<Command> Commands(Colony colony, int x, int y)
+    {
+        var work = colony.Work;
+        var ground = colony.Ground;
+        var commands = new List<Command>();
+        if (work == null || ground == null || !ground.Inside(x, y))
+            return commands;
+        bool underWay = false;
+        foreach (var p in work.Projects.Where(p => !p.Cancelled))
+        {
+            var size = Rules(colony).Pieces[p.Piece];
+            if (x < p.X || y < p.Y || x >= p.X + Math.Max(1, size.Width) || y >= p.Y + Math.Max(1, size.Height))
+                continue;
+            underWay = true;
+            var id = p.Id;
+            commands.Add(p.Paused
+                ? new Command("Resume", 'P', "Go on with this " + size.Name.ToLowerInvariant(), () => work.Pause(id, false))
+                : new Command("Pause", 'P', "Stop work on this " + size.Name.ToLowerInvariant() + " for now; it keeps its progress", () => work.Pause(id, true)));
+            commands.Add(new Command(p.Removing ? "Leave standing" : "Cancel", 'X',
+                p.Removing ? "Stop taking it down" : "Give up this " + size.Name.ToLowerInvariant() + "; what was brought is carried back",
+                () => work.CancelBuild(id)));
+        }
+        if (!underWay && ground.PieceAt(x, y) is string piece)
+        {
+            var kind = Rules(colony).Pieces[piece];
+            if (kind.Width <= 1 && kind.Height <= 1)
+                commands.Add(new Command("Take down", 'X', "Take down this " + kind.Name.ToLowerInvariant() + "; half its materials come back",
+                    () => work.TakeDown(x, y)));
+        }
+        foreach (var bed in work.Bedrolls.Where(b => Ground.TileOf(b.X, b.Y) == (x, y)).ToList())
+        {
+            var id = bed.Id;
+            commands.Add(new Command("Move bedroll", 'M', "Lay this bedroll out somewhere else (pick the tile)", null,
+                work.CheckBedroll, (tx, ty) => work.MoveBedroll(id, tx + 0.5, ty + 0.5)));
+        }
+        var springs = work.Springs.ToHashSet();
+        foreach (var store in colony.Stocks.Inventories.Where(i => i.Holder == Holder.Store && i.Area == null && !i.Emptying
+                     && !springs.Contains(i.Id) && i.Goods.Count > 0 && Ground.TileOf(i.X, i.Y) == (x, y)).ToList())
+            commands.Add(new Command("Empty", 'E', "Carry everything in " + store.Name + " to the stockpiles", () => store.Emptying = true));
+        foreach (var pile in colony.Stocks.Inventories.Where(i => i.Area is Area a && a.Covers(x, y) && !i.Emptying).ToList())
+        {
+            var id = pile.Id;
+            commands.Add(new Command("Remove stockpile", 'R', "Carry everything in " + pile.Name + " to the other stores, then remove it",
+                () => work.RemoveStockpile(id)));
+        }
+        return commands;
+    }
+
+    /// <summary>Every building under way that waits, and why (FP-06), in the order they were planned.</summary>
+    public static IReadOnlyList<Waiting> Waiting(Colony colony)
+    {
+        var list = new List<Waiting>();
+        foreach (var p in colony.Work?.Projects ?? Array.Empty<Project>())
+            if (colony.Work!.WhyBuild(p.Id) is Explanation why)
+                list.Add(new Waiting(p.X, p.Y, (p.Removing ? "Taking down: " : "") + Rules(colony).Pieces[p.Piece].Name, why));
+        return list;
     }
 
     // Whether an inventory is on tile (x, y): its area covers it, or it stands there.

@@ -13,8 +13,11 @@ namespace WardensReckoning.UI;
 /// runs the ticks now due at the chosen speed and makes the morning autosave. The screen never runs the colony
 /// itself, so how fast the screen draws cannot change what happens (FP-01).
 ///
-/// Keys: Space pauses or plays; 1, 2 and 3 choose the speed; Tab picks the next colonist; Esc opens the menu. The
-/// mouse: a left click inspects the colonist or the tile under it; the wheel zooms; the right button drags.
+/// Keys: Space pauses or plays; 1, 2 and 3 choose the speed; Tab picks the next colonist; B opens the build panel
+/// (ColonyScreen.Build.cs); J lists the buildings that wait, and why (FP-06); F3 shows the developer's trace beside
+/// the player's words; P, X and R do what the picked tile offers (pause, cancel or take down, remove a stockpile);
+/// Esc stops building, or opens the menu. The mouse: a left click inspects the colonist or the tile under it; the
+/// wheel zooms; the right button drags.
 /// </summary>
 public partial class ColonyScreen : Node
 {
@@ -28,7 +31,12 @@ public partial class ColonyScreen : Node
     Button? pause;
     readonly Button[] speeds = new Button[3];
     VBoxContainer? inspector;
+    VBoxContainer? commandBox;
+    string shownCommands = "";
     Label? inspectorTitle;
+    CanvasLayer? hudLayer;
+    bool trace;
+    bool listWaiting;
     double refresh;
     int reportsShown;
 
@@ -49,6 +57,7 @@ public partial class ColonyScreen : Node
         // Laid out as the world map's screen is: the map in a SubViewport in the middle, panels around it.
         var hud = new CanvasLayer();
         AddChild(hud);
+        hudLayer = hud;
         var screen = new VBoxContainer();
         screen.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
         screen.AddThemeConstantOverride("separation", 0);
@@ -69,7 +78,9 @@ public partial class ColonyScreen : Node
         // Start close, over the colonists (a whole local map is 256 metres; a colonist would be a speck).
         if (Colony.Work!.Workers.FirstOrDefault() is Worker first)
             camera.Look(new Vector2((float)first.X, (float)first.Y), 32);
-        view.Clicked += OnMapClick;
+        view.Pressed += OnPressed;
+        view.Released += OnReleased;
+        view.Moved += OnMoved;
 
         // The inspector, on the right.
         var side = new PanelContainer { CustomMinimumSize = new Vector2(320, 0) };
@@ -84,6 +95,10 @@ public partial class ColonyScreen : Node
         column.AddChild(inspectorTitle);
         inspector = new VBoxContainer();
         column.AddChild(inspector);
+        // The commands of the picked tile (pause, cancel, take down...): made again only when they change, so a
+        // button is not replaced under the mouse while it is being pressed.
+        commandBox = new VBoxContainer();
+        column.AddChild(commandBox);
 
         // The bar along the bottom.
         var bar = new PanelContainer { CustomMinimumSize = new Vector2(0, 48) };
@@ -100,6 +115,8 @@ public partial class ColonyScreen : Node
         }
         clock = new Label { CustomMinimumSize = new Vector2(250, 0), VerticalAlignment = VerticalAlignment.Center };
         row.AddChild(clock);
+        Bar(row, "Build", "Build walls, floors, the house, stockpiles (B)", ToggleBuildPanel);
+        Bar(row, "Waiting", "What waits, and why (J)", ShowWaiting);
         foreach (var w in Colony.Work!.Workers)
         {
             var id = w.Id;
@@ -187,6 +204,7 @@ public partial class ColonyScreen : Node
 
     void PickWorker(ColonistId id, bool centre)
     {
+        listWaiting = false;
         view!.SelectedWorker = id;
         view.SelectedTile = null;
         if (centre && Colony.Work!.Workers.FirstOrDefault(w => w.Id == id) is Worker w)
@@ -199,7 +217,18 @@ public partial class ColonyScreen : Node
     {
         if (!Colony.Ground!.Inside(x, y))
             return;
+        listWaiting = false;
         view!.SelectedTile = (x, y);
+        view.SelectedWorker = null;
+        ShowInspection();
+    }
+
+    /// <summary>Lists every building that waits, with why, in the inspector (J); a button for each picks its tile
+    /// (for testing too: `-- --waiting`).</summary>
+    public void ShowWaiting()
+    {
+        listWaiting = true;
+        view!.SelectedTile = null;
         view.SelectedWorker = null;
         ShowInspection();
     }
@@ -207,12 +236,19 @@ public partial class ColonyScreen : Node
     void ShowInspection()
     {
         Inspection? shown = null;
+        var commands = (IReadOnlyList<Command>)Array.Empty<Command>();
         if (view!.SelectedWorker is ColonistId id && Colony.Work!.Workers.Any(w => w.Id == id))
             shown = Inspect.Worker(Colony, id);
         else if (view.SelectedTile is var (x, y))
-            shown = Inspect.Tile(Colony, x, y);
+        {
+            shown = Inspect.Tile(Colony, x, y, trace);
+            commands = Inspect.Commands(Colony, x, y);
+        }
+        else if (listWaiting)
+            shown = WaitingList();
         foreach (var child in inspector!.GetChildren())
             child.QueueFree();
+        ShowCommands(commands);
         if (shown == null)
             return;
         inspectorTitle!.Text = shown.Title;
@@ -221,16 +257,112 @@ public partial class ColonyScreen : Node
             var label = new Label { Text = line.Label + ": " + line.Text, AutowrapMode = TextServer.AutowrapMode.WordSmart,
                                     CustomMinimumSize = new Vector2(290, 0) };
             label.AddThemeFontSizeOverride("font_size", 14);
+            // The developer's trace looks different from the player's words (FP-06): grey, in its own line.
+            if (line.Label == "Trace")
+                label.AddThemeColorOverride("font_color", new Color(0.65f, 0.65f, 0.65f));
             inspector.AddChild(label);
         }
     }
 
+    // The waiting list as an inspection, and a button per entry under it (made again only when the list changes).
+    Inspection WaitingList()
+    {
+        var waiting = Inspect.Waiting(Colony);
+        var lines = waiting.Select(w => new Line(w.What + " (" + w.X + ", " + w.Y + ")", w.Why.Player + (trace ? " [" + w.Why.Trace + "]" : ""))).ToList();
+        if (lines.Count == 0)
+            lines.Add(new Line("Nothing waits", "every building under way is being worked on, or nothing is planned"));
+        string signature = "waiting:" + string.Join("|", waiting.Select(w => w.X + "," + w.Y));
+        if (signature != shownCommands)
+        {
+            ClearCommands(signature);
+            foreach (var w in waiting)
+            {
+                var (wx, wy) = (w.X, w.Y);
+                var button = new Button { Text = "Go to " + w.What + " (" + wx + ", " + wy + ")", Alignment = HorizontalAlignment.Left };
+                button.Pressed += () =>
+                {
+                    camera!.Position = new Vector2(wx + 0.5f, wy + 0.5f);
+                    PickTile(wx, wy);
+                };
+                commandBox!.AddChild(button);
+            }
+        }
+        return new Inspection("Waiting (" + waiting.Count + ")", lines);
+    }
+
+    // The picked tile's commands as buttons, each with its key on it.
+    void ShowCommands(IReadOnlyList<Command> commands)
+    {
+        if (listWaiting)
+            return;                  // the waiting list keeps its own buttons
+        string signature = string.Join("|", commands.Select(c => c.Label)) + "@" + view!.SelectedTile;
+        if (signature == shownCommands)
+            return;
+        ClearCommands(signature);
+        foreach (var command in commands)
+        {
+            var c = command;
+            var button = new Button { Text = c.Label + " (" + c.Key + ")", TooltipText = c.Tooltip };
+            button.Pressed += () => Do(c);
+            commandBox!.AddChild(button);
+        }
+    }
+
+    void ClearCommands(string signature)
+    {
+        shownCommands = signature;
+        foreach (var child in commandBox!.GetChildren())
+            child.QueueFree();
+    }
+
+    void Do(Command command)
+    {
+        if (command.Run == null)
+        {
+            Aim(command);            // it needs a tile: pick it first
+            return;
+        }
+        command.Run();
+        said!.Text = command.Label + ": done.";
+        ShowInspection();
+    }
+
     public override void _UnhandledKeyInput(InputEvent @event)
     {
-        if (@event is not InputEventKey { Pressed: true, Echo: false } key)
+        if (@event is not InputEventKey { Pressed: true } key)
             return;
+        // While building, the arrows, Enter, R, F and Esc are the build tool's (arrows may repeat when held).
+        if (BuildKey(key.Keycode))
+        {
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+        if (key.Echo)
+            return;
+        // The picked tile's commands by their keys (P, X, R).
+        if (view!.SelectedTile is var (tx, ty) && !listWaiting
+            && Inspect.Commands(Colony, tx, ty).FirstOrDefault(c => key.Keycode == (Key)c.Key) is Command command)
+        {
+            Do(command);
+            GetViewport().SetInputAsHandled();
+            return;
+        }
         switch (key.Keycode)
         {
+            case Key.Escape when buildPanel != null:
+                CloseBuildPanel();
+                break;
+            case Key.B:
+                ToggleBuildPanel();
+                break;
+            case Key.J:
+                ShowWaiting();
+                break;
+            case Key.F3:
+                trace = !trace;
+                said!.Text = trace ? "Developer's trace shown (F3 hides it)." : "Developer's trace hidden.";
+                ShowInspection();
+                break;
             case Key.Space:
                 TogglePause();
                 break;
@@ -261,6 +393,9 @@ public partial class ColonyScreen : Node
         int at = view!.SelectedWorker is ColonistId id ? workers.FindIndex(w => w.Id == id) : -1;
         PickWorker(workers[(at + 1) % workers.Count].Id, true);
     }
+
+    /// <summary>Runs the colony `minutes` at once (for testing: `-- --run <minutes>`).</summary>
+    public void RunFor(int minutes) => Colony.Run(minutes);
 
     /// <summary>Shows a message on the bar (a warning about the loaded save).</summary>
     public void Tell(string message)

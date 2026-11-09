@@ -299,7 +299,8 @@ public sealed partial class Work
     // ---- One minute ---------------------------------------------------------------------------------
 
     /// <summary>One tick: needs grow and are seen to (Life.cs), workers act, the spring fills in the morning,
-    /// workshops ask, construction projects ask (Build.cs), the collapsed are cared for, workers take jobs.</summary>
+    /// workshops ask, construction projects ask (Build.cs), stores are emptied and emptied stockpiles removed
+    /// (Placing.cs), the collapsed are cared for, workers take jobs.</summary>
     public void Tick()
     {
         foreach (var worker in workers.Values)
@@ -313,6 +314,7 @@ public sealed partial class Work
         foreach (var project in projects.Values.ToList())
             Supply(project);
         Tidy();
+        ClearStockpiles();
         Care();
         Assign();
     }

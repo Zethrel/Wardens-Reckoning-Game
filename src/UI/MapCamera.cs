@@ -85,13 +85,20 @@ public partial class MapCamera : Camera2D
         Keep();
     }
 
+    /// <summary>Whether the arrow keys move the map (the colony screen turns this off while building, when they move
+    /// the cursor instead).</summary>
+    public bool ArrowsMove { get; set; } = true;
+
     public override void _Process(double delta)
     {
         // While a text box has the keys (the book's search), letters and arrows are typing, not moving the map. The
         // map sits in its own viewport, so the focus is looked for in the window's.
         if (GetTree().Root.GuiGetFocusOwner() is LineEdit)
             return;
-        var move = Input.GetVector("ui_left", "ui_right", "ui_up", "ui_down");
+        // The arrows move the map unless they have other work: moving the build cursor (ArrowsMove false), or
+        // moving between buttons that have the focus. W, A, S and D always move it.
+        var move = ArrowsMove && GetTree().Root.GuiGetFocusOwner() is not BaseButton
+            ? Input.GetVector("ui_left", "ui_right", "ui_up", "ui_down") : Vector2.Zero;
         if (Input.IsKeyPressed(Key.A)) move.X -= 1;
         if (Input.IsKeyPressed(Key.D)) move.X += 1;
         if (Input.IsKeyPressed(Key.W)) move.Y -= 1;
