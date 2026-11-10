@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "fouled_good": "foul_water",
+  "fouling": { "days_between": 60, "lasts_days": [3, 10], "sign_share": 0.5, "signs": ["dead fish in the water", "a foul smell", "scum on the water"] },
+  "boil": { "litres": 10, "fuel": "timber", "fuel_units": 1, "minutes": 30 }
+}

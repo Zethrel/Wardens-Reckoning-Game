@@ -39,6 +39,7 @@ public partial class ColonyScreen : Node
     bool trace;
     bool listWaiting;
     double refresh;
+    int newsShown = -1;      // -1: not yet looked (a loaded colony's old news is not shown again as new)
     int reportsShown;
 
     public ColonyScreen() : this(null!, null!, "") { }
@@ -136,6 +137,7 @@ public partial class ColonyScreen : Node
         menuLayer.AddChild(new PauseMenu(main, Save, LoadPanel.Colonies));
 
         ShowSpeed();
+        newsShown = Colony.Work!.Told.Count;
         if (pending.Count > 0)
         {
             said.Text = pending[^1];
@@ -163,6 +165,15 @@ public partial class ColonyScreen : Node
             said!.Text = session.Reports[^1];
             said.TooltipText = string.Join("\n", session.Reports);
             reportsShown = session.Reports.Count;
+        }
+        // News from the colony (step 19b: a sign seen at the water, someone ill): the newest on the bar, the last ten
+        // in its tooltip.
+        var told = Colony.Work!.Told;
+        if (told.Count > newsShown)
+        {
+            said!.Text = told[^1].Text;
+            said.TooltipText = string.Join("\n", told.TakeLast(10).Select(n => new Moment(n.Tick) + ": " + n.Text));
+            newsShown = told.Count;
         }
         // The inspector is written again four times a second, so what it shows follows the colony.
         refresh -= delta;
@@ -243,7 +254,7 @@ public partial class ColonyScreen : Node
         Inspection? shown = null;
         var commands = (IReadOnlyList<Command>)Array.Empty<Command>();
         if (view!.SelectedWorker is ColonistId id && Colony.Work!.Workers.Any(w => w.Id == id))
-            shown = Inspect.Worker(Colony, id);
+            shown = Inspect.Worker(Colony, id, trace);
         else if (view.SelectedTile is var (x, y))
         {
             shown = Inspect.Tile(Colony, x, y, trace);

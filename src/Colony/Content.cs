@@ -32,6 +32,23 @@ public sealed record Consumption(string Good, double Eases, int Minutes);
 public sealed record Washing(string Good, int Litres, double Eases, int Minutes);
 
 /// <summary>
+/// Fouled water (step 19b, library Review 37: Sanitation and Environmental Contamination §10, the Stage 2 choice;
+/// sanitation.json): the good fouled water is; how many days apart, on average, a natural source fouls, and for how
+/// many days (from, to); the share of foulings that show a sign, and the signs; and boiling: the litres boiled at
+/// once, the fuel and how much of it, the minutes it takes.
+/// </summary>
+public sealed record SanitationRules(string FouledGood, double DaysBetween, int LastsFrom, int LastsTo, double SignShare,
+                                     IReadOnlyList<string> Signs, int BoilLitres, string Fuel, int FuelUnits, int BoilMinutes);
+
+/// <summary>
+/// An illness (step 19b, library Review 37: Healthcare §10 item 8; health.json): its name; the chance that one
+/// exposure makes someone ill; the hours before it shows (from, to) and that it lasts (from, to); and while it does,
+/// the share of their usual work speed, and how many times as fast thirst and fatigue grow.
+/// </summary>
+public sealed record IllnessRule(string Name, double Chance, int OnsetFrom, int OnsetTo, int LastsFrom, int LastsTo,
+                                 double Work, double Thirst, double Fatigue);
+
+/// <summary>
 /// The water rules (step 19a, library Review 37; needs.json "water"): the litres one load carries; how much a
 /// river or a lake has (more than a colony draws: topped up every hour); a brook's litres a day for each month
 /// (January first); the months a cold biome's water freezes; the biomes that are cold; and the piece that is the
@@ -145,6 +162,13 @@ public sealed class Content
     public Consumption Drink { get; private init; } = new("", 0, 0);
     public Washing Wash { get; private init; } = new("", 0, 0, 0);
     public WaterRules Water { get; private init; } = new(1, 1, Array.Empty<int>(), new HashSet<int>(), new HashSet<string>(), "");
+    /// <summary>Fouled water and boiling (sanitation.json, step 19b).</summary>
+    public SanitationRules Sanitation { get; private init; } = new("", 1, 1, 1, 0, Array.Empty<string>(), 1, "", 1, 1);
+    /// <summary>The upset stomach (health.json, step 19b): the illness fouled water gives.</summary>
+    public IllnessRule UpsetStomach { get; private init; } = new("", 0, 0, 0, 0, 0, 1, 1, 1);
+
+    /// <summary>The goods a colonist drinks: water, and fouled water, which looks the same (step 19b).</summary>
+    public IReadOnlyList<string> Drinkable => Sanitation.FouledGood == "" ? new[] { Drink.Good } : new[] { Drink.Good, Sanitation.FouledGood };
     /// <summary>Points of fatigue an hour of sleep eases, on a bedroll and on the bare ground.</summary>
     public double BedrollPerHour { get; private init; }
     public double GroundPerHour { get; private init; }
@@ -201,7 +225,8 @@ public sealed class Content
     }
 
     /// <summary>The content's files.</summary>
-    public static readonly string[] Files = { "goods.json", "recipes.json", "colony.json", "needs.json", "schedules.json", "construction.json", "founding.json" };
+    public static readonly string[] Files = { "goods.json", "recipes.json", "colony.json", "needs.json", "schedules.json", "construction.json", "founding.json",
+                                              "sanitation.json", "health.json" };
 
     /// <summary>Checks content given as file name to text (null: the file is missing).</summary>
     public static Content Read(IReadOnlyDictionary<string, string?> files)
@@ -663,11 +688,103 @@ public sealed class Content
             problems.Add("needs.json.water.ice_hole: \"" + waterRules.IceHole + "\" is not a piece of construction.json with \"opens_ice\": true");
         if (wash != null && drink != null && wash.Good != drink.Good)
             problems.Add("needs.json.wash.good: should be the drink's good, \"" + drink.Good + "\" (colonists wash in water)");
+        // Fouled water and boiling (sanitation.json), the upset stomach (health.json): step 19b.
+        SanitationRules? sanitation = null;
+        if (Open("sanitation.json", "fouled_good", "fouling", "boil") is JsonObject sa)
+        {
+            string? fouled = check.Text(sa, "sanitation.json", "fouled_good");
+            if (fouled != null && !goods.ContainsKey(fouled))
+            {
+                problems.Add("sanitation.json.fouled_good: no good \"" + fouled + "\"");
+                fouled = null;
+            }
+            else if (fouled != null && drink != null && fouled == drink.Good)
+            {
+                problems.Add("sanitation.json.fouled_good: should not be the drink's good itself");
+                fouled = null;
+            }
+            double? between = null, share = null;
+            (int, int)? lasts = null;
+            var signs = new List<string>();
+            if (sa["fouling"] is JsonObject fo)
+            {
+                const string at = "sanitation.json.fouling";
+                check.Keys(fo, at, "days_between", "lasts_days", "sign_share", "signs");
+                between = check.Positive(fo, at, "days_between");
+                lasts = Ordered(check.Pair(fo, at, "lasts_days", 1), at + ".lasts_days");
+                share = fo["sign_share"] is JsonValue sv && sv.TryGetValue(out double s) && s >= 0 && s <= 1 ? s
+                    : Bad<double?>(at + ".sign_share: should be a number from 0 to 1");
+                if (fo["signs"] is JsonArray sl && sl.Count > 0 && sl.All(x => x is JsonValue xv && xv.TryGetValue(out string? w) && w.Length > 0))
+                    signs.AddRange(sl.Select(x => (string)x!));
+                else
+                    problems.Add(at + ".signs: should be a list of at least one sign, in words");
+            }
+            else
+                problems.Add("sanitation.json.fouling: should be an object { ... }");
+            int? litres = null, fuelUnits = null, minutes = null;
+            string? fuel = null;
+            if (sa["boil"] is JsonObject bo)
+            {
+                const string at = "sanitation.json.boil";
+                check.Keys(bo, at, "litres", "fuel", "fuel_units", "minutes");
+                litres = check.Int(bo, at, "litres", 1);
+                fuel = check.Text(bo, at, "fuel");
+                if (fuel != null && !goods.ContainsKey(fuel))
+                {
+                    problems.Add(at + ".fuel: no good \"" + fuel + "\"");
+                    fuel = null;
+                }
+                fuelUnits = check.Int(bo, at, "fuel_units", 1);
+                minutes = check.Int(bo, at, "minutes", 1);
+            }
+            else
+                problems.Add("sanitation.json.boil: should be an object { ... }");
+            if (fouled != null && between != null && lasts is var (lf, lt) && share != null && signs.Count > 0
+                && litres != null && fuel != null && fuelUnits != null && minutes != null)
+                sanitation = new SanitationRules(fouled, between.Value, lf, lt, share.Value, signs, litres.Value, fuel, fuelUnits.Value, minutes.Value);
+        }
+        IllnessRule? stomach = null;
+        if (Open("health.json", "upset_stomach") is JsonObject he)
+        {
+            if (he["upset_stomach"] is JsonObject us)
+            {
+                const string at = "health.json.upset_stomach";
+                check.Keys(us, at, "name", "chance", "onset_hours", "lasts_hours", "work", "thirst", "fatigue");
+                string? name = check.Text(us, at, "name");
+                double? chance = us["chance"] is JsonValue cv && cv.TryGetValue(out double odds) && odds >= 0 && odds <= 1 ? odds
+                    : Bad<double?>(at + ".chance: should be a number from 0 to 1");
+                var onset = Ordered(check.Pair(us, at, "onset_hours", 0), at + ".onset_hours");
+                var lastsHours = Ordered(check.Pair(us, at, "lasts_hours", 1), at + ".lasts_hours");
+                double? work = check.Share(us, at, "work");
+                double? thirst = check.Positive(us, at, "thirst");
+                double? fatigue = check.Positive(us, at, "fatigue");
+                if (name != null && chance != null && onset is var (of, ot) && lastsHours is var (hf, ht) && work != null && thirst != null && fatigue != null)
+                    stomach = new IllnessRule(name, chance.Value, of, ot, hf, ht, work.Value, thirst.Value, fatigue.Value);
+            }
+            else
+                problems.Add("health.json.upset_stomach: should be an object { ... }");
+        }
+        // A pair [from, to] with from no more than to.
+        (int, int)? Ordered((int, int)? pair, string at)
+        {
+            if (pair is var (a, b) && a > b)
+            {
+                problems.Add(at + ": the first should not be more than the second");
+                return null;
+            }
+            return pair;
+        }
+        T? Bad<T>(string problem)
+        {
+            problems.Add(problem);
+            return default;
+        }
+
         if (problems.Count > 0)
             throw new ContentException(problems);
         return new Content(goods, workshops, recipes, carry, walk, pickup, drop)
         {
-            Needs = needs, Eat = eat!, Drink = drink!, Wash = wash!, Water = waterRules!, BedrollPerHour = bedroll, GroundPerHour = ground, SpringPerDay = spring,
+            Needs = needs, Eat = eat!, Drink = drink!, Wash = wash!, Water = waterRules!, Sanitation = sanitation!, UpsetStomach = stomach!, BedrollPerHour = bedroll, GroundPerHour = ground, SpringPerDay = spring,
             Schedules = schedules, DefaultSchedule = defaultSchedule!, Pieces = pieces, TestGround = testGround!,
             Templates = templates, Founding = founding!, Surfaces = surfaces,
             Fingerprint = FingerprintOf(files),

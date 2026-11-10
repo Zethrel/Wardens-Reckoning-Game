@@ -23,6 +23,12 @@ public sealed class WaterSource
     public WaterKind Kind { get; init; }
     public int Litres { get; init; }
     public bool Frozen { get; internal set; }
+    /// <summary>Until when it is fouled (step 19b), or null: clean.</summary>
+    public long? FouledUntil { get; internal set; }
+    /// <summary>The sign this fouling shows (dead fish, a smell...), or null: none.</summary>
+    public string? Sign { get; internal set; }
+    /// <summary>Whether a colonist has seen the sign (and the player been told).</summary>
+    public bool SignSeen { get; internal set; }
 
     /// <summary>A river, a lake or a brook: water on the local map, where colonists may wash on the bank.</summary>
     public bool Natural => Kind is WaterKind.River or WaterKind.Lake or WaterKind.Brook;
@@ -63,7 +69,7 @@ public sealed partial class Work
     public Inventory AddSpring(double x, double y, string name = "Spring", int? litres = null, WaterKind kind = WaterKind.Spring)
     {
         var spring = Stocks.Open(name, Holder.Store, x, y);
-        spring.Accepts.Add(content.Drink.Good);
+        spring.Accepts.UnionWith(content.Drinkable);
         spring.SourceOnly = true;
         springs[spring.Id.Value] = new WaterSource { Kind = kind, Litres = litres ?? content.SpringPerDay };
         Freeze(springs[spring.Id.Value], spring.Id);
@@ -127,12 +133,14 @@ public sealed partial class Work
                 source.Frozen = false;
     }
 
-    // Tops a source up to its litres for the day (water left from yesterday stays: a source never loses water).
+    // Tops a source up to its litres for the day (water left from yesterday stays: a source never loses water);
+    // a fouled source gives fouled water (step 19b).
     void Fill(InventoryId spring)
     {
-        int missing = LitresOf(spring) - Stocks[spring].Count(content.Drink.Good);
+        int missing = LitresOf(spring) - content.Drinkable.Sum(g => Stocks[spring].Count(g));
+        string good = springs[spring.Value].FouledUntil != null ? content.Sanitation.FouledGood : content.Drink.Good;
         if (missing > 0)
-            Stocks.Arrive(colony.Ids.Next<OperationId>(), colony.Now.Tick, spring, content.Drink.Good, missing);
+            Stocks.Arrive(colony.Ids.Next<OperationId>(), colony.Now.Tick, spring, good, missing);
     }
 
     // Every hour: rivers and lakes are full again.
@@ -144,31 +152,33 @@ public sealed partial class Work
     }
 
     /// <summary>Units more that may be brought to an inventory: its capacity, less what is in it and what is on
-    /// its way; for one without a capacity, no limit.</summary>
+    /// its way (fetched, or boiled for it); for one without a capacity, no limit.</summary>
     public int RoomIn(Inventory inventory)
     {
         if (inventory.Capacity is not int capacity)
             return int.MaxValue;
-        int coming = jobs.Values.Where(j => j.Kind == JobKind.Haul && j.To == inventory.Id).Sum(j => j.Amount);
+        int coming = jobs.Values.Where(j => j.Kind is JobKind.Haul or JobKind.Boil && j.To == inventory.Id).Sum(j => j.Amount);
         return Math.Max(0, capacity - inventory.Goods.Values.Sum() - coming);
     }
 
     // Barrels and basins: when one is a load short (or, if it holds less than a load, half empty), a colonist
-    // fetches water for it from the nearest source that is not itself a barrel or basin.
+    // fetches water for it from the nearest source that is not itself a barrel or basin, nor marked (step 19b: a
+    // source marked "boil first" is boiled into the barrels instead). Whatever water is there is fetched: clean or
+    // fouled, nobody can tell.
     void Fetch()
     {
-        string water = content.Drink.Good;
-        foreach (var container in Stocks.Inventories.Where(i => i.Capacity != null && i.Takes(water)).ToList())
+        foreach (var container in Stocks.Inventories.Where(i => i.Capacity != null && i.Takes(content.Drink.Good)).ToList())
         {
             int room = RoomIn(container);
             if (room < Math.Min(content.Water.LoadLitres, container.Capacity!.Value / 2.0) || room == 0)
                 continue;
             if (jobs.Values.Any(j => j.Kind == JobKind.Haul && j.To == container.Id))
                 continue;                                        // one load at a time
-            var from = Nearest(Stocks.Inventories.Where(i => i.Holder == Holder.Store && i.Capacity == null && Drawable(i)
-                                                                   && Stocks.Free(i.Id, water) > 0), container.X, container.Y);
+            var from = Nearest(Stocks.Inventories.Where(i => i.Holder == Holder.Store && i.Capacity == null && DrinkFrom(i)
+                                                                   && FreeWater(i.Id) > 0), container.X, container.Y);
             if (from == null)
                 continue;
+            string water = WaterIn(from.Id)!;
             int load = Math.Min(Math.Min(content.Water.LoadLitres, room), Stocks.Free(from.Id, water));
             NewHaul(from.Id, container.Id, water, load, "fetch water for the " + container.Name.ToLowerInvariant()
                                                          + " at (" + Ground.TileOf(container.X, container.Y).X + ", " + Ground.TileOf(container.X, container.Y).Y + ")");
@@ -180,7 +190,7 @@ public sealed partial class Work
     (Inventory Place, bool Basin)? WashPlace(Worker w)
     {
         var places = Stocks.Inventories
-            .Where(i => (i.WashPlace && Stocks.Free(i.Id, content.Wash.Good) >= content.Wash.Litres)
+            .Where(i => (i.WashPlace && WashWater(i.Id) != null)
                         || (springs.TryGetValue(i.Id.Value, out var s) && s.Natural && !s.Frozen))
             .ToList();
         var nearest = Nearest(places, w.X, w.Y);
@@ -192,12 +202,14 @@ public sealed partial class Work
     {
         var (cx, cy) = Ground.Centre(x, y);
         var container = Stocks.Open(kind.Name, Holder.Store, cx, cy);
-        container.Accepts.Add(content.Drink.Good);
+        container.Accepts.UnionWith(content.Drinkable);
         container.Capacity = kind.HoldsLitres;
         container.WashPlace = kind.WashPlace;
     }
 
+    /// <summary>The good a wash at a basin would use (enough of it free for a wash), or null.</summary>
+    string? WashWater(InventoryId basin) => content.Drinkable.Reverse().FirstOrDefault(g => Stocks.Free(basin, g) >= content.Wash.Litres);
+
     /// <summary>For a save: puts a water source back as it was.</summary>
-    internal void PutSpring(InventoryId spring, WaterKind kind, int litres, bool frozen) =>
-        springs[spring.Value] = new WaterSource { Kind = kind, Litres = litres, Frozen = frozen };
+    internal void PutSpring(InventoryId spring, WaterSource source) => springs[spring.Value] = source;
 }

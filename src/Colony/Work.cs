@@ -16,6 +16,10 @@ public sealed class Worker(ColonistId id, string name, double x, double y, Inven
     public TaskId? Job { get; internal set; }
     /// <summary>Stopped by the player (interrupted): they do nothing until resumed.</summary>
     public bool Stopped { get; internal set; }
+    /// <summary>An illness caught (step 19b): it may not have shown yet (Work.Ill says whether it has).</summary>
+    public Illness? Illness { get; internal set; }
+    /// <summary>The work missed while ill and not yet taken off (Health.cs, Slowed).</summary>
+    public double Slow { get; internal set; }
 
     double legs = 1;
     /// <summary>How well their legs carry them (step 15c), as a share of a healthy walk: 1 (100%) until body
@@ -113,6 +117,9 @@ public enum JobKind
     Craft,
     /// <summary>Build a construction piece (step 15a).</summary>
     Build,
+    /// <summary>Boil water (step 19b): fetch the fuel, carry it to the water marked "boil first", boil a batch
+    /// there, carry the boiled water to a store.</summary>
+    Boil,
 }
 
 /// <summary>Where a job is.</summary>
@@ -128,7 +135,9 @@ public enum Step
     Carrying,
     /// <summary>Putting them down.</summary>
     Unloading,
-    /// <summary>Working the recipe, or building.</summary>
+    /// <summary>Carrying the fuel to the water to be boiled (a boiling, step 19b).</summary>
+    Fetching,
+    /// <summary>Working the recipe, building, or boiling.</summary>
     Working,
 }
 
@@ -153,6 +162,10 @@ public sealed class Job
     /// <summary>Its operations: a haul's pick-up and put-down, a craft's work.</summary>
     public OperationId First { get; init; }
     public OperationId Second { get; init; }
+    /// <summary>A boiling's third operation: the boiling itself (fuel and water in, boiled water out).</summary>
+    public OperationId Third { get; init; }
+    /// <summary>A boiling's water: the store marked "boil first" whose water is boiled.</summary>
+    public InventoryId? Boiling { get; init; }
     public ColonistId? Worker { get; internal set; }
     public Step Step { get; internal set; }
     /// <summary>Minutes left in the step (loading, unloading, working).</summary>
@@ -254,7 +267,7 @@ public sealed partial class Work
     {
         var worker = workers[id.Value];
         worker.Stopped = true;
-        if (worker.Job is TaskId t && jobs[t.Value] is var job && job.Step is not (Step.Carrying or Step.Unloading))
+        if (worker.Job is TaskId t && jobs[t.Value] is var job && !InHand(job))
             Reopen(job, worker);
     }
 
@@ -269,6 +282,8 @@ public sealed partial class Work
     {
         if (!jobs.TryGetValue(id.Value, out var job))
             return;
+        if (job.Kind == JobKind.Boil && InHand(job))
+            return;                                       // a boiling under way is finished, and the water stored
         if (job.Kind == JobKind.Haul && job.Step is Step.Carrying or Step.Unloading)
         {
             var worker = workers[job.Worker!.Value.Value];
@@ -287,6 +302,11 @@ public sealed partial class Work
     /// <summary>A job given back: it waits for someone to take it. A grinding or a building keeps its progress
     /// (the minutes still to work), so whoever takes it carries on where it was left; a haul starts its loading
     /// again.</summary>
+    /// <summary>Whether a job has goods in the worker's arms: a haul carrying, or a boiling once the fuel is picked
+    /// up. Such a job stays with them (stopped, or seeing to a need) until the goods are put down.</summary>
+    internal static bool InHand(Job job) =>
+        job.Step is Step.Carrying or Step.Unloading || job.Kind == JobKind.Boil && job.Step is Step.Fetching or Step.Working;
+
     void Reopen(Job job, Worker worker)
     {
         worker.Job = null;
@@ -308,7 +328,10 @@ public sealed partial class Work
             if (Live(worker) && !worker.Stopped && worker.Job is TaskId t)
                 Act(worker, jobs[t.Value]);
         if (colony.Now.MinuteOfDay == Autosave.MorningMinute)
+        {
+            Foul();
             Morning();
+        }
         if (colony.Now.MinuteOfDay % Calendar.MinutesPerHour == 0)
             TopUp();
         foreach (var site in sites.Values)
@@ -318,6 +341,10 @@ public sealed partial class Work
         Tidy();
         ClearStockpiles();
         Fetch();
+        BoilJobs();
+        Mix();
+        Notice();
+        Sicken();
         Care();
         Assign();
     }
@@ -341,10 +368,10 @@ public sealed partial class Work
                 bool there = Arrived(worker, gx, gy, near);
                 if (Walk(worker, gx, gy, near))
                 {
-                    job.Step = job.Kind == JobKind.Haul ? Step.Loading : Step.Working;
+                    job.Step = job.Kind is JobKind.Haul or JobKind.Boil ? Step.Loading : Step.Working;
                     job.Left = job.Kind switch
                     {
-                        JobKind.Haul => content.PickupMinutes,
+                        JobKind.Haul or JobKind.Boil => content.PickupMinutes,
                         _ when job.Left > 0 => job.Left,
                         JobKind.Craft => content.Recipes[job.Recipe!].WorkMinutes,
                         _ => Minutes(projects[job.Site!.Value.Value]),
@@ -356,10 +383,19 @@ public sealed partial class Work
             case Step.Loading:
                 if (--job.Left > 0)
                     break;
-                // The claimed goods move into the worker's arms: one operation, done once.
+                // The claimed goods move into the worker's arms: one operation, done once. A boiling picks up its
+                // fuel, and carries it to the water (its water stays claimed where it is).
                 Stocks.Move(job.First, now, job.Claims[0], worker.Arms);
-                job.Claims.Clear();
-                job.Step = Step.Carrying;
+                job.Claims.RemoveAt(0);
+                job.Step = job.Kind == JobKind.Boil ? Step.Fetching : Step.Carrying;
+                break;
+            case Step.Fetching:
+                var (bx, by) = Place(job.Boiling!.Value);
+                if (Walk(worker, bx, by))
+                {
+                    job.Step = Step.Working;
+                    job.Left = content.Sanitation.BoilMinutes;
+                }
                 break;
             case Step.Carrying:
                 var (tx, ty) = Place(job.To);
@@ -379,8 +415,16 @@ public sealed partial class Work
                 Finish(worker, job);
                 break;
             case Step.Working:
+                // An ill colonist works slower (step 19b): some minutes do not count.
+                if (Slowed(worker))
+                    break;
                 if (--job.Left > 0)
                     break;
+                if (job.Kind == JobKind.Boil)
+                {
+                    Boiled(worker, job, now);
+                    break;
+                }
                 if (job.Kind == JobKind.Build)
                 {
                     Complete(job, now);

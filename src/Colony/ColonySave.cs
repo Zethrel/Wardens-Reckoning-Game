@@ -45,7 +45,9 @@ public static class ColonySave
     // one a tile, so that a local map of 256 by 256 tiles stays small (step 17b).
     // 11: water by its uses (step 19a): each water source's kind, litres and frost, the colony's cold, the stores'
     // capacity, wash places and sources, and washing.
-    public const int Version = 11;
+    // 12: fouled water (step 19b): each source's fouling and sign, the stores' marks, the colonists' illnesses, the
+    // boiling job, and what the player was told.
+    public const int Version = 12;
 
     /// <summary>The colony as JSON.</summary>
     public static JsonObject Write(Colony colony) => new()
@@ -75,6 +77,7 @@ public static class ColonySave
             ["source_only"] = i.SourceOnly,
             ["capacity"] = i.Capacity,
             ["wash_place"] = i.WashPlace,
+            ["mark"] = i.Mark.ToString(),
             ["area"] = i.Area is not Area a ? null : new JsonArray(a.X, a.Y, a.Width, a.Height),
         }).ToArray()),
         ["reservations"] = new JsonArray(colony.Stocks.Reservations.Select(r => (JsonNode?)new JsonObject
@@ -95,6 +98,8 @@ public static class ColonySave
                     (JsonNode?)new JsonArray(n.Value.Level, n.Value.MinutesAtLimit)))),
                 ["schedule"] = w.Schedule, ["asleep"] = w.Asleep, ["on_bedroll"] = w.OnBedroll, ["collapsed"] = w.Collapsed,
                 ["lacking"] = w.Lacking,
+                ["illness"] = w.Illness is not Illness ill ? null : new JsonArray(ill.Name, ill.Shows, ill.Ends),
+                ["slow"] = w.Slow,
                 ["forbidden"] = new JsonArray(w.Forbidden.Select(k => (JsonNode?)k).ToArray()),
                 ["personal"] = w.Personal is not Personal p ? null : new JsonObject
                 {
@@ -107,9 +112,10 @@ public static class ColonySave
             {
                 ["id"] = b.Id.Value, ["x"] = b.X, ["y"] = b.Y, ["owner"] = b.Owner is ColonistId o ? o.Value : null,
             }).ToArray()),
-            ["springs"] = new JsonArray(work.Springs.Select(s => (JsonNode?)new JsonArray(s.Value, work.SourceOf(s).Kind.ToString(),
-                work.SourceOf(s).Litres, work.SourceOf(s).Frozen)).ToArray()),
+            ["springs"] = new JsonArray(work.Springs.Select(s => work.SourceOf(s) is var w ? (JsonNode?)new JsonArray(s.Value, w.Kind.ToString(),
+                w.Litres, w.Frozen, w.FouledUntil, w.Sign, w.SignSeen) : null).ToArray()),
             ["cold"] = work.Cold,
+            ["news"] = new JsonArray(work.Told.Select(n => (JsonNode?)new JsonArray(n.Tick, n.Text)).ToArray()),
             ["projects"] = new JsonArray(work.Projects.Select(p => (JsonNode?)new JsonObject
             {
                 ["id"] = p.Id.Value, ["piece"] = p.Piece, ["x"] = p.X, ["y"] = p.Y, ["stock"] = p.Stock.Value,
@@ -125,7 +131,8 @@ public static class ColonySave
                 ["id"] = j.Id.Value, ["kind"] = j.Kind.ToString(), ["good"] = j.Good, ["amount"] = j.Amount,
                 ["from"] = j.From.Value, ["to"] = j.To.Value, ["site"] = j.Site is BuildingId b ? b.Value : null,
                 ["recipe"] = j.Recipe, ["claims"] = new JsonArray(j.Claims.Select(c => (JsonNode?)c.Value).ToArray()),
-                ["first"] = j.First.Value, ["second"] = j.Second.Value, ["worker"] = j.Worker is ColonistId c ? c.Value : null,
+                ["first"] = j.First.Value, ["second"] = j.Second.Value, ["third"] = j.Third.Value,
+                ["boiling"] = j.Boiling is InventoryId bw ? bw.Value : null, ["worker"] = j.Worker is ColonistId c ? c.Value : null,
                 ["step"] = j.Step.ToString(), ["left"] = j.Left, ["purpose"] = j.Purpose,
             }).ToArray()),
         },
@@ -442,13 +449,17 @@ public static class ColonySave
                 jobWorkers[id] = w.Value;
             int amount = (int)Id(o, "amount", at), left = (int)Id(o, "left", at);
             string good = Text(o, "good", at);
-            if (kind == JobKind.Haul && (!content.Goods.ContainsKey(good) || amount < 1))
+            if (kind is JobKind.Haul or JobKind.Boil && (!content.Goods.ContainsKey(good) || amount < 1))
                 throw new ColonySaveException(at + " hauls an unknown good or nothing");
+            InventoryId? boiling = o["boiling"] is null ? null : Inv(o, "boiling", at);
+            if ((kind == JobKind.Boil) != (boiling != null))
+                throw new ColonySaveException(at + ": a boiling, and only a boiling, names the water it boils");
             colony.Work!.Put(new Job
             {
                 Id = new TaskId(id), Kind = kind, Good = good, Amount = amount, From = Inv(o, "from", at), To = Inv(o, "to", at),
                 Site = site, Recipe = recipe, Claims = claims, First = new OperationId(Id(o, "first", at)),
-                Second = new OperationId(Id(o, "second", at)), Worker = worker, Step = step, Left = left, Purpose = Text(o, "purpose", at),
+                Second = new OperationId(Id(o, "second", at)), Third = new OperationId(Id(o, "third", at)), Boiling = boiling,
+                Worker = worker, Step = step, Left = left, Purpose = Text(o, "purpose", at),
             });
         }
         // Claims held by colonists eating or drinking are theirs, not a job's.
@@ -498,6 +509,21 @@ public static class ColonySave
             if (!(legs > 0 && legs <= 1))
                 throw new ColonySaveException(at + ".legs is " + legs + ", which should be above 0 and at most 1");
             worker.Legs = legs;
+            if (o["illness"] is JsonArray ill)
+            {
+                if (ill.Count != 3 || ill[0] is not JsonValue nv || !nv.TryGetValue(out string? illness) || illness != content.UpsetStomach.Name)
+                    throw new ColonySaveException(at + ".illness is not [name, shows, ends] of an illness the content knows");
+                long shows = Number(ill[1], at + ".illness"), ends = Number(ill[2], at + ".illness");
+                if (ends <= shows)
+                    throw new ColonySaveException(at + ".illness ends before it shows");
+                worker.Illness = new Illness(illness, shows, ends);
+            }
+            else if (o["illness"] is not null)
+                throw new ColonySaveException(at + ".illness is not [name, shows, ends]");
+            double slow = Real(o, "slow", at);
+            if (!(slow >= 0 && slow < 1))
+                throw new ColonySaveException(at + ".slow is " + slow + ", which should be from 0 to below 1");
+            worker.Slow = slow;
             var kinds = colony.Work!.Kinds.ToHashSet();
             foreach (var k in o["forbidden"] as JsonArray ?? throw new ColonySaveException(at + ".forbidden is not a list"))
             {
@@ -559,8 +585,8 @@ public static class ColonySave
         }
         foreach (var node in work["springs"] as JsonArray ?? throw new ColonySaveException("work.springs is not a list"))
         {
-            if (node is not JsonArray entry || entry.Count != 4)
-                throw new ColonySaveException("work.springs holds something that is not [store, kind, litres, frozen]");
+            if (node is not JsonArray entry || entry.Count != 7)
+                throw new ColonySaveException("work.springs holds something that is not [store, kind, litres, frozen, fouled until, sign, sign seen]");
             long id = Number(entry[0], "work.springs"), litres = Number(entry[2], "work.springs");
             if (!held.Contains(id) || stocks[new InventoryId(id)].Holder != Holder.Store || !stocks[new InventoryId(id)].SourceOnly)
                 throw new ColonySaveException("work.springs names " + id + ", which is not a store of water that only gives");
@@ -570,7 +596,23 @@ public static class ColonySave
                 throw new ColonySaveException("work.springs gives " + id + " " + litres + " litres a day, which cannot be");
             if (entry[3] is not JsonValue fv || !fv.TryGetValue(out bool frozen))
                 throw new ColonySaveException("work.springs gives " + id + " a frost that is not true or false");
-            colony.Work!.PutSpring(new InventoryId(id), kind, (int)litres, frozen);
+            long? fouledUntil = entry[4] is null ? null : Number(entry[4], "work.springs");
+            string? sign = entry[5] is null ? null : entry[5] is JsonValue sv && sv.TryGetValue(out string? s) ? s
+                : throw new ColonySaveException("work.springs gives " + id + " a sign that is not text");
+            if (entry[6] is not JsonValue ssv || !ssv.TryGetValue(out bool seen))
+                throw new ColonySaveException("work.springs gives " + id + " a sign seen that is not true or false");
+            if (sign != null && fouledUntil == null)
+                throw new ColonySaveException("work.springs gives " + id + " a sign but no fouling");
+            colony.Work!.PutSpring(new InventoryId(id), new WaterSource
+            {
+                Kind = kind, Litres = (int)litres, Frozen = frozen, FouledUntil = fouledUntil, Sign = sign, SignSeen = seen,
+            });
+        }
+        foreach (var node in work["news"] as JsonArray ?? throw new ColonySaveException("work.news is not a list"))
+        {
+            if (node is not JsonArray item || item.Count != 2 || item[1] is not JsonValue tv || !tv.TryGetValue(out string? told))
+                throw new ColonySaveException("work.news holds something that is not [tick, text]");
+            colony.Work!.PutNews(new News(Number(item[0], "work.news"), told));
         }
         colony.Work!.Cold = work["cold"] is JsonValue cv && cv.TryGetValue(out bool cold)
             ? cold : throw new ColonySaveException("work.cold is not true or false");
@@ -758,6 +800,8 @@ public static class ColonySave
                 ? sourceOnly : throw new ColonySaveException(at + ".source_only is not true or false");
             inventory.WashPlace = o["wash_place"] is JsonValue wv && wv.TryGetValue(out bool washPlace)
                 ? washPlace : throw new ColonySaveException(at + ".wash_place is not true or false");
+            inventory.Mark = Enum.TryParse<WaterMark>(o["mark"]?.ToString(), out var mark) && Enum.IsDefined(mark)
+                ? mark : throw new ColonySaveException(at + ".mark is not a mark (None, BoilFirst, DoNotDrink)");
             if (o["capacity"] is not null)
             {
                 long capacity = Number(o["capacity"], at + ".capacity");

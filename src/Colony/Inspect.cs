@@ -49,9 +49,9 @@ public static class Inspect
     /// <summary>
     /// A colonist: what they are doing, where, their needs (each a level of 100 with the word the needs content
     /// gives that level: "fine", "peckish", "wants", "urgent", "critical"), their schedule's block now, and what they
-    /// carry.
+    /// carry, and an illness once it shows (with `trace`, the developer's: one caught that has not shown yet too).
     /// </summary>
-    public static Inspection Worker(Colony colony, ColonistId id)
+    public static Inspection Worker(Colony colony, ColonistId id, bool trace = false)
     {
         var work = colony.Work ?? throw new InvalidOperationException("the colony has no colonists");
         var w = work.Workers.First(x => x.Id == id);
@@ -66,9 +66,13 @@ public static class Inspect
             lines.Add(new Line(Capital(rule.Name), Whole(state.Level) + " of 100, " + Word(rule, state.Level)));
         }
         lines.Add(new Line("Schedule", w.Schedule + ", now " + work.BlockOf(w).ToString().ToLowerInvariant()));
-        lines.Add(new Line("Carrying", Goods(colony, colony.Stocks[w.Arms].Goods)));
+        lines.Add(new Line("Carrying", Goods(colony, colony.Stocks[w.Arms].Goods, trace)));
         if (w.Lacking != null)
             lines.Add(new Line("Lacking", w.Lacking));
+        if (w.Illness is Illness illness && work.Ill(w))
+            lines.Add(new Line("Unwell", illness.Name + ": working slower, thirsty and tired; until " + new Moment(illness.Ends)));
+        else if (trace && w.Illness is Illness coming)
+            lines.Add(new Line("Trace", "caught " + coming.Name.ToLowerInvariant() + ", shows " + new Moment(coming.Shows)));
         return new Inspection(w.Name, lines);
     }
 
@@ -118,10 +122,16 @@ public static class Inspect
         {
             bool spring = work?.Springs.Contains(inventory.Id) == true;
             string holds = inventory.Capacity is int capacity ? " (of " + capacity + ")" : "";
-            lines.Add(new Line(spring ? "Water" : "Store", inventory.Name + ": " + Goods(colony, inventory.Goods) + holds
+            lines.Add(new Line(spring ? "Water" : "Store", inventory.Name + ": " + Goods(colony, inventory.Goods, trace) + holds
                                                          + (inventory.Emptying ? " (being emptied)" : "")));
             if (spring)
                 lines.Add(new Line("Source", Source(colony, work!, inventory.Id)));
+            if (inventory.Mark != WaterMark.None)
+                lines.Add(new Line("Marked", inventory.Mark == WaterMark.BoilFirst ? "boil first" : "do not drink"));
+            if (work?.WhyNotBoiled(inventory.Id) is string why)
+                lines.Add(new Line("Boiling", why));
+            if (trace && spring && work!.SourceOf(inventory.Id) is { FouledUntil: long until } fouled)
+                lines.Add(new Line("Trace", "fouled until " + new Moment(until) + (fouled.Sign is string s ? "; sign: " + s + (fouled.SignSeen ? " (seen)" : "") : "; no sign")));
         }
         foreach (var bed in work?.Bedrolls ?? Array.Empty<Bedroll>())
             if (Ground.TileOf(bed.X, bed.Y) == (x, y))
@@ -182,6 +192,19 @@ public static class Inspect
         foreach (var store in colony.Stocks.Inventories.Where(i => i.Holder == Holder.Store && i.Area == null && !i.Emptying
                      && !springs.Contains(i.Id) && i.Capacity == null && i.Goods.Count > 0 && Ground.TileOf(i.X, i.Y) == (x, y)).ToList())
             commands.Add(new Command("Empty", 'E', "Carry everything in " + store.Name + " to the stockpiles", () => store.Emptying = true));
+        // Water marks (step 19b): on a source, a barrel, a basin, the carts, a stockpile: any store water may be in.
+        string drinkGood = Rules(colony).Drink.Good;
+        foreach (var store in colony.Stocks.Inventories.Where(i => i.Holder == Holder.Store && On(i, x, y)
+                     && (i.Accepts.Count == 0 || i.Accepts.Contains(drinkGood) || Rules(colony).Drinkable.Any(g => i.Count(g) > 0))).ToList())
+        {
+            var id = store.Id;
+            if (store.Mark != WaterMark.BoilFirst)
+                commands.Add(new Command("Boil first", 'K', "Do not drink the water of " + store.Name + " as it is: boil it first", () => work.SetMark(id, WaterMark.BoilFirst)));
+            if (store.Mark != WaterMark.DoNotDrink)
+                commands.Add(new Command("Do not drink", 'N', "Nobody drinks the water of " + store.Name + " (it may still be washed in)", () => work.SetMark(id, WaterMark.DoNotDrink)));
+            if (store.Mark != WaterMark.None)
+                commands.Add(new Command("Drink freely", 'U', "The water of " + store.Name + " is drunk as it is again", () => work.SetMark(id, WaterMark.None)));
+        }
         foreach (var pile in colony.Stocks.Inventories.Where(i => i.Area is Area a && a.Covers(x, y) && !i.Emptying).ToList())
         {
             var id = pile.Id;
@@ -230,11 +253,19 @@ public static class Inspect
         return "(" + tx + ", " + ty + ")" + on;
     }
 
-    /// <summary>Goods in words, by name: "60 Timber, 30 Travel ration", or "nothing".</summary>
-    public static string Goods(Colony colony, IReadOnlyDictionary<string, int> goods)
+    /// <summary>Goods in words, by name: "60 Timber, 30 Travel ration", or "nothing". Fouled water looks like water
+    /// (step 19b: the truth is not shown to the player): it is counted as water, unless `trace` (the developer's
+    /// view) asks for the truth.</summary>
+    public static string Goods(Colony colony, IReadOnlyDictionary<string, int> goods, bool trace = false)
     {
-        var listed = goods.Where(g => g.Value > 0).OrderBy(g => g.Key, StringComparer.Ordinal)
-                          .Select(g => g.Value.ToString(CultureInfo.InvariantCulture) + " " + Rules(colony).Goods[g.Key].Name).ToList();
+        var rules = Rules(colony);
+        var seen = new SortedDictionary<string, int>(StringComparer.Ordinal);
+        foreach (var (good, n) in goods.Where(g => g.Value > 0))
+        {
+            string shown = !trace && good == rules.Sanitation.FouledGood ? rules.Drink.Good : good;
+            seen[shown] = seen.GetValueOrDefault(shown) + n;
+        }
+        var listed = seen.Select(g => g.Value.ToString(CultureInfo.InvariantCulture) + " " + rules.Goods[g.Key].Name).ToList();
         return listed.Count == 0 ? "nothing" : string.Join(", ", listed);
     }
 

@@ -31,6 +31,18 @@ what is wrong, before anything runs.
   hour), `brook_litres_by_month` (a brook's litres a day, January first),
   `freezing_months` and `cold_biomes` (where and when water freezes), and the
   `ice_hole` piece.
+- `sanitation.json` (step 19b): `fouled_good` (the good fouled water is:
+  `foul_water` in `goods.json`, shown to the player as water); `fouling`: on
+  average once in how many days a river, lake or brook fouls
+  (`days_between`), how many days it lasts (`lasts_days`, from and to), the
+  share of foulings with a sign (`sign_share`) and the `signs` to choose
+  from; `boil`: the `litres` of a batch, the `fuel` good and how many units
+  (`fuel_units`), and its `minutes`.
+- `health.json` (step 19b): the `upset_stomach`: its `name`, the `chance`
+  that a drink of fouled water brings it, the hours before it shows
+  (`onset_hours`) and how long it lasts (`lasts_hours`), each from and to; the
+  share of work an ill colonist does (`work`), and how many times as fast
+  thirst and fatigue grow (`thirst`, `fatigue`).
 - `schedules.json`: schedule templates: 24 hours, each one of `sleep`,
   `work`, `meals`, `recreation`, `flexible`; and the `default` template.
 - `construction.json`:

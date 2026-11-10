@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "upset_stomach": {
+    "name": "Upset stomach",
+    "chance": 0.3333,
+    "onset_hours": [6, 12],
+    "lasts_hours": [24, 48],
+    "work": 0.7,
+    "thirst": 1.5,
+    "fatigue": 1.5
+  }
+}

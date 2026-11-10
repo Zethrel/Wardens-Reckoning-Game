@@ -26,6 +26,12 @@
       "volume_l": 1.0
     },
     {
+      "id": "foul_water",
+      "name": "Fouled water",
+      "mass_kg": 1.0,
+      "volume_l": 1.0
+    },
+    {
       "id": "timber",
       "name": "Timber",
       "mass_kg": 10.0,

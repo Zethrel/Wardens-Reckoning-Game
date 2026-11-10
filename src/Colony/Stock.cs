@@ -1,6 +1,18 @@
 // Copyright (c) 2026 Zethrel. All rights reserved. See LICENSE.
 namespace WardensReckoning.Colony;
 
+/// <summary>What the player says of the water in a store or a source (step 19b, library Review 37: Daily Life §7.1).
+/// </summary>
+public enum WaterMark
+{
+    /// <summary>Drunk from as it is (as every store is, until marked).</summary>
+    None,
+    /// <summary>Not drunk from as it is: its water is boiled first, and the boiled water carried to another store.</summary>
+    BoilFirst,
+    /// <summary>Not drunk from, nor fetched from for drinking (it may still be washed in).</summary>
+    DoNotDrink,
+}
+
 /// <summary>What kind of place an inventory is.</summary>
 public enum Holder
 {
@@ -54,6 +66,10 @@ public sealed class Inventory(InventoryId id, string name, Holder holder, double
 
     /// <summary>A wash basin (step 19a): colonists wash here with its water.</summary>
     public bool WashPlace { get; set; }
+
+    /// <summary>The player's mark on a store or a water source (step 19b): drink freely, boil first, or do not
+    /// drink.</summary>
+    public WaterMark Mark { get; set; }
 
     /// <summary>Whether goods of `good` may be brought here to be stored (its room is the hauler's to check:
     /// Work.RoomIn).</summary>

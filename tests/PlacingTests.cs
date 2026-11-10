@@ -172,7 +172,7 @@ public class PlacingTests
         Assert.Empty(Inspect.Commands(colony, 34, 34));
         // A stockpile: removed from any of its tiles.
         var pile = work.PlaceStockpile(new Area(2, 30, 2, 2)).Pile!;
-        var remove = Assert.Single(Inspect.Commands(colony, 3, 31));
+        var remove = Inspect.Commands(colony, 3, 31).Single(c => c.Label == "Remove stockpile");
         Assert.Equal(("Remove stockpile", 'R'), (remove.Label, remove.Key));
         remove.Run();
         Assert.DoesNotContain(colony.Stocks.Inventories, i => i.Id == pile.Id);

@@ -44,7 +44,7 @@ public sealed partial class Work
         else
             worker.Forbidden.Add(kind);
         if (!allowed && worker.Job is TaskId t && jobs[t.Value] is var job && KindOf(job) == kind
-            && job.Step is not (Step.Carrying or Step.Unloading))
+            && !InHand(job))
             Reopen(job, worker);
     }
 

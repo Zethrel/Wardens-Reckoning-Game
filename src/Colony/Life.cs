@@ -100,7 +100,7 @@ public sealed partial class Work
         // A job they hold: a critical need drops it now; an urgent need or the hour finishes a delivery in hand.
         if (w.Job is TaskId t && jobs[t.Value] is var job)
         {
-            bool delivering = job.Kind == JobKind.Haul && job.Step is Step.Carrying or Step.Unloading;
+            bool delivering = job.Kind is JobKind.Haul or JobKind.Boil && InHand(job);
             if (level < 4 && delivering)
                 return true;
             if (!delivering)
@@ -116,7 +116,7 @@ public sealed partial class Work
         foreach (var rule in content.Needs.Values)
         {
             var need = w.Needs[rule.Name];
-            double perHour = w.Asleep ? rule.AsleepPerHour : rule.PerHour;
+            double perHour = (w.Asleep ? rule.AsleepPerHour : rule.PerHour) * Faster(w, rule);
             need.Level = Math.Clamp(need.Level + perHour / Calendar.MinutesPerHour, 0, 100);
             need.MinutesAtLimit = need.Level >= 100 ? need.MinutesAtLimit + 1 : 0;
         }
@@ -141,7 +141,7 @@ public sealed partial class Work
         if (w.Personal is { Claim: ReservationId claim })
             Stocks.Release(claim);
         w.Personal = null;
-        if (w.Job is TaskId t && jobs[t.Value] is var job && job.Step is not (Step.Carrying or Step.Unloading))
+        if (w.Job is TaskId t && jobs[t.Value] is var job && !InHand(job))
             Reopen(job, w);
         if (need == content.Fatigue.Name)
         {
@@ -154,16 +154,17 @@ public sealed partial class Work
     /// them is below urgent (fatigue: below "wants", and they wake).</summary>
     void Recover(Worker w)
     {
-        foreach (var use in new[] { content.Eat, content.Drink })
-        {
-            var rule = use == content.Eat ? content.Hunger : content.Thirst;
-            while (w.Needs[rule.Name].Level >= rule.Peckish && Stocks.Free(w.Arms, use.Good) > 0)
+        // Food, then water (clean or fouled: a drink of fouled water is an exposure, step 19b).
+        foreach (var (good, rule, eases) in new[] { (content.Eat.Good, content.Hunger, content.Eat.Eases) }
+                     .Concat(content.Drinkable.Select(g => (g, content.Thirst, content.Drink.Eases))))
+            while (w.Needs[rule.Name].Level >= rule.Peckish && Stocks.Free(w.Arms, good) > 0)
             {
-                var claim = Stocks.Reserve(w.Arms, use.Good, 1, "fed").Reservation!;
+                var claim = Stocks.Reserve(w.Arms, good, 1, "fed").Reservation!;
                 Stocks.Make(colony.Ids.Next<OperationId>(), colony.Now.Tick, new[] { claim.Id }, w.Arms, new Dictionary<string, int>());
-                w.Needs[rule.Name].Level = Math.Max(0, w.Needs[rule.Name].Level - use.Eases);
+                w.Needs[rule.Name].Level = Math.Max(0, w.Needs[rule.Name].Level - eases);
+                if (good == content.Sanitation.FouledGood)
+                    Expose(w);
             }
-        }
         var felled = content.Needs[w.Collapsed!];
         if (w.Needs[felled.Name].Level < (felled.Name == content.Fatigue.Name ? felled.Wants : felled.Urgent))
         {
@@ -230,11 +231,19 @@ public sealed partial class Work
             return false;
         }
         string good = kind == PersonalKind.Eat ? content.Eat.Good : content.Drink.Good;
-        if (Source(w, good) != null)
+        if ((kind == PersonalKind.Eat ? Source(w, good) : WaterSourceFor(w)) != null)
             return true;
-        w.Lacking = "no " + content.Goods[good].Name.ToLowerInvariant() + " free in any store";
+        w.Lacking = "no " + content.Goods[good].Name.ToLowerInvariant() + " free in any store"
+                    + (kind == PersonalKind.Drink && Stocks.Inventories.Any(i => i.Mark != WaterMark.None && FreeWater(i.Id) > 0)
+                        ? " the colonists may drink from (some is marked not to be drunk as it is)" : "");
         return false;
     }
+
+    /// <summary>The nearest water a colonist may drink (step 19b): what they carry, clean or fouled, then the
+    /// stores and sources not marked and not frozen.</summary>
+    Inventory? WaterSourceFor(Worker w) =>
+        FreeWater(w.Arms) > 0 ? Stocks[w.Arms]
+        : Nearest(Stocks.Inventories.Where(i => i.Holder == Holder.Store && FreeWater(i.Id) > 0 && DrinkFrom(i)), w.X, w.Y);
 
     /// <summary>The nearest inventory with `good` free a colonist may take from: their own arms first, then stores
     /// (not frozen water).</summary>
@@ -256,14 +265,15 @@ public sealed partial class Work
             // At a basin its water is claimed for the wash; on a bank, nothing is.
             var (place, basin) = WashPlace(w)!.Value;
             ReservationId? claim = basin
-                ? Stocks.Reserve(place.Id, content.Wash.Good, content.Wash.Litres, w.Name + " washes").Reservation!.Id
+                ? Stocks.Reserve(place.Id, WashWater(place.Id)!, content.Wash.Litres, w.Name + " washes").Reservation!.Id
                 : null;
             w.Personal = new Personal { Kind = kind, X = place.X, Y = place.Y, Claim = claim, Operation = colony.Ids.Next<OperationId>() };
         }
         else
         {
-            string good = kind == PersonalKind.Eat ? content.Eat.Good : content.Drink.Good;
-            var from = Source(w, good)!;
+            var from = kind == PersonalKind.Eat ? Source(w, content.Eat.Good)! : WaterSourceFor(w)!;
+            // Water: whichever is there, clean or fouled (they cannot tell).
+            string good = kind == PersonalKind.Eat ? content.Eat.Good : WaterIn(from.Id)!;
             var (claim, _) = Stocks.Reserve(from.Id, good, 1, kind == PersonalKind.Eat ? w.Name + " eats" : w.Name + " drinks");
             w.Personal = new Personal { Kind = kind, X = from.X, Y = from.Y, Claim = claim!.Id, Operation = colony.Ids.Next<OperationId>() };
         }
@@ -318,9 +328,14 @@ public sealed partial class Work
             PersonalKind.Wash => (content.Hygiene, content.Wash.Eases),
             _ => (content.Thirst, content.Drink.Eases),
         };
-        // What was claimed is used up (a wash on a bank claimed nothing).
+        // What was claimed is used up (a wash on a bank claimed nothing). A drink of fouled water is an exposure.
         if (p.Claim is ReservationId used)
+        {
+            bool fouled = p.Kind == PersonalKind.Drink && Stocks.Reservations.First(r => r.Id == used).Good == content.Sanitation.FouledGood;
             Stocks.Make(p.Operation, colony.Now.Tick, new[] { used }, w.Arms, new Dictionary<string, int>());
+            if (fouled)
+                Expose(w);
+        }
         w.Needs[rule.Name].Level = Math.Max(0, w.Needs[rule.Name].Level - eases);
         w.Personal = null;
     }
@@ -333,12 +348,14 @@ public sealed partial class Work
             foreach (var (use, rule) in new[] { (content.Eat, content.Hunger), (content.Drink, content.Thirst) })
             {
                 // (Food or water already in their arms was eaten or drunk this minute, in Recover.)
+                bool water = use == content.Drink;
                 if (w.Needs[rule.Name].Level < rule.Wants
-                    || jobs.Values.Any(j => j.Kind == JobKind.Haul && j.To == w.Arms && j.Good == use.Good))
+                    || jobs.Values.Any(j => j.Kind == JobKind.Haul && j.To == w.Arms && (j.Good == use.Good || water && content.Drinkable.Contains(j.Good))))
                     continue;
-                var from = Nearest(Stocks.Inventories.Where(i => i.Holder == Holder.Store && Stocks.Free(i.Id, use.Good) > 0 && Drawable(i)), w.X, w.Y);
+                var from = water ? Nearest(Stocks.Inventories.Where(i => i.Holder == Holder.Store && FreeWater(i.Id) > 0 && DrinkFrom(i)), w.X, w.Y)
+                                 : Nearest(Stocks.Inventories.Where(i => i.Holder == Holder.Store && Stocks.Free(i.Id, use.Good) > 0), w.X, w.Y);
                 if (from != null)
-                    NewHaul(from.Id, w.Arms, use.Good, 1, "bring " + content.Goods[use.Good].Name.ToLowerInvariant() + " to " + w.Name);
+                    NewHaul(from.Id, w.Arms, water ? WaterIn(from.Id)! : use.Good, 1, "bring " + content.Goods[use.Good].Name.ToLowerInvariant() + " to " + w.Name);
             }
     }
 
