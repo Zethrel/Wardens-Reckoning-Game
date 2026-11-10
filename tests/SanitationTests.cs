@@ -16,7 +16,7 @@ public class SanitationTests
     /// <summary>The real content with some numbers changed, so a test need not wait for the dice: `foulEvery`
     /// days between foulings (1: every morning), a fouling lasting `lasts` days, a sign in `signs` of them, and
     /// `illness` the chance of an upset stomach (shown after `onset` hours, lasting `ill` hours).</summary>
-    static Content Tweaked(double foulEvery = 1, int lasts = 3, double signs = 1, double illness = 1, int onset = 6, int ill = 24)
+    internal static Content Tweaked(double foulEvery = 1, int lasts = 3, double signs = 1, double illness = 1, int onset = 6, int ill = 24)
     {
         var files = Content.Files.ToDictionary(f => f, f => (string?)File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", f)));
         files["sanitation.json"] = files["sanitation.json"]!
@@ -33,7 +33,7 @@ public class SanitationTests
     static Moment On(int month, int hour = 8) => new(Calendar.TickOf(1, month, 1, hour, 0));
 
     /// <summary>A local map of `size` tiles of grass with a brook down the column x = `water`.</summary>
-    static LocalMap Map(int size, int? water, string? kind = "stream")
+    internal static LocalMap Map(int size, int? water, string? kind = "stream")
     {
         var rows = Enumerable.Range(0, size).Select(_ => new string(Enumerable.Range(0, size).Select(x => x == water ? 'w' : 'g').ToArray())).ToArray();
         return LocalMap.Parse(new JsonObject
@@ -208,7 +208,7 @@ public class SanitationTests
     }
 
     [Fact]
-    public void The_player_sees_fouled_water_as_water_and_only_the_trace_tells_it_apart()
+    public void FP06_the_player_sees_fouled_water_as_water_and_only_the_trace_tells_it_apart()
     {
         var (colony, _, brook) = Fouled(Tweaked());
         var (x, y) = Ground.TileOf(brook.X, brook.Y);
