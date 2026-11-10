@@ -30,7 +30,7 @@ public class AcceptanceTests
     }
 
     // The player's one command, given at the same minute in every copy.
-    static readonly long MarkAt = Start.Tick + 46 * 60;
+    static readonly long MarkAt = Start.Tick + 46 * Calendar.TicksPerHour;
 
     static void Command(Colony.Colony c)
     {
@@ -45,7 +45,7 @@ public class AcceptanceTests
         {
             var colony = Founded(seed);
             var checkpoints = new List<string>();
-            colony.Run(4 * Calendar.TicksPerDay, c =>
+            colony.RunMinutes(4 * Calendar.MinutesPerDay, c =>
             {
                 Command(c);
                 if (c.Now.MinuteOfDay == 0)
@@ -68,7 +68,7 @@ public class AcceptanceTests
         bool fouled = false, carrying = false, boiling = false, ill = false, marked = false;
         string folder = Path.Combine(Scratch.Root, "fp08-local");
         Directory.CreateDirectory(folder);
-        colony.Run(end - Start.Tick, c =>
+        colony.RunMinutes((end - Start.Tick) / Calendar.TicksPerMinute, c =>
         {
             Command(c);
             var work = c.Work!;
@@ -91,7 +91,7 @@ public class AcceptanceTests
         string fingerprint = ColonySave.Fingerprint(colony);
         foreach (var copy in copies)
         {
-            copy.Run(end - copy.Now.Tick, Command);
+            copy.RunMinutes((end - copy.Now.Tick) / Calendar.TicksPerMinute, Command);
             Assert.Equal(fingerprint, ColonySave.Fingerprint(copy));
         }
         Assert.Equal(colony.Stocks.Ledger.Count, colony.Stocks.Ledger.Select(e => (e.Operation, e.Change, e.Good, e.Amount)).Distinct().Count());

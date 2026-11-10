@@ -18,7 +18,7 @@ public static class Autosave
     {
         // The first morning after `before`: today's, if it is still to come, or else tomorrow's. (If `after` is not
         // later than `before`, it cannot have reached it.)
-        long today = before.AbsoluteDay * Calendar.TicksPerDay + MorningMinute;
+        long today = before.AbsoluteDay * Calendar.TicksPerDay + (long)MorningMinute * Calendar.TicksPerMinute;
         long next = before.Tick < today ? today : today + Calendar.TicksPerDay;
         return after.Tick >= next;
     }

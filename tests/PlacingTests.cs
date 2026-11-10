@@ -21,7 +21,7 @@ public class PlacingTests
         {
             if (done())
                 return true;
-            colony.Run(1);
+            colony.RunMinutes(1);
         }
         return done();
     }

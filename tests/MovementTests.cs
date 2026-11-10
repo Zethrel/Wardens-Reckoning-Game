@@ -56,8 +56,12 @@ public class MovementTests
         ada.Legs = legs;
         ada.Needs["thirst"].Level = 90;                                         // she must walk to the far spring
         colony.Work!.AddSpring(190.5, 1.5);
-        colony.Run(1);
+        colony.RunMinutes(1);                                                   // on the minute she sets off
         Assert.Equal(PersonalKind.Drink, ada.Personal?.Kind);
+        Assert.Equal(0.5, ada.X, 6);
+        colony.Run(1);                                                          // a second's walk
+        Assert.Equal(0.5 + metres / 60, ada.X, 6);
+        colony.Run(59);
         Assert.Equal(0.5 + metres, ada.X, 6);
     }
 
@@ -70,7 +74,7 @@ public class MovementTests
         ada.Legs = 0.01;
         ada.Needs["thirst"].Level = 90;
         colony.Work!.AddSpring(2.9, 2.5);
-        colony.Run(1);
+        colony.RunMinutes(2);                                                   // she sets off on the first minute
         Assert.Equal(2.1 + 70 * 0.55 * 0.01, ada.X, 6);
         // Someone on a tile that became blocked steps off at the speed of the tile they step onto.
         var ground = new Ground(5, 5, S("rough"));
@@ -117,7 +121,7 @@ public class MovementTests
         var road = work.Plan("road", 21, 20).Project!;
         var floor = work.Plan("floor", 22, 20).Project!;
         int ledger = colony.Stocks.Ledger.Count;
-        colony.Run(60);
+        colony.RunMinutes(60);
         Assert.Equal("road", colony.Ground!.PieceAt(21, 20));
         Assert.Equal(1, colony.Ground.Speed(21, 20));
         Assert.Equal(1, colony.Ground.Speed(22, 20));                           // a floor too
@@ -142,7 +146,7 @@ public class MovementTests
         Assert.Equal("At (25, 24): A well is already planned there.", work.Check("well", 25, 23).Why);
         Assert.Equal("The planned well is to be used from there.", work.Check("wall", 24, 26).Why);
         bool atSide = false;
-        colony.Run(8 * 60, _ =>
+        colony.RunMinutes(8 * 60, _ =>
         {
             if (work.Jobs.FirstOrDefault(j => j.Kind == JobKind.Build && j.Step == Step.Working) is not null)
                 atSide = Ground.TileOf(ada.X, ada.Y) == (24, 26) || atSide;
@@ -164,7 +168,7 @@ public class MovementTests
         var drawn = colony.Stocks.Reserve(water.Id, "water", 150, "drawn for the test").Reservation!;
         colony.Stocks.Make(colony.Ids.Next<OperationId>(), colony.Now.Tick, new[] { drawn.Id }, water.Id, new Dictionary<string, int>());
         Assert.True(water.Count("water") <= 50);
-        colony.Until(() => colony.Now.MinuteOfDay == Autosave.MorningMinute + 1, Calendar.TicksPerDay);
+        colony.Until(() => colony.Now.MinuteOfDay == Autosave.MorningMinute + 1, Calendar.MinutesPerDay);
         Assert.InRange(water.Count("water"), 195, 200);                         // filled to 200 (a drink or so since)
         Assert.InRange(small.Count("water"), 45, 50);                           // and the trickle to its 50
     }
@@ -178,7 +182,7 @@ public class MovementTests
         var well = work.Plan("well", 24, 24).Project!;
         colony.Stocks.Arrive(colony.Ids.Next<OperationId>(), colony.Now.Tick, well.Stock, "timber", 8);
         int working = 0;
-        colony.Run(6 * 60, _ =>
+        colony.RunMinutes(6 * 60, _ =>
         {
             if (work.Jobs.Any(j => j.Kind == JobKind.Build && j.Step == Step.Working))
             {
@@ -212,7 +216,7 @@ public class MovementTests
         work.Plan("well", 24, 24);
         colony.Until(() => colony.Stocks.Inventories.Any(i => i.Name == "Well"), 8 * 60);
         ada.Needs["thirst"].Level = 90;
-        colony.Run(1);
+        colony.RunMinutes(1);
         var well = colony.Stocks.Inventories.Single(i => i.Name == "Well");
         Assert.Equal(PersonalKind.Drink, ada.Personal?.Kind);
         Assert.Equal((well.X, well.Y), (ada.Personal!.X, ada.Personal.Y));
@@ -232,12 +236,12 @@ public class MovementTests
         Assert.True(placement.Ok);
         Assert.Equal("It is already being taken down.", work.TakeDown(22, 22).Placement.Why);
         long started = -1, done = -1;
-        colony.Run(120, c =>
+        colony.RunMinutes(120, c =>
         {
             if (started < 0 && work.Jobs.Any(j => j.Kind == JobKind.Build && j.Step == Step.Working))
-                started = c.Now.Tick;
+                started = c.Now.WholeMinutes;
             if (done < 0 && ground.PieceAt(22, 22) == null)
-                done = c.Now.Tick;
+                done = c.Now.WholeMinutes;
             Assert.Equal(c.Stocks.Accounted("timber"), c.Stocks.Total("timber"));
         });
         Assert.Equal(Real.Pieces["wall"].WorkMinutes / 2, done - started + 1);    // half the building time
@@ -261,7 +265,7 @@ public class MovementTests
         Assert.Equal("A well cannot be taken down yet.", work.TakeDown(31, 31).Placement.Why);
         ground.AddPiece("road", false, 21, 21, closes: false, speed: 1);
         var road = work.TakeDown(21, 21).Project!;
-        colony.Run(30);
+        colony.RunMinutes(30);
         Assert.Null(ground.PieceAt(21, 21));
         Assert.Equal(0.8, ground.Speed(21, 21));
         Assert.Null(work.Project(road.Id));
@@ -280,7 +284,7 @@ public class MovementTests
             colony.Ground!.AddPiece(piece, piece == "wall", 27 + x, 20 + y, closes: true);
         Assert.Single(colony.Ground!.Rooms);
         work.TakeDown(27, 22);
-        colony.Run(4 * 60);
+        colony.RunMinutes(4 * 60);
         Assert.Empty(colony.Ground.Rooms);
         Assert.Equal(61, colony.Stocks[carts.Id].Count("timber"));
     }
@@ -306,7 +310,7 @@ public class MovementTests
         work.Order(westQuern.Id, "grind_wheat", 1);
         work.Order(eastQuern.Id, "grind_wheat", 1);
         var hauls = new List<(InventoryId From, InventoryId To)>();
-        colony.Run(6 * 60, _ =>
+        colony.RunMinutes(6 * 60, _ =>
         {
             foreach (var j in work.Jobs.Where(j => j.Kind == JobKind.Haul))
                 if (!hauls.Contains((j.From, j.To)))
@@ -330,15 +334,15 @@ public class MovementTests
         work.Plan("well", 24, 24);
         colony.Ground!.AddPiece("wall", true, 10, 10, closes: true);
         work.TakeDown(10, 10);
-        colony.Run(300);
+        colony.RunMinutes(300);
         string text = ColonySave.Text(colony);
         var loaded = ColonySave.Read(text, Real);
         Assert.Equal(text, ColonySave.Text(loaded));
         Assert.Equal(0.6, loaded.Work!.Workers.Single().Legs);
         Assert.Equal("rough", loaded.Ground!.SurfaceAt(35, 31).Id);
         Assert.Equal(0.55, loaded.Ground.Speed(35, 31));
-        colony.Run(600);
-        loaded.Run(600);
+        colony.RunMinutes(600);
+        loaded.RunMinutes(600);
         Assert.Equal(ColonySave.Fingerprint(colony), ColonySave.Fingerprint(loaded));
         Assert.Contains(loaded.Stocks.Inventories, i => i.Name == "Well");
     }
@@ -380,7 +384,7 @@ static class Waiting
         for (int i = 0; !done(); i++)
         {
             Assert.True(i < most, "it never happened");
-            colony.Run(1);
+            colony.RunMinutes(1);
         }
     }
 }

@@ -23,8 +23,9 @@ namespace WardensReckoning.Profile;
 /// - **interrupted**: the hauling colony, with everyone carrying stopped every quarter hour and set going again
 ///   five minutes later, and a haul cancelled every hour, two days.
 ///
-/// For each it reports the time of each tick (one in-game minute) as mean, median, 95th and 99th percentile and
-/// the slowest; the path-finding (ways asked for, worked out, their time, the most kept at once); the managed
+/// A tick is a game second (step 21a): on most of them only the walking is done, and on the whole minutes
+/// everything else. For each scenario it reports the time of the whole-minute ticks as mean, median, 95th and 99th percentile and
+/// the slowest, and the mean of the ticks in between; the path-finding (ways asked for, worked out, their time, the most kept at once); the managed
 /// memory at its highest (measured every in-game hour, after clearing away what earlier scenarios left) and the
 /// garbage collections. The first in-game hour of a
 /// scenario is left out of the tick times (the program is still being compiled to machine code then).
@@ -38,7 +39,7 @@ namespace WardensReckoning.Profile;
 /// </summary>
 public static class Program
 {
-    const int WarmUp = 60;
+    const int WarmUp = Calendar.TicksPerHour;
 
     // How many ways the ground keeps at most (`--most-ways`; if not given, the game's own).
     static int MostWays = Ground.DefaultMostWays;
@@ -80,8 +81,8 @@ public static class Program
         report.AppendLine("Ways kept at most: " + MostWays + ".");
         report.AppendLine("Map: " + (site == null ? "the profiler's own (256 × 256, a brook, trees and rocks)" : Path.GetFileName(site) + " (" + map.Size + " × " + map.Size + ")") + ".");
         report.AppendLine();
-        report.AppendLine("| Scenario | Ticks | Tick mean ms | Median | 95% | 99% | Slowest | Ways asked | Worked out | Their ms | Most kept | Peak MB | GCs (0/1/2) |");
-        report.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|");
+        report.AppendLine("| Scenario | Ticks | Minute tick mean ms | Median | 95% | 99% | Slowest | Second tick mean ms | Ways asked | Worked out | Their ms | Most kept | Peak MB | GCs (0/1/2) |");
+        report.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
         string? saveLine = null;
         var notes = new List<string>();
         foreach (var name in names)
@@ -165,7 +166,9 @@ public static class Program
         void Interrupt(Colony.Colony c)
         {
             var w = c.Work!;
-            long minute = c.Now.Tick - Start.Tick;
+            if (!c.Now.OnTheMinute)
+                return;
+            long minute = (c.Now.Tick - Start.Tick) / Calendar.TicksPerMinute;
             if (minute % 15 == 0)
                 foreach (var job in w.Jobs.Where(j => j.Step == Step.Carrying && j.Worker != null).ToList())
                 {
@@ -184,7 +187,7 @@ public static class Program
         return (colony, Interrupt, 2);
     }
 
-    // Runs a scenario minute by minute, timing each tick, and gives its row of the table.
+    // Runs a scenario second by second, timing each tick, and gives its row of the table.
     static string Measure(string name, Colony.Colony colony, Action<Colony.Colony>? command, int days)
     {
         var ground = colony.Ground!;
@@ -204,14 +207,16 @@ public static class Program
             colony.Run(1, command);
             times[t] = (Stopwatch.GetTimestamp() - started) * 1000.0 / Stopwatch.Frequency;
             mostKept = Math.Max(mostKept, ground.WaysKept);
-            if (t % 60 == 0)
+            if (t % Calendar.TicksPerHour == 0)
                 peakBytes = Math.Max(peakBytes, GC.GetTotalMemory(false));
         }
-        var measured = times.Skip(WarmUp).OrderBy(x => x).ToArray();
+        // The whole-minute ticks (the clock starts on a whole minute, so every 60th), and the ones in between.
+        var measured = times.Where((_, t) => t >= WarmUp && (t + 1) % Calendar.TicksPerMinute == 0).OrderBy(x => x).ToArray();
+        double between = times.Where((_, t) => t >= WarmUp && (t + 1) % Calendar.TicksPerMinute != 0).Average();
         double Pct(double p) => measured[Math.Min(measured.Length - 1, (int)Math.Ceiling(p * measured.Length) - 1)];
         string F(double v) => v.ToString(v < 10 ? "0.000" : "0.0", CultureInfo.InvariantCulture);
         return "| " + name + " | " + ticks + " | " + F(measured.Average()) + " | " + F(Pct(0.5)) + " | " + F(Pct(0.95)) + " | " + F(Pct(0.99))
-               + " | " + F(measured[^1]) + " | " + (ground.WaysAsked - asked) + " | " + (ground.WaysWorked - worked)
+               + " | " + F(measured[^1]) + " | " + between.ToString("0.0000", CultureInfo.InvariantCulture) + " | " + (ground.WaysAsked - asked) + " | " + (ground.WaysWorked - worked)
                + " | " + F((ground.WayTime - wayTime) * 1000.0 / Stopwatch.Frequency) + " | " + mostKept
                + " | " + (peakBytes / 1048576.0).ToString("0", CultureInfo.InvariantCulture)
                + " | " + (GC.CollectionCount(0) - gcBefore[0]) + "/" + (GC.CollectionCount(1) - gcBefore[1]) + "/" + (GC.CollectionCount(2) - gcBefore[2]) + " |";

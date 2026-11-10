@@ -56,12 +56,12 @@ public class ColonySaveTests
         string folder = Folder();
         var copies = new List<ColonyState>();
         bool carrying = false, claimsOpen = false, building = false, personal = false, grinding = false;
-        long end = Arrival.Tick + 40 * 60;
+        long end = Arrival.Tick + 40 * Calendar.TicksPerHour;
         long carrySavedHour = -1;
-        colony.Run(end - Arrival.Tick, c =>
+        colony.RunMinutes((end - Arrival.Tick) / Calendar.TicksPerMinute, c =>
         {
             var work = c.Work!;
-            long hour = c.Now.Tick / 60;
+            long hour = c.Now.Tick / Calendar.TicksPerHour;
             bool carries = work.Jobs.Any(j => j.Step == Step.Carrying && c.Stocks[work.Worker(j.Worker!.Value).Arms].Goods.Count > 0);
             bool carrySave = carries && carrySavedHour != hour;
             if (c.Now.MinuteOfDay % 60 != 30 && !carrySave)
@@ -87,7 +87,7 @@ public class ColonySaveTests
         string fingerprint = ColonySave.Fingerprint(colony);
         foreach (var copy in copies)
         {
-            copy.Run(end - copy.Now.Tick);
+            copy.RunMinutes((end - copy.Now.Tick) / Calendar.TicksPerMinute);
             Assert.Equal(fingerprint, ColonySave.Fingerprint(copy));
         }
         // Every operation in the ledger happened once.
@@ -99,7 +99,7 @@ public class ColonySaveTests
     public void FP08_identities_go_on_from_where_they_were()
     {
         var colony = FirstDay();
-        colony.Run(300);
+        colony.RunMinutes(300);
         var copy = ColonySave.Read(ColonySave.Text(colony), Real);
         Assert.Equal(colony.Ids.Last, copy.Ids.Last);
         Assert.True(colony.Ids.Last.Count >= 6);                                // colonists, buildings, inventories, tasks...
@@ -116,9 +116,9 @@ public class ColonySaveTests
         var colony = FirstDay();
         var work = colony.Work!;
         var cancelled = work.Plan("floor", 40, 40).Project!;
-        colony.Run(30);
+        colony.RunMinutes(30);
         work.CancelBuild(cancelled.Id);
-        colony.Run(8 * 60);
+        colony.RunMinutes(8 * 60);
         Assert.NotEmpty(colony.Stocks.Closed);
         var copy = ColonySave.Read(ColonySave.Text(colony), Real);
         Assert.Equal(colony.Stocks.Closed, copy.Stocks.Closed);
@@ -128,7 +128,7 @@ public class ColonySaveTests
     public static IEnumerable<object[]> BrokenClosed()
     {
         var colony = FirstDay();
-        colony.Run(8 * 60);
+        colony.RunMinutes(8 * 60);
         string good = ColonySave.Text(colony);
         object[] Case(Action<JsonObject> change, string reason)
         {
@@ -153,7 +153,7 @@ public class ColonySaveTests
     public void FP09_a_save_changed_outside_the_game_is_only_loaded_if_the_player_says_so()
     {
         var colony = FirstDay();
-        colony.Run(60);
+        colony.RunMinutes(60);
         string text = ColonySave.Text(colony);
         var save = JsonNode.Parse(text)!.AsObject();
         string first = save["work"]!["workers"]![0]!["name"]!.ToString();
@@ -177,7 +177,7 @@ public class ColonySaveTests
     public void FP09_a_save_made_with_other_content_loads_with_a_warning()
     {
         var colony = FirstDay();
-        colony.Run(60);
+        colony.RunMinutes(60);
         string text = ColonySave.Text(colony);
         Assert.Empty(ColonySave.Opening(text, Real).Warnings);
         // The same content with walking a little quicker.
@@ -203,7 +203,7 @@ public class ColonySaveTests
         var colony = FirstDay();
         ColonySave.Save(path, colony);
         string before = Sha(path);
-        colony.Run(60);
+        colony.RunMinutes(60);
         // A writing that comes out broken (as a failing disk might): read back, refused, nothing replaced.
         var broken = Assert.Throws<ColonySaveException>(() => ColonySave.Save(path, colony, true, text => text[..(text.Length / 2)]));
         Assert.Contains("could not be saved", broken.Message);
@@ -234,15 +234,15 @@ public class ColonySaveTests
         ColonySave.Save(path, colony);
         Assert.False(File.Exists(path + ".bak"));                               // nothing to keep yet
         string first = File.ReadAllText(path);
-        colony.Run(60);
+        colony.RunMinutes(60);
         ColonySave.Save(path, colony);
         Assert.Equal(first, File.ReadAllText(path + ".bak"));
         string second = File.ReadAllText(path);
-        colony.Run(60);
+        colony.RunMinutes(60);
         ColonySave.Save(path, colony);
         Assert.Equal(second, File.ReadAllText(path + ".bak"));                 // one level back
         Assert.Equal(ColonySave.Text(ColonySave.Load(path + ".bak", Real)), second);
-        colony.Run(60);
+        colony.RunMinutes(60);
         ColonySave.Save(path, colony, backup: false);
         Assert.Equal(second, File.ReadAllText(path + ".bak"));                 // without a backup, the old .bak stays
     }
@@ -255,7 +255,7 @@ public class ColonySaveTests
         yield return new object[] { "\u0001\u0002ÿ not a save", "broken JSON" };
         yield return new object[] { "[1, 2, 3]", "no JSON object" };
         yield return new object[] { "{\"format\": \"something else\"}", "not a colony save of this game" };
-        yield return new object[] { good.Replace("\"version\": 12", "\"version\": 11"), "older saves are not converted" };
+        yield return new object[] { good.Replace("\"version\": " + ColonySave.Version, "\"version\": " + (ColonySave.Version - 1)), "older saves are not converted" };
     }
 
     [Theory]
@@ -277,12 +277,12 @@ public class ColonySaveTests
     public void The_session_runs_ticks_at_the_chosen_speed()
     {
         var session = new Session(FirstDay(), Folder());
-        Assert.Equal(2, session.Frame(1.0));                                    // ×1: 2 ticks a second
+        Assert.Equal(120, session.Frame(1.0));                                  // ×1: two game minutes a real second
         session.Speed = Speed.Triple;
-        Assert.Equal(6, session.Frame(1.0));
+        Assert.Equal(360, session.Frame(1.0));
         session.Speed = Speed.Paused;
         Assert.Equal(0, session.Frame(5.0));
-        Assert.Equal(Arrival.Tick + 8, session.Colony.Now.Tick);
+        Assert.Equal(Arrival.Tick + 480, session.Colony.Now.Tick);
     }
 
     [Fact]

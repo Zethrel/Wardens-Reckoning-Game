@@ -45,13 +45,13 @@ public class LifeTests
             }
         }
 
-        public void Run(int ticks, Action<ColonyState>? each = null) => Colony.Run(ticks, each);
+        public void RunMinutes(int ticks, Action<ColonyState>? each = null) => Colony.RunMinutes(ticks, each);
 
-        public int RunUntil(Func<bool> done, int most = 4 * Calendar.TicksPerDay)
+        public int RunUntil(Func<bool> done, int most = 4 * Calendar.MinutesPerDay)
         {
             for (int i = 1; i <= most; i++)
             {
-                Colony.Run(1);
+                Colony.RunMinutes(1);
                 if (done())
                     return i;
             }
@@ -85,7 +85,7 @@ public class LifeTests
         var meals = new Dictionary<long, int>();
         var drinks = new Dictionary<long, int>();
         int ledgerSeen = camp.Stocks.Ledger.Count;
-        camp.Run(3 * Calendar.TicksPerDay, c =>
+        camp.RunMinutes(3 * Calendar.MinutesPerDay, c =>
         {
             foreach (var e in camp.Stocks.Ledger.Skip(ledgerSeen).Where(e => e.Change == Change.Used))
             {
@@ -113,7 +113,7 @@ public class LifeTests
     {
         var camp = new Camp(start: new Moment(Calendar.TickOf(301, 1, 1, 17, 0)));   // recreation
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
-        camp.Run(60);
+        camp.RunMinutes(60);
         Assert.Single(camp.Work.Jobs);
         Assert.Null(camp.People[0].Job);
         // Next morning at 08:00 the haul is taken.
@@ -144,7 +144,7 @@ public class LifeTests
         camp.RunUntil(() => camp.Colony.Now.Hour == 5 && camp.Colony.Now.Minute == 59);
         int drunk = 200 - camp.Spring.Count("water");
         Assert.True(drunk > 0);
-        camp.Run(1);
+        camp.RunMinutes(1);
         Assert.Equal(200, camp.Spring.Count("water"));
         var arrivals = camp.Stocks.Ledger.Where(e => e.Change == Change.Arrived && e.Good == "water").ToList();
         Assert.Equal(new[] { 200, drunk }, arrivals.Select(e => e.Amount));
@@ -184,7 +184,7 @@ public class LifeTests
         camp.Set(ada, "fatigue", 60);
         camp.RunUntil(() => ada.Asleep);
         camp.Set(ada, "thirst", 95);
-        camp.Run(1);
+        camp.RunMinutes(1);
         Assert.False(ada.Asleep);
         camp.RunUntil(() => camp.Need(ada, "thirst") < 50);
         Assert.Equal(1, camp.Colony.Now.Hour);                // she drank in the night, without waiting for morning
@@ -201,7 +201,7 @@ public class LifeTests
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
         camp.RunUntil(() => camp.JobOf(ada)?.Step == Step.Carrying);
         camp.Set(ada, "hunger", 70);                          // urgent, not critical
-        camp.Run(1);
+        camp.RunMinutes(1);
         Assert.Equal(Step.Carrying, camp.JobOf(ada)!.Step);   // she carries on
         camp.RunUntil(() => ada.Personal?.Kind == PersonalKind.Eat);
         Assert.Equal(5, camp.Stocks[camp.Quern.Input].Count("wheat"));   // the wheat was delivered first
@@ -217,7 +217,7 @@ public class LifeTests
         camp.RunUntil(() => camp.JobOf(ada)?.Step == Step.Carrying);
         var job = camp.JobOf(ada)!;
         camp.Set(ada, "hunger", 92);
-        camp.Run(1);
+        camp.RunMinutes(1);
         Assert.Equal(PersonalKind.Eat, ada.Personal?.Kind);
         Assert.Equal(job.Id, ada.Job);                        // still hers
         Assert.Equal(5, camp.Stocks[ada.Arms].Count("wheat"));
@@ -233,7 +233,7 @@ public class LifeTests
         var ada = camp.People[0];
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 3);
         camp.Set(ada, "hunger", 20);                          // peckish
-        camp.Run(60);
+        camp.RunMinutes(60);
         Assert.Equal(0, camp.Stocks.Ledger.Count(e => e.Change == Change.Used && e.Good == "ration"));
         camp.RunUntil(() => camp.Stocks.Ledger.Any(e => e.Change == Change.Used && e.Good == "ration"));
         Assert.Equal(12, camp.Colony.Now.Hour);
@@ -246,7 +246,7 @@ public class LifeTests
         var ada = camp.People[0];
         camp.Set(ada, "fatigue", 87);
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
-        camp.Run(1);
+        camp.RunMinutes(1);
         Assert.Null(ada.Job);
         Assert.NotEqual(Block.Sleep, camp.Work.BlockOf(ada));
         camp.RunUntil(() => ada.Asleep);
@@ -268,7 +268,7 @@ public class LifeTests
         var ada = camp.People[0];
         camp.Set(ada, "hunger", 70);
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
-        camp.Run(30);
+        camp.RunMinutes(30);
         Assert.Null(ada.Job);
         Assert.Equal("no travel ration free in any store", ada.Lacking);
     }
@@ -289,7 +289,7 @@ public class LifeTests
         var camp = new Camp(start: new Moment(Calendar.TickOf(301, 1, 1, 9, 0)));
         var ada = camp.People[0];
         camp.Set(ada, "hunger", 40);
-        camp.Run(1);
+        camp.RunMinutes(1);
         Assert.Equal(PersonalKind.Eat, ada.Personal?.Kind);
     }
 
@@ -325,7 +325,7 @@ public class LifeTests
         var ada = camp.People[0];
         camp.Set(ada, "hunger", 100, atLimit: 600);
         camp.RunUntil(() => camp.Need(ada, "hunger") < 100);
-        camp.Run(1);                                          // counted each minute, as the need grows
+        camp.RunMinutes(1);                                          // counted each minute, as the need grows
         Assert.Equal(0, ada.Needs["hunger"].MinutesAtLimit);
     }
 
@@ -337,9 +337,9 @@ public class LifeTests
         var camp = new Camp(people: 2, rations: 0);
         var (ada, bram) = (camp.People[0], camp.People[1]);
         camp.Set(ada, "hunger", 100, atLimit: 72 * 60 - 2);
-        camp.Run(1);
+        camp.RunMinutes(1);
         Assert.Null(ada.Collapsed);
-        camp.Run(1);
+        camp.RunMinutes(1);
         Assert.Equal("hunger", ada.Collapsed);
         Assert.Equal("collapsed (hunger)", camp.Work.Doing(ada.Id));
         // Rations arrive; in work hours Bram carries one to her, and she eats it at once.
@@ -356,7 +356,7 @@ public class LifeTests
         var camp = new Camp(start: new Moment(Calendar.TickOf(301, 1, 1, 9, 0)));
         var ada = camp.People[0];
         camp.Set(ada, "fatigue", 99.99);
-        camp.Run(1);
+        camp.RunMinutes(1);
         Assert.Equal("fatigue", ada.Collapsed);
         Assert.Equal("collapsed (fatigue)", camp.Work.Doing(ada.Id));
         Assert.True(ada.Asleep);
@@ -372,7 +372,7 @@ public class LifeTests
         var camp = new Camp(rations: 0, start: new Moment(Calendar.TickOf(301, 1, 1, 12, 0)));
         var ada = camp.People[0];
         camp.Set(ada, "hunger", 50);
-        camp.Run(1);
+        camp.RunMinutes(1);
         Assert.Equal("no travel ration free in any store", ada.Lacking);
     }
 
@@ -386,7 +386,7 @@ public class LifeTests
         Assert.Equal("at leisure", camp.Work.Doing(ada.Id));
         ada.X = -200;                                         // far enough from the spring to be seen walking
         camp.Set(ada, "thirst", 40);
-        camp.Run(1);
+        camp.RunMinutes(1);
         Assert.Equal("going to drink", camp.Work.Doing(ada.Id));
         camp.RunUntil(() => ada.Personal?.Left != null);
         Assert.Equal("drinking", camp.Work.Doing(ada.Id));
@@ -412,13 +412,13 @@ public class LifeTests
         foreach (var camp in new[] { straight, halves })
             camp.Work.Order(camp.Quern.Id, "grind_wheat", 6);
         int minutes = halves.RunUntil(() => halves.People.Any(p => p.Personal?.Kind == PersonalKind.Eat && p.Personal.Left != null));
-        straight.Run(minutes);
+        straight.RunMinutes(minutes);
         var loaded = ColonySave.Read(ColonySave.Text(halves.Colony), Real);
         Assert.Equal(ColonySave.Text(halves.Colony), ColonySave.Text(loaded));
-        for (int i = 0; i < 2 * Calendar.TicksPerDay; i++)
+        for (int i = 0; i < 2 * Calendar.MinutesPerDay; i++)
         {
-            straight.Colony.Run(1);
-            loaded.Run(1);
+            straight.Colony.RunMinutes(1);
+            loaded.RunMinutes(1);
         }
         Assert.Equal(ColonySave.Fingerprint(straight.Colony), ColonySave.Fingerprint(loaded));
     }
@@ -429,7 +429,7 @@ public class LifeTests
         {
             var camp = new Camp(people: 2, start: new Moment(Calendar.TickOf(301, 1, 1, 17, 0)));
             camp.Set(camp.People[0], "thirst", 40);
-            camp.Run(1);                                       // Ada goes to drink: she holds a claim
+            camp.RunMinutes(1);                                       // Ada goes to drink: she holds a claim
             var save = ColonySave.Write(camp.Colony);
             change(save);
             return new object[] { save.ToJsonString(), reason };

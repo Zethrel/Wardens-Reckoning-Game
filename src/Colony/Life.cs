@@ -280,7 +280,8 @@ public sealed partial class Work
         Continue(w);
     }
 
-    /// <summary>A minute of seeing to it: walking there, then eating, drinking or lying down.</summary>
+    /// <summary>A minute of seeing to it: heading there (walked second by second), then eating, drinking or lying
+    /// down.</summary>
     void Continue(Worker w)
     {
         var p = w.Personal!;
@@ -295,7 +296,6 @@ public sealed partial class Work
                 w.Lacking = "cannot reach " + (p.Kind == PersonalKind.Sleep ? "their bedroll" : "the store");
                 return;
             }
-            bool there = w.X == p.X && w.Y == p.Y;
             if (!Walk(w, p.X, p.Y))
             {
                 Stocks[w.Arms].X = w.X;
@@ -317,8 +317,6 @@ public sealed partial class Work
                 PersonalKind.Wash => content.Wash.Minutes,
                 _ => content.Drink.Minutes,
             };
-            if (!there)
-                return;
         }
         if (--p.Left > 0)
             return;

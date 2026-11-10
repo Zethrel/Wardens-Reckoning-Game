@@ -37,7 +37,7 @@ public class WaterTests
         {
             if (done())
                 return true;
-            colony.Run(1);
+            colony.RunMinutes(1);
         }
         return done();
     }
@@ -71,11 +71,11 @@ public class WaterTests
     {
         var (colony, _) = Founding.Found(7, On(1), Real, 24, 20);
         var ada = colony.Work!.Workers.First();
-        colony.Run(24 * 60);
+        colony.RunMinutes(24 * 60);
         // 16 waking hours at 2 and 8 asleep at 1: 40 (the stream on the test ground is no bank, so nobody washed).
         Assert.InRange(ada.Needs["hygiene"].Level, 38, 42);
         ada.Needs["hygiene"].Level = 100;
-        colony.Run(3 * 24 * 60);
+        colony.RunMinutes(3 * 24 * 60);
         Assert.Equal(100, ada.Needs["hygiene"].Level);
         Assert.Null(ada.Collapsed);
     }
@@ -86,7 +86,7 @@ public class WaterTests
         // On the test ground there is nowhere to wash: after two and a half days everyone's hygiene is past urgent,
         // and they still build (the rations last until the fourth day; hunger would stop them then, as it should).
         var (colony, _) = Founding.Found(7, On(1), Real, 24, 20);
-        colony.Run(60 * 60);
+        colony.RunMinutes(60 * 60);
         Assert.All(colony.Work!.Workers, w => Assert.True(w.Needs["hygiene"].Level >= Real.Hygiene.Urgent));
         Built(colony, "wall", 30, 30);
         var ada = colony.Work.Workers.First();
@@ -122,7 +122,7 @@ public class WaterTests
         bool sawLoad = false;
         for (int i = 0; i < 12 * 60; i++)
         {
-            colony.Run(1);
+            colony.RunMinutes(1);
             Assert.True(barrel.Count("water") <= 100);
             var carrying = work.Workers.Where(w => colony.Stocks[w.Arms].Count("water") > 0).ToList();
             Assert.True(carrying.Count <= 1, "two fetching at once");
@@ -146,7 +146,7 @@ public class WaterTests
         carts.Emptying = true;
         for (int i = 0; i < 60; i++)
         {
-            colony.Run(1);
+            colony.RunMinutes(1);
             Assert.True(barrel.Count("water") <= 100, "the barrel overfilled: " + barrel.Count("water"));
         }
         Assert.True(carts.Count("water") > 0);
@@ -155,12 +155,12 @@ public class WaterTests
         colony.Stocks.Make(colony.Ids.Next<OperationId>(), colony.Now.Tick, new[] { drink.Id }, barrel.Id, new Dictionary<string, int>());
         for (int i = 0; i < 60; i++)
         {
-            colony.Run(1);
+            colony.RunMinutes(1);
             Assert.True(barrel.Count("water") <= 100, "the barrel overfilled: " + barrel.Count("water"));
         }
         for (int i = 0; i < 24 * 60; i++)
         {
-            colony.Run(1);
+            colony.RunMinutes(1);
             Assert.True(barrel.Count("water") <= 100, "the barrel overfilled: " + barrel.Count("water"));
         }
         Assert.True(stream.Count("water") <= work.LitresOf(stream.Id));
@@ -219,7 +219,7 @@ public class WaterTests
         var take = colony.Stocks.Reserve(river.Id, "water", 300, "test").Reservation!;
         colony.Stocks.Make(colony.Ids.Next<OperationId>(), colony.Now.Tick, new[] { take.Id }, river.Id, new Dictionary<string, int>());
         Assert.Equal(700, river.Count("water"));
-        colony.Run(60);
+        colony.RunMinutes(60);
         Assert.Equal(1000, river.Count("water"));
     }
 
@@ -242,7 +242,7 @@ public class WaterTests
         colony.Stocks.Make(colony.Ids.Next<OperationId>(), colony.Now.Tick, new[] { rest.Id }, carts.Id, new Dictionary<string, int>());
         ada.Needs["thirst"].Level = 70;
         int ice = colony.Stocks[brook].Count("water");
-        colony.Run(60);
+        colony.RunMinutes(60);
         Assert.Equal(ice, colony.Stocks[brook].Count("water"));
         Assert.Equal("no water free in any store", ada.Lacking);
         Assert.Contains("frozen: nothing to draw until the thaw", Inspect.Tile(colony, 29, 20).Lines.Single(l => l.Label == "Source").Text);
@@ -281,7 +281,7 @@ public class WaterTests
         var work = colony.Work!;
         foreach (var w in work.Workers)
             work.Stop(w.Id);
-        colony.Run(23 * 60);                                     // past the next morning (not so long that anyone collapses)
+        colony.RunMinutes(23 * 60);                                     // past the next morning (not so long that anyone collapses)
         Assert.Single(work.Projects);
         var lake = work.Springs.Single();
         Assert.True(work.SourceOf(lake).Frozen);
@@ -294,7 +294,7 @@ public class WaterTests
         work.Resume(ada.Id);
         work.CancelBuild(work.Projects.Single().Id);             // nobody cuts the hole today
         ada.Needs["thirst"].Level = 95;
-        colony.Run(20);
+        colony.RunMinutes(20);
         Assert.True(ada.Needs["thirst"].Level >= 95, "Ada drank: thirst " + ada.Needs["thirst"].Level);
     }
 
@@ -318,7 +318,7 @@ public class WaterTests
         var work = colony.Work!;
         Assert.Empty(work.Springs);
         var well = work.AddSpring(10.5, 10.5, "Well", 200, WaterKind.Well);
-        colony.Run(24 * 60);
+        colony.RunMinutes(24 * 60);
         Assert.False(work.SourceOf(well.Id).Frozen);
         Assert.Equal(200, work.LitresOf(well.Id));
     }
@@ -336,8 +336,8 @@ public class WaterTests
         var loaded = ColonySave.Read(text, Real);
         Assert.Equal(text, ColonySave.Text(loaded));
         Assert.True(loaded.Work!.Cold);
-        colony.Run(2 * 24 * 60);
-        loaded.Run(2 * 24 * 60);
+        colony.RunMinutes(2 * 24 * 60);
+        loaded.RunMinutes(2 * 24 * 60);
         Assert.Equal(ColonySave.Fingerprint(colony), ColonySave.Fingerprint(loaded));
     }
 }

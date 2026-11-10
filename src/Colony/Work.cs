@@ -16,6 +16,9 @@ public sealed class Worker(ColonistId id, string name, double x, double y, Inven
     public TaskId? Job { get; internal set; }
     /// <summary>Stopped by the player (interrupted): they do nothing until resumed.</summary>
     public bool Stopped { get; internal set; }
+    /// <summary>Where they are walking to this minute (step 21a), or null: standing. `Near`: far enough once on a
+    /// tile beside it. Set on the whole minutes by whatever they are doing; walked every second.</summary>
+    public (double X, double Y, bool Near)? Heading { get; internal set; }
     /// <summary>An illness caught (step 19b): it may not have shown yet (Work.Ill says whether it has).</summary>
     public Illness? Illness { get; internal set; }
     /// <summary>The work missed while ill and not yet taken off (Health.cs, Slowed).</summary>
@@ -267,6 +270,8 @@ public sealed partial class Work
     {
         var worker = workers[id.Value];
         worker.Stopped = true;
+        if (worker.Personal == null)
+            worker.Heading = null;                              // an order counts at once: they stand still
         if (worker.Job is TaskId t && jobs[t.Value] is var job && !InHand(job))
             Reopen(job, worker);
     }
@@ -316,14 +321,31 @@ public sealed partial class Work
             job.Left = 0;
     }
 
-    // ---- One minute ---------------------------------------------------------------------------------
+    // ---- One second, one minute ----------------------------------------------------------------------
 
-    /// <summary>One tick: needs grow and are seen to (Life.cs), workers act, the water sources fill and freeze in
+    /// <summary>
+    /// One tick, a second (library Review 39): everyone walking takes a second's steps towards where they are
+    /// heading; and on the whole minutes, everything else is worked out (`Minute`). Every system here but the
+    /// walking was built on a tick of a minute, and still runs once a minute (its declared interval, Review 39).
+    /// </summary>
+    public void Tick()
+    {
+        foreach (var worker in workers.Values)
+            if (worker.Heading != null)
+                Stride(worker);
+        if (colony.Now.OnTheMinute)
+            Minute();
+    }
+
+    /// <summary>One minute: needs grow and are seen to (Life.cs), workers act, the water sources fill and freeze in
     /// the morning and rivers top up each hour (Water.cs), workshops ask, construction projects ask (Build.cs),
     /// stores are emptied and emptied stockpiles removed (Placing.cs), barrels and basins are filled (Water.cs), the
     /// collapsed are cared for, workers take jobs.</summary>
-    public void Tick()
+    void Minute()
     {
+        // Nobody walks on unless what they do this minute says so (`Walk`).
+        foreach (var worker in workers.Values)
+            worker.Heading = null;
         foreach (var worker in workers.Values)
             if (Live(worker) && !worker.Stopped && worker.Job is TaskId t)
                 Act(worker, jobs[t.Value]);
@@ -362,10 +384,8 @@ public sealed partial class Work
                     Reopen(job, worker);
                     break;
                 }
-                // Someone already standing there starts at once; anyone else spends this minute walking. A builder
-                // works from beside the tile.
+                // Someone standing there starts at once; anyone else walks on. A builder works from beside the tile.
                 bool near = job.Kind == JobKind.Build && content.Pieces[projects[job.Site!.Value.Value].Piece].Access == null;
-                bool there = Arrived(worker, gx, gy, near);
                 if (Walk(worker, gx, gy, near))
                 {
                     job.Step = job.Kind is JobKind.Haul or JobKind.Boil ? Step.Loading : Step.Working;
@@ -376,8 +396,7 @@ public sealed partial class Work
                         JobKind.Craft => content.Recipes[job.Recipe!].WorkMinutes,
                         _ => Minutes(projects[job.Site!.Value.Value]),
                     };
-                    if (there || job.Left == 0)
-                        Act(worker, job);
+                    Act(worker, job);
                 }
                 break;
             case Step.Loading:
@@ -395,6 +414,7 @@ public sealed partial class Work
                 {
                     job.Step = Step.Working;
                     job.Left = content.Sanitation.BoilMinutes;
+                    Act(worker, job);
                 }
                 break;
             case Step.Carrying:
@@ -403,8 +423,7 @@ public sealed partial class Work
                 {
                     job.Step = Step.Unloading;
                     job.Left = content.DropMinutes;
-                    if (job.Left == 0)
-                        Act(worker, job);
+                    Act(worker, job);
                 }
                 break;
             case Step.Unloading:
@@ -451,21 +470,42 @@ public sealed partial class Work
     }
 
     /// <summary>
-    /// A minute of walking towards (x, y): true once there. Without a ground (as in the tests of steps 13 and 14)
-    /// a colonist walks straight. On a ground they walk from tile to tile on the way the ground finds, through the
-    /// middle of each tile, and in the last tile straight to the spot. `near`: arrived as soon as they stand on a
-    /// tile beside the spot's tile (or on it), as a builder does.
-    ///
-    /// The minute is spent stretch by stretch (step 15c): each stretch goes at the walking speed (colony.json, on
-    /// a road) times the speed of the tile it leads onto (grass 0.8) times how well the colonist's legs carry them.
+    /// Walking towards (x, y), asked on the whole minutes by whatever a colonist is doing: true if they are there
+    /// (and may get on with it); if not, they head there, and walk for the minute to come, second by second
+    /// (`Stride`). `near`: there as soon as they stand on a tile beside the spot's tile (or on it), as a builder
+    /// does.
     /// </summary>
     bool Walk(Worker worker, double x, double y, bool near = false)
     {
-        double minutes = 1;
+        if (Arrived(worker, x, y, near))
+        {
+            worker.Heading = null;
+            return true;
+        }
+        worker.Heading = (x, y, near);
+        return false;
+    }
+
+    /// <summary>
+    /// A second of walking towards where they are heading (step 21a). Without a ground (as in the tests of steps
+    /// 13 and 14) a colonist walks straight. On a ground they walk from tile to tile on the way the ground finds,
+    /// through the middle of each tile, and in the last tile straight to the spot.
+    ///
+    /// The second is spent stretch by stretch (step 15c): each stretch goes at the walking speed (colony.json, on
+    /// a road) times the speed of the tile it leads onto (grass 0.8) times how well the colonist's legs carry them.
+    /// Once there they stand (and get on with what they came for on the next whole minute).
+    /// </summary>
+    void Stride(Worker worker)
+    {
+        var (x, y, near) = worker.Heading!.Value;
+        double minutes = 1.0 / Calendar.SecondsPerMinute;
         while (true)
         {
             if (near && Arrived(worker, x, y, near))
-                return true;
+            {
+                worker.Heading = null;
+                break;
+            }
             double px = x, py = y, speed = 1;
             if (Ground is Ground ground)
             {
@@ -474,7 +514,10 @@ public sealed partial class Work
                 if ((tx, ty) != (gx, gy))
                 {
                     if (ground.Next(tx, ty, gx, gy) is not var (nx, ny))
-                        return false;                                  // no way there: they stay where they are
+                    {
+                        worker.Heading = null;                         // no way there: they stay where they are
+                        break;
+                    }
                     (px, py) = Ground.Centre(nx, ny);
                     speed = ground.Speed(nx, ny);
                 }
@@ -484,17 +527,24 @@ public sealed partial class Work
             double metresPerMinute = content.WalkMetresPerMinute * speed * worker.Legs;
             double dx = px - worker.X, dy = py - worker.Y, far = Math.Sqrt(dx * dx + dy * dy);
             double takes = far / metresPerMinute;
-            if (takes > minutes)
+            // (A stretch that ends within a billionth of a minute after the second is walked whole: sixty sixtieths
+            // do not add up to exactly one, and a walk of exactly two minutes should take two.)
+            if (takes > minutes + 1e-9)
             {
                 double share = minutes * metresPerMinute / far;
                 (worker.X, worker.Y) = (worker.X + dx * share, worker.Y + dy * share);
-                return false;
+                break;
             }
             (worker.X, worker.Y) = (px, py);
-            minutes -= takes;
+            minutes = Math.Max(0, minutes - takes);
             if (px == x && py == y)
-                return true;
+            {
+                worker.Heading = null;
+                break;
+            }
         }
+        Stocks[worker.Arms].X = worker.X;
+        Stocks[worker.Arms].Y = worker.Y;
     }
 
     /// <summary>Whether a worker is at (x, y); with `near` on a ground, on its tile or a tile beside it.</summary>

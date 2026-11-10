@@ -57,14 +57,14 @@ public class BuildTests
             for (int i = 0; !done(); i++)
             {
                 Assert.True(i < most, "it never happened");
-                Run(1);
+                RunMinutes(1);
             }
         }
 
         public Job? Build(Project p) => Work.Jobs.FirstOrDefault(j => j.Kind == JobKind.Build && j.Site == p.Id);
 
         /// <summary>Runs on, checking every minute that no timber is lost or made from nothing.</summary>
-        public void Run(long ticks, Action? each = null) => Colony.Run(ticks, _ =>
+        public void RunMinutes(long ticks, Action? each = null) => Colony.RunMinutes(ticks, _ =>
         {
             Assert.Equal(Stocks.Accounted("timber"), Stocks.Total("timber"));
             each?.Invoke();
@@ -162,10 +162,11 @@ public class BuildTests
         // Straight it is 27 m, under a minute's walk; around the wall's end at y = 40 it is about 90 m.
         Assert.True(camp.Ground.Metres(3, 3, 30, 3) > 80);
         ada.Needs["hunger"].Level = 90;
-        camp.Run(1);
+        camp.RunMinutes(1);
         Assert.Equal(PersonalKind.Eat, ada.Personal?.Kind);
-        Assert.Null(ada.Personal!.Left);                                   // still walking after a minute
-        camp.Run(1);
+        camp.RunMinutes(1);
+        Assert.Null(ada.Personal!.Left);                                   // still walking after a minute of it
+        camp.RunMinutes(1);
         Assert.NotNull(ada.Personal?.Left);                                // there in the second, eating
         Assert.Equal((30, 3), Ground.TileOf(ada.X, ada.Y));
     }
@@ -191,7 +192,7 @@ public class BuildTests
         var wall = camp.Plan("wall", 20, 20);
         var site = wall.Stock;
         bool sawHaul = false, sawClaim = false, sawWork = false;
-        camp.Run(120, () =>
+        camp.RunMinutes(120, () =>
         {
             var p = camp.Work.Project(wall.Id);
             if (p == null)
@@ -231,10 +232,10 @@ public class BuildTests
         var camp = new Camp(people: 1);
         camp.Plan("floor", 4, 3);                                     // next to Ada, so she walks almost nothing
         camp.Until(() => camp.Work.Jobs.Any(j => j.Kind == JobKind.Build && j.Step == Step.Working));
-        long first = camp.Colony.Now.Tick;                            // the first minute of building is done
+        long first = camp.Colony.Now.WholeMinutes;                            // the first minute of building is done
         camp.Until(() => camp.Ground.PieceAt(4, 3) != null);
         Assert.Equal("floor", camp.Ground.PieceAt(4, 3));
-        Assert.Equal(Real.Pieces["floor"].WorkMinutes, camp.Colony.Now.Tick - first + 1);
+        Assert.Equal(Real.Pieces["floor"].WorkMinutes, camp.Colony.Now.WholeMinutes - first + 1);
         Assert.True(camp.Ground.Open(4, 3));                          // a floor does not block
     }
 
@@ -243,7 +244,7 @@ public class BuildTests
     {
         var camp = new Camp(timber: 0);
         var wall = camp.Plan("wall", 20, 20);
-        camp.Run(5);
+        camp.RunMinutes(5);
         var why = camp.Work.WhyBuild(wall.Id)!;
         Assert.Equal("A timber wall at (20, 20) is waiting: waiting for timber: 2 more needed, and no store has any free.", why.Player);
         Assert.Equal("Bring timber to a store, or let some free.", why.NextStep);
@@ -252,10 +253,10 @@ public class BuildTests
         // Timber kept as a reserve is named as the reason.
         camp.Stocks.Arrive(camp.Colony.Ids.Next<OperationId>(), camp.Colony.Now.Tick, camp.Carts.Id, "timber", 2);
         camp.Carts.Keep("timber", 2);
-        camp.Run(1);
+        camp.RunMinutes(1);
         Assert.Contains("2 kept as a reserve", camp.Work.WhyBuild(wall.Id)!.Player);
         camp.Carts.Keep("timber", 0);
-        camp.Run(120);
+        camp.RunMinutes(120);
         Assert.Equal("wall", camp.Ground.PieceAt(20, 20));
         Assert.Null(camp.Work.WhyBuild(wall.Id));
     }
@@ -304,7 +305,7 @@ public class BuildTests
         Assert.True(placement.Ok);
         Assert.Equal("No colonist can reach it now; it waits until there is a way.", placement.Warning);
         Assert.Null(camp.Work.Check("floor", 10, 10).Warning);
-        camp.Run(30);
+        camp.RunMinutes(30);
         Assert.Null(camp.Ground.PieceAt(6, 6));
         // Nothing is brought to a place nobody can get to: no haul, no claim on the timber.
         Assert.DoesNotContain(camp.Work.Jobs, j => j.To == inside!.Stock);
@@ -329,11 +330,11 @@ public class BuildTests
         camp.Stocks.Arrive(camp.Colony.Ids.Next<OperationId>(), camp.Colony.Now.Tick, inside.Stock, "timber", 1);
         foreach (var w in camp.People)
             camp.Work.Stop(w.Id);
-        camp.Run(1);
+        camp.RunMinutes(1);
         camp.Ground.AddPiece("wall", true, 6, 4);
         foreach (var w in camp.People)
             camp.Work.Resume(w.Id);
-        camp.Run(3);
+        camp.RunMinutes(3);
         var job = Assert.Single(camp.Work.Jobs, j => j.Kind == JobKind.Build);
         Assert.Equal(Step.Open, job.Step);
         var why = camp.Work.WhyBuild(inside.Id)!;
@@ -349,7 +350,7 @@ public class BuildTests
         foreach (var w in camp.People)
             camp.Work.Permit(w.Id, Work.BuildWork, false);
         var floor = camp.Plan("floor", 20, 20);
-        camp.Run(30);
+        camp.RunMinutes(30);
         Assert.Null(camp.Ground.PieceAt(20, 20));
         var why = camp.Work.WhyBuild(floor.Id)!;
         Assert.Equal("Nobody is allowed to build.", why.Player);
@@ -363,20 +364,20 @@ public class BuildTests
         var camp = new Camp(people: 1);
         var wall = camp.Plan("wall", 5, 3);
         camp.Until(() => camp.Build(wall)?.Step == Step.Working);
-        camp.Run(20);
+        camp.RunMinutes(20);
         int left = camp.Work.Jobs.Single(j => j.Kind == JobKind.Build).Left;
         camp.Work.Pause(wall.Id, true);
-        camp.Run(30);
+        camp.RunMinutes(30);
         var job = camp.Work.Jobs.Single(j => j.Kind == JobKind.Build);
         Assert.Equal((Step.Open, left), (job.Step, job.Left));
         Assert.Equal("A timber wall at (5, 3) is waiting: it is paused.", camp.Work.WhyBuild(wall.Id)!.Player);
         Assert.Equal("Resume it.", camp.Work.WhyBuild(wall.Id)!.NextStep);
         camp.Work.Pause(wall.Id, false);
         camp.Until(() => camp.Build(wall)?.Step == Step.Working);
-        long again = camp.Colony.Now.Tick;
+        long again = camp.Colony.Now.WholeMinutes;
         camp.Until(() => camp.Ground.PieceAt(5, 3) != null);
         Assert.Equal("wall", camp.Ground.PieceAt(5, 3));
-        Assert.Equal(left, camp.Colony.Now.Tick - again + 1);              // it carried on; it did not start again
+        Assert.Equal(left, camp.Colony.Now.WholeMinutes - again + 1);              // it carried on; it did not start again
     }
 
     [Fact]
@@ -385,11 +386,11 @@ public class BuildTests
         var camp = new Camp();
         var wall = camp.Plan("wall", 20, 20);
         camp.Work.Pause(wall.Id, true);
-        camp.Run(30);
+        camp.RunMinutes(30);
         Assert.Empty(camp.Work.Jobs);
         Assert.Equal(40, camp.Stocks.Free(camp.Carts.Id, "timber"));
         camp.Work.Pause(wall.Id, false);
-        camp.Run(120);
+        camp.RunMinutes(120);
         Assert.Equal("wall", camp.Ground.PieceAt(20, 20));
     }
 
@@ -401,13 +402,13 @@ public class BuildTests
         camp.Until(() => camp.Stocks[wall.Stock].Count("timber") == 2);
         camp.Carts.Accepts.Add("ration");                                  // the carts no longer take timber
         camp.Work.CancelBuild(wall.Id);
-        camp.Run(30);
+        camp.RunMinutes(30);
         Assert.NotNull(camp.Work.Project(wall.Id));                        // still there, holding the timber
         Assert.Equal(2, camp.Stocks[wall.Stock].Count("timber"));
         Assert.Equal("A timber wall at (20, 20) is waiting: no store takes timber back.", camp.Work.WhyBuild(wall.Id)!.Player);
         Assert.Equal("Let a store take timber.", camp.Work.WhyBuild(wall.Id)!.NextStep);
         camp.Carts.Accepts.Add("timber");
-        camp.Run(30);
+        camp.RunMinutes(30);
         Assert.Null(camp.Work.Project(wall.Id));
         Assert.Equal(40, camp.Stocks[camp.Carts.Id].Count("timber"));
     }
@@ -442,11 +443,11 @@ public class BuildTests
         var camp = new Camp(people: 1, ground: RingedFar());
         var floor = camp.Plan("floor", 152, 152);
         camp.Stocks.Arrive(camp.Colony.Ids.Next<OperationId>(), camp.Colony.Now.Tick, floor.Stock, "timber", 1);
-        camp.Run(1);
+        camp.RunMinutes(1);
         var ada = camp.People[0];
         Assert.Equal(Step.Going, camp.Build(floor)!.Step);
         camp.Ground.AddPiece("wall", true, 152, 150);                      // the gap is closed before she gets there
-        camp.Run(1);
+        camp.RunMinutes(1);
         Assert.Null(ada.Job);
         Assert.Null(camp.Build(floor)!.Worker);
         Assert.Equal("Waiting for someone to build: Ada cannot get there.", camp.Work.WhyBuild(floor.Id)!.Player);
@@ -461,11 +462,11 @@ public class BuildTests
         camp.Stocks.Reserve(camp.Carts.Id, "ration", 30, "kept away for the test");
         var ada = camp.People[0];
         ada.Needs["hunger"].Level = 90;
-        camp.Run(1);
+        camp.RunMinutes(1);
         Assert.Equal(PersonalKind.Eat, ada.Personal?.Kind);
         Assert.Equal(1, camp.Stocks.Reserved(pantry.Id, "ration"));
         camp.Ground.AddPiece("wall", true, 152, 150);
-        camp.Run(1);
+        camp.RunMinutes(1);
         Assert.Null(ada.Personal);
         Assert.Equal(0, camp.Stocks.Reserved(pantry.Id, "ration"));        // the ration is let go
         Assert.Equal("cannot reach the store", ada.Lacking);
@@ -482,7 +483,7 @@ public class BuildTests
         camp.Until(() => camp.Build(near)?.Step == Step.Working);
         camp.Work.CancelBuild(near.Id);
         Assert.True(camp.Work.Project(near.Id)!.Cancelled);
-        camp.Run(120);
+        camp.RunMinutes(120);
         Assert.Null(camp.Work.Project(far.Id));
         Assert.Null(camp.Work.Project(near.Id));
         Assert.Null(camp.Ground.PieceAt(5, 3));
@@ -501,7 +502,7 @@ public class BuildTests
         var (ada, bram) = (camp.People[0], camp.People[1]);
         camp.Work.Stop(bram.Id);
         camp.Plan("wall", 3, 3);                                           // where both of them stand
-        camp.Run(120, () =>
+        camp.RunMinutes(120, () =>
         {
             if (camp.Ground.PieceAt(3, 3) == "wall" && !bram.Stopped)
                 return;
@@ -510,7 +511,7 @@ public class BuildTests
         });
         Assert.Equal("wall", camp.Ground.PieceAt(3, 3));
         bram.Needs["thirst"].Level = 90;                                   // he must walk to the spring
-        camp.Run(10);
+        camp.RunMinutes(10);
         Assert.NotEqual((3, 3), Ground.TileOf(bram.X, bram.Y));
     }
 
@@ -536,7 +537,7 @@ public class BuildTests
         }
         Assert.Equal((30, 3), (x, y));
         camp.Plan("floor", 30, 3);
-        camp.Run(120);
+        camp.RunMinutes(120);
         Assert.Equal("floor", camp.Ground.PieceAt(30, 3));
     }
 
@@ -552,15 +553,15 @@ public class BuildTests
         camp.Work.Pause(paused.Id, true);
         camp.Ground.AddPiece("wall", true, 21, 21);
         camp.Until(() => camp.Work.Jobs.Any(j => j.Kind == JobKind.Build && j.Step == Step.Working));
-        camp.Run(10);
+        camp.RunMinutes(10);
         string text = ColonySave.Text(camp.Colony);
         var loaded = ColonySave.Read(text, Real);
         Assert.Equal(text, ColonySave.Text(loaded));
         Assert.Equal("wall", loaded.Ground!.PieceAt(21, 21));
         Assert.Equal("rock", loaded.Ground.ObstacleAt(30, 8));
         Assert.True(loaded.Work!.Project(paused.Id)!.Paused);
-        camp.Run(300);
-        loaded.Run(300);
+        camp.RunMinutes(300);
+        loaded.RunMinutes(300);
         Assert.Equal(ColonySave.Fingerprint(camp.Colony), ColonySave.Fingerprint(loaded));
         Assert.Equal("wall", loaded.Ground.PieceAt(20, 20));
     }
@@ -569,7 +570,7 @@ public class BuildTests
     {
         var camp = new Camp();
         camp.Plan("wall", 20, 20);
-        camp.Run(1);
+        camp.RunMinutes(1);
         string good = ColonySave.Text(camp.Colony);
         object[] Case(Action<JsonObject> change, string reason)
         {

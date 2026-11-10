@@ -47,7 +47,9 @@ public static class ColonySave
     // capacity, wash places and sources, and washing.
     // 12: fouled water (step 19b): each source's fouling and sign, the stores' marks, the colonists' illnesses, the
     // boiling job, and what the player was told.
-    public const int Version = 12;
+    // 13: the second tick (step 21a, library Review 39): every tick in a save is a second, no longer a minute; and
+    // where each colonist is heading.
+    public const int Version = 13;
 
     /// <summary>The colony as JSON.</summary>
     public static JsonObject Write(Colony colony) => new()
@@ -100,6 +102,7 @@ public static class ColonySave
                 ["lacking"] = w.Lacking,
                 ["illness"] = w.Illness is not Illness ill ? null : new JsonArray(ill.Name, ill.Shows, ill.Ends),
                 ["slow"] = w.Slow,
+                ["heading"] = w.Heading is not var (hx, hy, hnear) ? null : new JsonArray(hx, hy, hnear),
                 ["forbidden"] = new JsonArray(w.Forbidden.Select(k => (JsonNode?)k).ToArray()),
                 ["personal"] = w.Personal is not Personal p ? null : new JsonObject
                 {
@@ -524,6 +527,16 @@ public static class ColonySave
             if (!(slow >= 0 && slow < 1))
                 throw new ColonySaveException(at + ".slow is " + slow + ", which should be from 0 to below 1");
             worker.Slow = slow;
+            if (o["heading"] is JsonArray heading)
+            {
+                if (heading.Count != 3 || !(heading[0] is JsonValue h0 && h0.TryGetValue(out double hx) && double.IsFinite(hx))
+                    || !(heading[1] is JsonValue h1 && h1.TryGetValue(out double hy) && double.IsFinite(hy))
+                    || !(heading[2] is JsonValue h2 && h2.TryGetValue(out bool hnear)))
+                    throw new ColonySaveException(at + ".heading is not [x, y, near]");
+                worker.Heading = (hx, hy, hnear);
+            }
+            else if (o["heading"] is not null)
+                throw new ColonySaveException(at + ".heading is not [x, y, near]");
             var kinds = colony.Work!.Kinds.ToHashSet();
             foreach (var k in o["forbidden"] as JsonArray ?? throw new ColonySaveException(at + ".forbidden is not a list"))
             {

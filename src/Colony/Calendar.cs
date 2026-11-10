@@ -8,23 +8,30 @@ namespace WardensReckoning.Colony;
 /// and exactly 48 weeks. Every month, and so every year and every season, begins on a Monday. Spring is months 1
 /// to 3, summer 4 to 6, autumn 7 to 9, winter 10 to 12.
 ///
-/// Time itself is one whole number: the tick. One tick is one in-game minute (library Review 29), counted from
-/// midnight at the start of Year 1, Day 1. Every date is worked out from it here, in one place, so no system ever
+/// Time itself is one whole number: the tick. One tick is one in-game second (library Review 39; until step 21 it
+/// was a minute, Review 29), counted from midnight at the start of Year 1, Day 1. Every date is worked out from it here, in one place, so no system ever
 /// counts months or seasons by itself.
 /// </summary>
 public static class Calendar
 {
+    public const int SecondsPerMinute = 60;
     public const int MinutesPerHour = 60;
     public const int HoursPerDay = 24;
-    /// <summary>1,440: one tick is one minute.</summary>
-    public const int TicksPerDay = MinutesPerHour * HoursPerDay;
+    /// <summary>1,440.</summary>
+    public const int MinutesPerDay = MinutesPerHour * HoursPerDay;
+    /// <summary>60: one tick is one second.</summary>
+    public const int TicksPerMinute = SecondsPerMinute;
+    /// <summary>3,600.</summary>
+    public const int TicksPerHour = TicksPerMinute * MinutesPerHour;
+    /// <summary>86,400.</summary>
+    public const int TicksPerDay = TicksPerHour * HoursPerDay;
     public const int DaysPerWeek = 7;
     public const int DaysPerMonth = 28;
     public const int MonthsPerYear = 12;
     public const int MonthsPerSeason = 3;
     /// <summary>336.</summary>
     public const int DaysPerYear = DaysPerMonth * MonthsPerYear;
-    /// <summary>483,840.</summary>
+    /// <summary>29,030,400.</summary>
     public const long TicksPerYear = (long)TicksPerDay * DaysPerYear;
 
     /// <summary>Month names (library §10.2, "proposed"): presentation only. Saves keep month numbers, never
@@ -44,17 +51,18 @@ public static class Calendar
 
     /// <summary>
     /// The tick at a date and time (library §7.2): `year` 1 or more, `month` 1 to 12, `day` 1 to 28, `hour` 0 to 23,
-    /// `minute` 0 to 59. Anything else is refused, so a wrong date can never slip into the simulation.
+    /// `minute` and `second` 0 to 59. Anything else is refused, so a wrong date can never slip into the simulation.
     /// </summary>
-    public static long TickOf(int year, int month, int day, int hour = 0, int minute = 0)
+    public static long TickOf(int year, int month, int day, int hour = 0, int minute = 0, int second = 0)
     {
         Check(year >= 1, "the year", year, "1 or more");
         Check(month is >= 1 and <= MonthsPerYear, "the month", month, "1 to 12");
         Check(day is >= 1 and <= DaysPerMonth, "the day", day, "1 to 28");
         Check(hour is >= 0 and < HoursPerDay, "the hour", hour, "0 to 23");
         Check(minute is >= 0 and < MinutesPerHour, "the minute", minute, "0 to 59");
+        Check(second is >= 0 and < SecondsPerMinute, "the second", second, "0 to 59");
         long absoluteDay = (long)(year - 1) * DaysPerYear + (month - 1) * DaysPerMonth + (day - 1);
-        return absoluteDay * TicksPerDay + hour * MinutesPerHour + minute;
+        return absoluteDay * TicksPerDay + hour * TicksPerHour + minute * TicksPerMinute + second;
     }
 
     static void Check(bool ok, string what, int value, string allowed)
@@ -74,8 +82,17 @@ public readonly record struct Moment(long Tick)
     /// <summary>Days since Year 1, Day 1 (the library's AbsoluteDay).</summary>
     public long AbsoluteDay => Tick / Calendar.TicksPerDay;
 
+    /// <summary>The second of the day, 0 (midnight) to 86,399.</summary>
+    public int SecondOfDay => (int)(Tick % Calendar.TicksPerDay);
+
     /// <summary>The minute of the day, 0 (midnight) to 1,439.</summary>
-    public int MinuteOfDay => (int)(Tick % Calendar.TicksPerDay);
+    public int MinuteOfDay => SecondOfDay / Calendar.TicksPerMinute;
+
+    /// <summary>Whole minutes since midnight at the start of Year 1, Day 1.</summary>
+    public long WholeMinutes => Tick / Calendar.TicksPerMinute;
+
+    /// <summary>Whether this moment is a whole minute (second 0): when everything but walking is worked out.</summary>
+    public bool OnTheMinute => Tick % Calendar.TicksPerMinute == 0;
 
     public int Year => (int)(AbsoluteDay / Calendar.DaysPerYear) + 1;
     /// <summary>1 to 336.</summary>
@@ -90,9 +107,14 @@ public readonly record struct Moment(long Tick)
     public int Season => (Month - 1) / Calendar.MonthsPerSeason;
     public int Hour => MinuteOfDay / Calendar.MinutesPerHour;
     public int Minute => MinuteOfDay % Calendar.MinutesPerHour;
+    public int Second => SecondOfDay % Calendar.SecondsPerMinute;
 
-    /// <summary>The moment `ticks` later.</summary>
+    /// <summary>The moment `ticks` (seconds) later.</summary>
     public Moment After(long ticks) => new(Tick + ticks);
+
+    /// <summary>The time of day with its seconds: "06:30:15".</summary>
+    public string Clock => Hour.ToString("00", CultureInfo.InvariantCulture) + ":" + Minute.ToString("00", CultureInfo.InvariantCulture)
+                           + ":" + Second.ToString("00", CultureInfo.InvariantCulture);
 
     /// <summary>As the library shows a date: "14th of Orven, Year 12, 06:30".</summary>
     public override string ToString() =>

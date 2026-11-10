@@ -52,7 +52,7 @@ public class SanitationTests
         {
             if (done())
                 return true;
-            colony.Run(1);
+            colony.RunMinutes(1);
         }
         return done();
     }
@@ -60,7 +60,7 @@ public class SanitationTests
     // Runs to the minute after the next morning (when the sources foul or run clean, and fill).
     static void PastMorning(Colony.Colony colony)
     {
-        colony.Run(1);
+        colony.RunMinutes(1);
         Assert.True(Until(colony, () => colony.Now.MinuteOfDay == Autosave.MorningMinute + 1, 25 * 60));
     }
 
@@ -141,7 +141,7 @@ public class SanitationTests
         var brook = colony.Stocks[work.Springs.Single()];
         Assert.Null(work.SourceOf(brook.Id).FouledUntil);       // founded clean
         PastMorning(colony);
-        long morning = colony.Now.Tick - 1;
+        long morning = colony.Now.Tick - Calendar.TicksPerMinute;
         var source = work.SourceOf(brook.Id);
         Assert.Equal(morning + 3 * Calendar.TicksPerDay, source.FouledUntil);
         Assert.Contains(source.Sign, content.Sanitation.Signs);
@@ -233,7 +233,7 @@ public class SanitationTests
         int clean = carts.Count("water");
         Assert.True(clean > 0);
         colony.Stocks.Arrive(colony.Ids.Next<OperationId>(), colony.Now.Tick, carts.Id, "foul_water", 5);
-        colony.Run(1);
+        colony.RunMinutes(1);
         Assert.Equal(0, carts.Count("water"));
         Assert.Equal(clean + 5, carts.Count("foul_water"));
     }
@@ -254,12 +254,12 @@ public class SanitationTests
         var told = Assert.Single(work.Told);
         Assert.EndsWith(" saw " + sign + " at " + brook.Name.ToLowerInvariant() + ".", told.Text);
         Assert.Equal(colony.Now.Tick, told.Tick);           // a tick happens at the moment it ends on
-        colony.Run(60);
+        colony.RunMinutes(60);
         Assert.Single(work.Told);
         // Without a sign nobody knows: nothing is told however long they stand there.
         var (quiet, _, quietBrook) = Fouled(Tweaked(signs: 0));
         Assert.Null(quiet.Work!.SourceOf(quietBrook.Id).Sign);
-        quiet.Run(4 * 60);
+        quiet.RunMinutes(4 * 60);
         Assert.DoesNotContain(quiet.Work.Told, n => n.Text.Contains(" saw "));
     }
 
@@ -277,7 +277,7 @@ public class SanitationTests
             int inCarts = carts.Count("water"), inBrook = brook.Count("water");
             var ada = work.Workers.First();
             ada.Needs["thirst"].Level = 70;
-            colony.Run(30);
+            colony.RunMinutes(30);
             Assert.True(ada.Needs["thirst"].Level >= 70, "Ada drank");
             Assert.Equal((inCarts, inBrook), (carts.Count("water"), brook.Count("water")));
             Assert.Equal("no water free in any store the colonists may drink from (some is marked not to be drunk as it is)", ada.Lacking);
@@ -299,7 +299,7 @@ public class SanitationTests
         Assert.True(placement.Ok, placement.Why);
         Assert.True(Until(colony, () => colony.Ground!.PieceAt(26, 22) == "water_barrel", 24 * 60));
         var barrel = colony.Stocks.Inventories.Single(i => i.Name == "Water barrel");
-        colony.Run(6 * 60);
+        colony.RunMinutes(6 * 60);
         Assert.Equal(0, barrel.Count("water") + barrel.Count("foul_water"));
         Assert.DoesNotContain(work.Jobs, j => j.Kind == JobKind.Haul && j.To == barrel.Id);
     }
@@ -312,14 +312,14 @@ public class SanitationTests
         work.SetMark(brook.Id, WaterMark.BoilFirst);
         int timber = Total(colony, "timber");
         int cleanBefore = Total(colony, "water");
-        colony.Run(1);
+        colony.RunMinutes(1);
         var job = Assert.Single(work.Jobs, j => j.Kind == JobKind.Boil);
         Assert.Equal((10, brook.Id, carts.Id, "water"), (job.Amount, job.Boiling!.Value, job.From, job.Good));
         Assert.Equal(WaterMark.None, colony.Stocks[job.To].Mark);
         Assert.NotEqual(brook.Id, job.To);
         Assert.Null(work.WhyNotBoiled(brook.Id));
         // One boiling at a time for a store.
-        colony.Run(1);
+        colony.RunMinutes(1);
         Assert.Single(work.Jobs, j => j.Kind == JobKind.Boil);
         // Thirty minutes of boiling at the water, then the boiled water is carried to the store.
         Assert.True(Until(colony, () => job.Step == Step.Working, 60), "never began to boil");
@@ -329,10 +329,10 @@ public class SanitationTests
         int minutes = 0;
         while (job.Step == Step.Working)
         {
-            colony.Run(1);
+            colony.RunMinutes(1);
             minutes++;
         }
-        Assert.Equal(30, minutes);
+        Assert.Equal(29, minutes);                               // and the first, in the minute it began
         Assert.Equal((0, 10, 0), (colony.Stocks[boiler.Arms].Count("timber"), colony.Stocks[boiler.Arms].Count("water"), colony.Stocks[boiler.Arms].Count("foul_water")));
         Assert.Equal(timber - 1, Total(colony, "timber"));
         var to = colony.Stocks[job.To];
@@ -352,7 +352,7 @@ public class SanitationTests
         var work = colony.Work!;
         Empty(colony, carts, "timber");
         work.SetMark(brook.Id, WaterMark.BoilFirst);
-        colony.Run(1);
+        colony.RunMinutes(1);
         Assert.DoesNotContain(work.Jobs, j => j.Kind == JobKind.Boil);
         Assert.Equal("waiting for timber to boil it with: none free in any store", work.WhyNotBoiled(brook.Id));
         var (x, y) = Ground.TileOf(brook.X, brook.Y);
@@ -362,11 +362,11 @@ public class SanitationTests
         // Timber again, but every store that takes water marked: nowhere to put it.
         colony.Stocks.Arrive(colony.Ids.Next<OperationId>(), colony.Now.Tick, carts.Id, "timber", 5);
         work.SetMark(carts.Id, WaterMark.DoNotDrink);
-        colony.Run(1);
+        colony.RunMinutes(1);
         Assert.Equal("waiting for somewhere to put boiled water: no unmarked store with room takes water", work.WhyNotBoiled(brook.Id));
         // Unmarked: it boils, and the reason is gone.
         work.SetMark(carts.Id, WaterMark.None);
-        colony.Run(1);
+        colony.RunMinutes(1);
         Assert.Null(work.WhyNotBoiled(brook.Id));
         Assert.DoesNotContain(Inspect.Tile(colony, x, y).Lines, l => l.Label == "Boiling");
         Assert.Contains(work.Jobs, j => j.Kind == JobKind.Boil);
@@ -382,7 +382,7 @@ public class SanitationTests
         barrel.Capacity = 5;
         work.SetMark(carts.Id, WaterMark.DoNotDrink);           // the barrel is the only place for boiled water
         work.SetMark(brook.Id, WaterMark.BoilFirst);
-        colony.Run(1);
+        colony.RunMinutes(1);
         var job = Assert.Single(work.Jobs, j => j.Kind == JobKind.Boil);
         Assert.Equal((barrel.Id, 5), (job.To, job.Amount));      // a batch only as big as the room
         Assert.Equal(0, work.RoomIn(barrel));
@@ -390,7 +390,7 @@ public class SanitationTests
         // A full barrel is no place for boiled water.
         work.Cancel(job.Id);
         colony.Stocks.Arrive(colony.Ids.Next<OperationId>(), colony.Now.Tick, barrel.Id, "water", 5);
-        colony.Run(1);
+        colony.RunMinutes(1);
         Assert.DoesNotContain(work.Jobs, j => j.Kind == JobKind.Boil);
         Assert.Equal("waiting for somewhere to put boiled water: no unmarked store with room takes water", work.WhyNotBoiled(brook.Id));
     }
@@ -401,7 +401,7 @@ public class SanitationTests
         var (colony, _, brook) = Fouled(Tweaked());
         var work = colony.Work!;
         work.SetMark(brook.Id, WaterMark.BoilFirst);
-        colony.Run(1);
+        colony.RunMinutes(1);
         var job = work.Jobs.Single(j => j.Kind == JobKind.Boil);
         Assert.True(Until(colony, () => job.Step == Step.Working, 60), "never began to boil");
         work.Cancel(job.Id);
@@ -465,7 +465,7 @@ public class SanitationTests
         Assert.True(Until(colony, () => ada.Illness != null, 60), "Ada never drank the brook's water");
         long drank = colony.Now.Tick;
         var illness = ada.Illness!;
-        Assert.Equal(("Upset stomach", drank + 6 * 60, drank + 30 * 60), (illness.Name, illness.Shows, illness.Ends));
+        Assert.Equal(("Upset stomach", drank + 6 * Calendar.TicksPerHour, drank + 30 * Calendar.TicksPerHour), (illness.Name, illness.Shows, illness.Ends));
         // Not shown yet: the player sees nothing, the trace does.
         Assert.False(work.Ill(ada));
         Assert.DoesNotContain(Inspect.Worker(colony, ada.Id).Lines, l => l.Label is "Unwell" or "Trace");
@@ -493,12 +493,12 @@ public class SanitationTests
     {
         // Clean water: never, even at a chance of one.
         var (colony, _) = Founding.Found(7, On(1), Tweaked(foulEvery: 1e9, illness: 1), Map(40, 30));
-        colony.Run(2 * 24 * 60);
+        colony.RunMinutes(2 * 24 * 60);
         Assert.All(colony.Work!.Workers, w => Assert.Null(w.Illness));
         // Fouled water at a chance of none: never.
         var (calm, carts, _) = Fouled(Tweaked(illness: 0));
         calm.Work!.SetMark(carts.Id, WaterMark.DoNotDrink);
-        calm.Run(24 * 60);
+        calm.RunMinutes(24 * 60);
         Assert.All(calm.Work.Workers, w => Assert.Null(w.Illness));
     }
 
@@ -511,7 +511,7 @@ public class SanitationTests
         Assert.False(work.Slowed(ada));                          // well: no minute lost
         Assert.Equal(1, work.Faster(ada, colony.Content!.Thirst));
         work.Expose(ada);
-        colony.Run(6 * 60);
+        colony.RunMinutes(6 * 60);
         Assert.True(work.Ill(ada));
         ada.Slow = 0;
         Assert.Equal(3, Enumerable.Range(0, 10).Count(_ => work.Slowed(ada)));
@@ -528,14 +528,14 @@ public class SanitationTests
         var work = colony.Work!;
         var (ill, well) = (work.Workers.First(), work.Workers.Skip(1).First());
         work.Expose(ill);
-        colony.Run(1);
+        colony.RunMinutes(1);
         Assert.True(work.Ill(ill));
         foreach (var w in new[] { ill, well })
         {
             w.Needs["thirst"].Level = 0;
             w.Needs["fatigue"].Level = 0;
         }
-        colony.Run(60);                                         // awake, below peckish: nothing drunk, nobody rests
+        colony.RunMinutes(60);                                         // awake, below peckish: nothing drunk, nobody rests
         Assert.Equal(1.5 * well.Needs["thirst"].Level, ill.Needs["thirst"].Level, 6);
         Assert.Equal(1.5 * well.Needs["fatigue"].Level, ill.Needs["fatigue"].Level, 6);
         Assert.True(well.Needs["thirst"].Level > 0);
@@ -555,7 +555,7 @@ public class SanitationTests
             if (ill)
             {
                 work.Expose(ada);
-                colony.Run(1);
+                colony.RunMinutes(1);
                 Assert.True(work.Ill(ada));
             }
             work.SetMark(brook.Id, WaterMark.BoilFirst);
@@ -564,10 +564,10 @@ public class SanitationTests
             int minutes = 0;
             while (job.Step == Step.Working)
             {
-                colony.Run(1);
+                colony.RunMinutes(1);
                 minutes++;
             }
-            return minutes;
+            return minutes + 1;                                  // and the first, in the minute it began
         }
         Assert.Equal(30, Boiling(false));
         Assert.InRange(Boiling(true), 42, 44);
@@ -598,8 +598,8 @@ public class SanitationTests
         var source = loaded.Work.SourceOf(brook.Id);
         Assert.Equal((work.SourceOf(brook.Id).FouledUntil, work.SourceOf(brook.Id).Sign, work.SourceOf(brook.Id).SignSeen),
                      (source.FouledUntil, source.Sign, source.SignSeen));
-        colony.Run(3 * 24 * 60);
-        loaded.Run(3 * 24 * 60);
+        colony.RunMinutes(3 * 24 * 60);
+        loaded.RunMinutes(3 * 24 * 60);
         Assert.Equal(ColonySave.Fingerprint(colony), ColonySave.Fingerprint(loaded));
     }
 
@@ -611,7 +611,7 @@ public class SanitationTests
             var work = colony.Work!;
             work.SetMark(brook.Id, WaterMark.BoilFirst);
             work.Expose(work.Workers.First());
-            colony.Run(1);                                       // a boiling job is made
+            colony.RunMinutes(1);                                       // a boiling job is made
             var save = ColonySave.Write(colony);
             change(save);
             return new object[] { save.ToJsonString(), reason };

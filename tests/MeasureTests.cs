@@ -78,7 +78,7 @@ public class MeasureTests
     {
         // The counters are not saved: a colony whose ways were counted saves exactly as one just loaded.
         var (colony, _) = Founding.Found(7, new Moment(Calendar.TickOf(1, 1, 1, 8, 0)), SanitationTests.Tweaked(), SanitationTests.Map(40, 30));
-        colony.Run(6 * 60);
+        colony.RunMinutes(6 * 60);
         Assert.True(colony.Ground!.WaysAsked > 0);
         string text = ColonySave.Text(colony);
         var loaded = ColonySave.Read(text, colony.Content!);

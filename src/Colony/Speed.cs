@@ -11,8 +11,9 @@ public enum Speed
 }
 
 /// <summary>
-/// Turns real time into ticks. At normal speed a day lasts 12 real minutes (library Review 30): 1,440 ticks in 720
-/// seconds, so 2 ticks a second; double speed is 4 and triple 6.
+/// Turns real time into ticks. For now (step 21a) the screen keeps the pace of library Review 30: at normal speed
+/// a day lasts 12 real minutes, 86,400 ticks in 720 seconds, so 120 ticks (two game minutes) a real second; double
+/// speed is 240 and triple 360. Step 21b brings Review 39's speeds (real time at ×1, up to ×60).
 ///
 /// This is the only place real time touches the colony, and it only says how many ticks to run. The simulation
 /// itself never sees seconds or frames, so the same ticks always give the same colony, however fast or slow the
@@ -24,9 +25,9 @@ public sealed class Pacer
     /// <summary>Ticks a real second at normal speed.</summary>
     public const double TicksPerSecond = Calendar.TicksPerDay / (12.0 * 60.0);
 
-    /// <summary>The most ticks one frame may ask for (a minute of game time at triple speed, ten real seconds). If
+    /// <summary>The most ticks one frame may ask for (an hour of game time: ten real seconds at triple speed). If
     /// the computer stalls, the game slows down instead of trying to catch up all at once.</summary>
-    public const int MostTicksAFrame = 60;
+    public const int MostTicksAFrame = 60 * Calendar.TicksPerMinute;
 
     double owed;
     public Speed Speed { get; set; } = Speed.Normal;

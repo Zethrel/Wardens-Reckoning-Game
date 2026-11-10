@@ -411,7 +411,7 @@ public partial class ColonyScreen : Node
     }
 
     /// <summary>Runs the colony `minutes` at once (for testing: `-- --run <minutes>`).</summary>
-    public void RunFor(int minutes) => Colony.Run(minutes);
+    public void RunFor(int minutes) => Colony.RunMinutes(minutes);
 
     /// <summary>Shows a message on the bar (a warning about the loaded save).</summary>
     public void Tell(string message)

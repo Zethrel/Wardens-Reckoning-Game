@@ -321,7 +321,7 @@ public class LocalMapTests(ITestOutputHelper output)
         // The founders drink from the carts.
         var ada = colony.Work.Workers.First();
         ada.Needs["thirst"].Level = 90;
-        colony.Run(60);
+        colony.RunMinutes(60);
         Assert.True(carts.Count("water") < 60);
         // By the sea, salt water is no drink.
         var shore = Map(Enumerable.Range(0, 20).Select(y => y < 4 ? new string('s', 20) : new string('g', 20)).ToArray(), water: "sea");
@@ -342,7 +342,7 @@ public class LocalMapTests(ITestOutputHelper output)
     public void A_colony_on_a_local_map_saves_small_and_loads_the_same()
     {
         var (colony, _) = Founding.Found(7, Arrival, Real, Taiga());
-        colony.Run(60);
+        colony.RunMinutes(60);
         string text = ColonySave.Text(colony);
         output.WriteLine("The save is " + text.Length / 1024 + " KB.");
         Assert.True(text.Length < 400_000, "the save is " + text.Length + " characters");
@@ -350,8 +350,8 @@ public class LocalMapTests(ITestOutputHelper output)
         Assert.Equal(text, ColonySave.Text(loaded));
         Assert.True(loaded.Ground!.Water(158, 10));
         Assert.Equal("tree", Enumerable.Range(0, 256).Select(x => loaded.Ground.ObstacleAt(x, 0)).First(o => o != null));
-        colony.Run(300);
-        loaded.Run(300);
+        colony.RunMinutes(300);
+        loaded.RunMinutes(300);
         Assert.Equal(ColonySave.Fingerprint(colony), ColonySave.Fingerprint(loaded));
     }
 
@@ -368,7 +368,7 @@ public class LocalMapTests(ITestOutputHelper output)
         Assert.True(placement.Ok, placement.Why);
         var pile = work.AddStockpile("House store", 132, 125, 4, 4);
         long? housed = null;
-        colony.Run(16 * 60, c =>
+        colony.RunMinutes(16 * 60, c =>
         {
             if (housed == null && ground.Rooms.Count == 1 && work.Projects.Count == 0)
             {

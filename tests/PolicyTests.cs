@@ -56,7 +56,7 @@ public class PolicyTests
         camp.Work.Permit(ada.Id, Work.HaulWork, false);
         camp.Work.Permit(bram.Id, "quern", false);
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 3);
-        camp.Colony.Run(2 * Calendar.TicksPerDay, _ =>
+        camp.Colony.RunMinutes(2 * Calendar.MinutesPerDay, _ =>
         {
             if (camp.JobOf(ada) is Job a)
                 Assert.NotEqual(Work.HaulWork, camp.Work.KindOf(a));
@@ -76,12 +76,12 @@ public class PolicyTests
         var (ada, bram) = (camp.People[0], camp.People[1]);
         ada.Needs["hunger"].Level = 70;
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
-        camp.Colony.Run(1);
+        camp.Colony.RunMinutes(1);
         Assert.Equal(PersonalKind.Eat, ada.Personal?.Kind);
         Assert.NotNull(bram.Job);                            // so Bram, free and allowed, took the haul
         var evening = new Camp(start: new Moment(Calendar.TickOf(301, 1, 1, 18, 0)));
         evening.Work.Order(evening.Quern.Id, "grind_wheat", 1);
-        evening.Colony.Run(60);
+        evening.Colony.RunMinutes(60);
         Assert.All(evening.People, p => Assert.Null(p.Job));
     }
 
@@ -91,12 +91,12 @@ public class PolicyTests
         var camp = new Camp();
         var (ada, bram) = (camp.People[0], camp.People[1]);
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
-        camp.Colony.Run(1);
+        camp.Colony.RunMinutes(1);
         var job = camp.JobOf(ada)!;
         Assert.Equal(Step.Going, job.Step);                  // taken, not yet picked up
         camp.Work.Permit(ada.Id, Work.HaulWork, false);
         Assert.Null(ada.Job);
-        camp.Colony.Run(1);
+        camp.Colony.RunMinutes(1);
         Assert.Equal(job.Id, bram.Job);
     }
 
@@ -107,11 +107,11 @@ public class PolicyTests
         var ada = camp.People[0];
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
         while (camp.JobOf(ada)?.Step != Step.Carrying)
-            camp.Colony.Run(1);
+            camp.Colony.RunMinutes(1);
         camp.Work.Permit(ada.Id, Work.HaulWork, false);
         Assert.NotNull(ada.Job);                             // the wheat in her arms is still hers to deliver
         while (camp.Stocks[camp.Quern.Input].Count("wheat") < 5)
-            camp.Colony.Run(1);
+            camp.Colony.RunMinutes(1);
         Assert.Equal(0, camp.Stocks[ada.Arms].Count("wheat"));
     }
 
@@ -136,7 +136,7 @@ public class PolicyTests
         ada.Needs["thirst"].Level = 100;
         ada.Needs["thirst"].MinutesAtLimit = 24 * 60 - 1;
         camp.Work.Permit(bram.Id, Work.CareWork, false);
-        camp.Colony.Run(2);
+        camp.Colony.RunMinutes(2);
         Assert.Equal("thirst", ada.Collapsed);
         var care = camp.Work.Jobs.Single(j => j.To == ada.Arms);
         Assert.Equal(Work.CareWork, camp.Work.KindOf(care));
@@ -144,7 +144,7 @@ public class PolicyTests
         Assert.Equal("Nobody is allowed to bring food or water to the fallen.", camp.Work.Why(care.Id)!.Player);
         camp.Work.Permit(bram.Id, Work.CareWork, true);
         while (ada.Collapsed != null)
-            camp.Colony.Run(1);
+            camp.Colony.RunMinutes(1);
     }
 
     // ---- FP-06: why a job waits -------------------------------------------------------------------------------
@@ -156,7 +156,7 @@ public class PolicyTests
         foreach (var p in camp.People)
             camp.Work.Permit(p.Id, Work.HaulWork, false);
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
-        camp.Colony.Run(1);
+        camp.Colony.RunMinutes(1);
         var why = camp.Work.Why(Assert.Single(camp.Work.Jobs).Id)!;
         Assert.Equal("Nobody is allowed to carry goods.", why.Player);
         Assert.Equal("Allow someone to carry goods in their work settings.", why.NextStep);
@@ -169,7 +169,7 @@ public class PolicyTests
     {
         var camp = new Camp(start: new Moment(Calendar.TickOf(301, 1, 1, 18, 0)));
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
-        camp.Colony.Run(1);
+        camp.Colony.RunMinutes(1);
         var why = camp.Work.Why(Assert.Single(camp.Work.Jobs).Id)!;
         Assert.Equal("Waiting for someone to carry goods: Ada is not in work hours (recreation) until 08:00; "
                      + "Bram is not in work hours (recreation) until 08:00.", why.Player);
@@ -184,7 +184,7 @@ public class PolicyTests
         var ada = camp.People[0];
         ada.Needs["hunger"].Level = 70;
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
-        camp.Colony.Run(1);
+        camp.Colony.RunMinutes(1);
         var why = camp.Work.Why(Assert.Single(camp.Work.Jobs).Id)!;
         Assert.Equal("Waiting for someone to carry goods: Ada is too hungry to work (no travel ration free in any store).", why.Player);
         Assert.Equal("Bring rations to a store.", why.NextStep);
@@ -200,11 +200,11 @@ public class PolicyTests
         camp.Work.Stop(bram.Id);
         cael.Needs["fatigue"].Level = 99.99;
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
-        camp.Colony.Run(1);
+        camp.Colony.RunMinutes(1);
         Assert.NotNull(ada.Job);
         var second = camp.Work.AddSite("quern", 300, 0);
         camp.Work.Order(second.Id, "grind_wheat", 1);
-        camp.Colony.Run(1);
+        camp.Colony.RunMinutes(1);
         var waiting = camp.Work.Jobs.Single(j => j.Worker == null && j.To == second.Input);
         var why = camp.Work.Why(waiting.Id)!;
         Assert.Equal("Waiting for someone to carry goods: Ada is busy (bring wheat to the hand quern); Bram is stopped; "
@@ -223,9 +223,9 @@ public class PolicyTests
         ada.Needs["fatigue"].Level = 90;                      // urgent: she goes to sleep
         bram.X = -500;
         bram.Needs["thirst"].Level = 70;                      // urgent: he walks to the spring
-        camp.Colony.Run(1);
+        camp.Colony.RunMinutes(1);
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
-        camp.Colony.Run(1);                                   // the quern asks; nobody can take it
+        camp.Colony.RunMinutes(1);                                   // the quern asks; nobody can take it
         Assert.True(ada.Asleep);
         var why = camp.Work.Why(Assert.Single(camp.Work.Jobs).Id)!;
         Assert.Equal("Waiting for someone to carry goods: Ada is asleep; Bram is going to drink.", why.Player);
@@ -236,7 +236,7 @@ public class PolicyTests
     {
         var camp = new Camp();
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
-        camp.Colony.Run(1);
+        camp.Colony.RunMinutes(1);
         Assert.Null(camp.Work.Why(camp.JobOf(camp.People[0])!.Id));
         Assert.Null(camp.Work.Why(new TaskId(999)));
     }
@@ -246,7 +246,7 @@ public class PolicyTests
     {
         var camp = new Camp(start: new Moment(Calendar.TickOf(301, 1, 1, 18, 0)));
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
-        camp.Colony.Run(1);
+        camp.Colony.RunMinutes(1);
         var why = camp.Work.Why(Assert.Single(camp.Work.Jobs).Id)!;
         Assert.DoesNotContain("task", why.Player);
         Assert.DoesNotContain("worker 1", why.Player);

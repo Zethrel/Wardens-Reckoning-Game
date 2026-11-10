@@ -190,9 +190,9 @@ public class FoundingTests(ITestOutputHelper output)
         carts.Emptying = true;
         Assert.False(carts.Takes("timber"));                                     // nothing is brought to it now
         work.Order(work.AddSite("quern", 20.5, 30.5).Id, "grind_wheat", 1);      // other work: a grinding
-        colony.Run(1);
+        colony.RunMinutes(1);
         Assert.DoesNotContain(work.Jobs, j => j.From == carts.Id && j.To == pile.Id);   // the grinding's haul comes first
-        colony.Run(16 * 60, _ =>
+        colony.RunMinutes(16 * 60, _ =>
         {
             // Never more than one load waits to be carried, so the rest stays free (to eat).
             Assert.True(work.Jobs.Count(j => j.From == carts.Id && j.To == pile.Id && j.Step == Step.Open) <= 1);
@@ -213,7 +213,7 @@ public class FoundingTests(ITestOutputHelper output)
             work.Stop(w.Id);
         var pile = work.AddStockpile("Yard", 10, 24, 4, 4);
         carts.Emptying = true;
-        colony.Run(8 * 60, _ => Assert.True(work.Jobs.Count(j => j.From == carts.Id && j.Step == Step.Open) <= 1));
+        colony.RunMinutes(8 * 60, _ => Assert.True(work.Jobs.Count(j => j.From == carts.Id && j.Step == Step.Open) <= 1));
         Assert.True(pile.Count("timber") > 0);
         Assert.Equal(colony.Stocks.Total("ration"), pile.Count("ration"));
     }
@@ -233,7 +233,7 @@ public class FoundingTests(ITestOutputHelper output)
         Assert.True(placement.Ok, placement.Why);
         var pile = work.AddStockpile("House store", 28, 21, 4, 4);
         long? housed = null;
-        colony.Run(16 * 60, c =>
+        colony.RunMinutes(16 * 60, c =>
         {
             Assert.Equal(c.Stocks.Accounted("timber"), c.Stocks.Total("timber"));
             if (housed == null && ground.Rooms.Count == 1 && work.Projects.Count == 0)
@@ -247,7 +247,7 @@ public class FoundingTests(ITestOutputHelper output)
         });
         Assert.NotNull(housed);
         var done = new Moment(housed!.Value);
-        output.WriteLine("The house stood at " + done + " (" + (housed - Arrival.Tick) + " minutes after arrival).");
+        output.WriteLine("The house stood at " + done + " (" + (housed - Arrival.Tick) / Calendar.TicksPerMinute + " minutes after arrival).");
         Assert.Equal(Arrival.AbsoluteDay, done.AbsoluteDay);                     // on the first day
         // The house: every piece stands, and it closes one room of 16 tiles.
         Assert.Equal(19, house.Count(p => ground.PieceAt(p.X, p.Y) == "wall"));
@@ -270,14 +270,14 @@ public class FoundingTests(ITestOutputHelper output)
         var (colony, carts) = Founding.Found(7, Arrival, Real, 24, 24);
         var pile = colony.Work!.AddStockpile("Yard", 10, 24, 4, 4);
         carts.Emptying = true;
-        colony.Run(30);
+        colony.RunMinutes(30);
         string text = ColonySave.Text(colony);
         var loaded = ColonySave.Read(text, Real);
         Assert.Equal(text, ColonySave.Text(loaded));
         Assert.Equal(new Area(10, 24, 4, 4), loaded.Stocks[pile.Id].Area);
         Assert.True(loaded.Stocks[carts.Id].Emptying);
-        colony.Run(300);
-        loaded.Run(300);
+        colony.RunMinutes(300);
+        loaded.RunMinutes(300);
         Assert.Equal(ColonySave.Fingerprint(colony), ColonySave.Fingerprint(loaded));
     }
 

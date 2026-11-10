@@ -20,8 +20,11 @@ public class ColonyTests
     [Fact]
     public void A_year_is_336_days_and_every_month_starts_on_Monday()
     {
-        Assert.Equal(1440, Calendar.TicksPerDay);
-        Assert.Equal(483_840, Calendar.TicksPerYear);
+        Assert.Equal(60, Calendar.TicksPerMinute);                     // a tick is a second (library Review 39)
+        Assert.Equal(3600, Calendar.TicksPerHour);
+        Assert.Equal(86_400, Calendar.TicksPerDay);
+        Assert.Equal(1440, Calendar.MinutesPerDay);
+        Assert.Equal(29_030_400, Calendar.TicksPerYear);
         for (int year = 1; year <= 3; year++)
             for (int month = 1; month <= 12; month++)
             {
@@ -40,14 +43,23 @@ public class ColonyTests
         Assert.Equal(6 * 28 + 14, m.DayOfYear);
         Assert.Equal(2, m.Season);                                    // autumn
         Assert.Equal("14th of Orven, Year 12, 06:30", m.ToString());
+        var s = new Moment(Calendar.TickOf(12, 7, 14, 6, 30, 15));
+        Assert.Equal((6, 30, 15), (s.Hour, s.Minute, s.Second));
+        Assert.Equal("06:30:15", s.Clock);
+        Assert.Equal(6 * 60 + 30, s.MinuteOfDay);
+        Assert.Equal((6 * 60 + 30) * 60 + 15, s.SecondOfDay);
+        Assert.Equal(m.Tick + 15, s.Tick);
+        Assert.Equal(m.Tick / 60, s.WholeMinutes);
+        Assert.True(m.OnTheMinute);
+        Assert.False(s.OnTheMinute);
     }
 
     [Fact]
-    public void The_last_minute_of_a_year_runs_into_the_next()
+    public void The_last_second_of_a_year_runs_into_the_next()
     {
-        var last = new Moment(Calendar.TickOf(5, 12, 28, 23, 59));
+        var last = new Moment(Calendar.TickOf(5, 12, 28, 23, 59, 59));
         var next = last.After(1);
-        Assert.Equal((6, 1, 1, 0, 0), (next.Year, next.Month, next.DayOfMonth, next.Hour, next.Minute));
+        Assert.Equal((6, 1, 1, 0, 0, 0), (next.Year, next.Month, next.DayOfMonth, next.Hour, next.Minute, next.Second));
         Assert.Equal(0, next.Weekday);
         Assert.Equal(0, next.Season);
     }
@@ -59,8 +71,10 @@ public class ColonyTests
     [InlineData(1, 1, 1, 24, 0)]
     [InlineData(1, 1, 1, 0, 60)]
     [InlineData(1, 0, 1, 0, 0)]
-    public void An_impossible_date_is_refused(int year, int month, int day, int hour, int minute) =>
-        Assert.Throws<ArgumentOutOfRangeException>(() => Calendar.TickOf(year, month, day, hour, minute));
+    [InlineData(1, 1, 1, 0, 0, 60)]
+    [InlineData(1, 1, 1, 0, 0, -1)]
+    public void An_impossible_date_is_refused(int year, int month, int day, int hour, int minute, int second = 0) =>
+        Assert.Throws<ArgumentOutOfRangeException>(() => Calendar.TickOf(year, month, day, hour, minute, second));
 
     [Theory]
     [InlineData(1, "1st")]
@@ -81,7 +95,7 @@ public class ColonyTests
     public void A_day_lasts_twelve_real_minutes_at_normal_speed()
     {
         var pacer = new Pacer();
-        Assert.Equal(2, pacer.TicksFor(1.0));
+        Assert.Equal(120, pacer.TicksFor(1.0));                       // two game minutes a real second (until step 21b)
         long ticks = 0;
         for (int second = 0; second < 12 * 60; second++)
             ticks += pacer.TicksFor(1.0);
@@ -90,9 +104,9 @@ public class ColonyTests
 
     [Theory]
     [InlineData(Speed.Paused, 0)]
-    [InlineData(Speed.Normal, 2)]
-    [InlineData(Speed.Double, 4)]
-    [InlineData(Speed.Triple, 6)]
+    [InlineData(Speed.Normal, 120)]
+    [InlineData(Speed.Double, 240)]
+    [InlineData(Speed.Triple, 360)]
     public void Each_speed_runs_its_ticks_a_second(Speed speed, int perSecond)
     {
         var pacer = new Pacer { Speed = speed };
@@ -102,21 +116,22 @@ public class ColonyTests
     [Fact]
     public void The_frame_rate_does_not_change_how_many_ticks_run()
     {
-        // 10 real seconds drawn at 60, 144 or 7 frames a second: the same 20 ticks.
+        // 10 real seconds drawn at 60, 144 or 7 frames a second: the same 1,200 ticks.
         foreach (int fps in new[] { 60, 144, 7 })
         {
             var pacer = new Pacer();
             int ticks = Enumerable.Range(0, fps * 10).Sum(_ => pacer.TicksFor(1.0 / fps));
-            Assert.Equal(20, ticks);
+            Assert.Equal(1200, ticks);
         }
     }
 
     [Fact]
-    public void A_stalled_frame_runs_at_most_sixty_ticks_and_drops_the_rest()
+    public void A_stalled_frame_runs_at_most_an_hour_of_ticks_and_drops_the_rest()
     {
         var pacer = new Pacer { Speed = Speed.Triple };
-        Assert.Equal(Pacer.MostTicksAFrame, pacer.TicksFor(60.0));   // 360 owed
-        Assert.Equal(2 * 3, pacer.TicksFor(1.0));                     // the rest was not saved up
+        Assert.Equal(3600, Pacer.MostTicksAFrame);
+        Assert.Equal(Pacer.MostTicksAFrame, pacer.TicksFor(60.0));   // 21,600 owed
+        Assert.Equal(120 * 3, pacer.TicksFor(1.0));                   // the rest was not saved up
     }
 
     // ---- Identifiers --------------------------------------------------------------------------------------
@@ -289,7 +304,7 @@ public class ColonyTests
         yield return new object[] { text(s => s["format"] = "wardens-reckoning-save"), "not a colony save of this game" };
         yield return new object[] { text(s => s.Remove("format")), "\"format\" is missing" };
         yield return new object[] { text(s => s["version"] = 0), "older saves are not converted" };
-        yield return new object[] { text(s => s["version"] = 13), "made by a newer game" };
+        yield return new object[] { text(s => s["version"] = ColonySave.Version + 1), "made by a newer game" };
         yield return new object[] { text(s => s["version"] = "2"), "\"version\" is not a whole number" };
         yield return new object[] { text(s => s["seed"] = "forty-two"), "seed is not a whole number" };
         yield return new object[] { text(s => s["seed"] = 42), "\"seed\" is not text" };
@@ -314,7 +329,7 @@ public class ColonyTests
     public void A_refused_save_is_left_as_it_was()
     {
         string path = Path.Combine(Scratch.Root, "refused.json");
-        string text = Saved().ToJsonString().Replace("\"version\":12", "\"version\":99");
+        string text = Saved().ToJsonString().Replace("\"version\":" + ColonySave.Version, "\"version\":99");
         File.WriteAllText(path, text);
         var e = Assert.Throws<ColonySaveException>(() => ColonySave.Load(path));
         Assert.StartsWith(path + ": colony save version 99", e.Message);
@@ -348,18 +363,18 @@ public class ColonyTests
             if (Autosave.MorningPassed(c.Now.After(-1), c.Now))
                 mornings.Add(c.Now.Tick - Start.Tick);
         });
-        long six = 6 * 60;
-        Assert.Equal(new[] { six, six + 1440, six + 2 * 1440 }, mornings);
+        long six = 6 * 3600;
+        Assert.Equal(new[] { six, six + 86_400, six + 2 * 86_400 }, mornings);
     }
 
     [Fact]
     public void A_long_jump_over_a_morning_still_counts_it()
     {
         var evening = new Moment(Calendar.TickOf(301, 1, 1, 20, 0));
-        Assert.True(Autosave.MorningPassed(evening, evening.After(12 * 60)));   // to 08:00 next day
-        Assert.False(Autosave.MorningPassed(evening, evening.After(9 * 60)));   // to 05:00
+        Assert.True(Autosave.MorningPassed(evening, evening.After(12 * 3600)));   // to 08:00 next day
+        Assert.False(Autosave.MorningPassed(evening, evening.After(9 * 3600)));   // to 05:00
         var six = new Moment(Calendar.TickOf(301, 1, 2, 6, 0));
-        Assert.False(Autosave.MorningPassed(six, six.After(60)));               // already past this morning
+        Assert.False(Autosave.MorningPassed(six, six.After(3600)));             // already past this morning
         Assert.False(Autosave.MorningPassed(six, six));
     }
 

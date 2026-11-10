@@ -23,8 +23,8 @@ public sealed partial class Work
         var dice = colony.DiceFor("health");
         if (w.Illness != null || !dice.Chance(rule.Chance))
             return;
-        long shows = colony.Now.Tick + (long)dice.Int(rule.OnsetFrom, rule.OnsetTo) * Calendar.MinutesPerHour;
-        long ends = shows + (long)dice.Int(rule.LastsFrom, rule.LastsTo) * Calendar.MinutesPerHour;
+        long shows = colony.Now.Tick + (long)dice.Int(rule.OnsetFrom, rule.OnsetTo) * Calendar.TicksPerHour;
+        long ends = shows + (long)dice.Int(rule.LastsFrom, rule.LastsTo) * Calendar.TicksPerHour;
         w.Illness = new Illness(rule.Name, shows, ends);
     }
 

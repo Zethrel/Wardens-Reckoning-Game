@@ -56,14 +56,14 @@ public class WorkTests
                 Workers.Add(Work.AddWorker(name, 0, 0));
         }
 
-        public void Run(int ticks, Action<ColonyState>? each = null) => Colony.Run(ticks, each);
+        public void RunMinutes(int ticks, Action<ColonyState>? each = null) => Colony.RunMinutes(ticks, each);
 
         /// <summary>Runs until `done` (at most `most` minutes); the minutes it took.</summary>
-        public int RunUntil(Func<bool> done, int most = 3 * Calendar.TicksPerDay)
+        public int RunUntil(Func<bool> done, int most = 3 * Calendar.MinutesPerDay)
         {
             for (int i = 1; i <= most; i++)
             {
-                Colony.Run(1);
+                Colony.RunMinutes(1);
                 if (done())
                     return i;
             }
@@ -123,9 +123,15 @@ public class WorkTests
         var ada = camp.Workers[0];
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
         camp.RunUntil(() => camp.JobOf(ada)?.Step == Step.Carrying);
-        camp.Run(1);
-        Assert.Equal((70.0, 0.0), (ada.X, ada.Y));
-        Assert.Equal((70.0, 0.0), (camp.Stocks[ada.Arms].X, camp.Stocks[ada.Arms].Y));
+        camp.RunMinutes(1);                                             // on the next minute she sets off
+        Assert.Equal((0.0, 0.0), (ada.X, ada.Y));
+        Assert.Equal((140.0, 0.0, false), ada.Heading);
+        camp.Colony.Run(30);                                            // half a minute: second by second
+        Assert.Equal(35.0, ada.X, 9);
+        camp.Colony.Run(30);
+        Assert.Equal(70.0, ada.X, 9);
+        Assert.Equal(0.0, ada.Y);
+        Assert.Equal((ada.X, 0.0), (camp.Stocks[ada.Arms].X, camp.Stocks[ada.Arms].Y));
     }
 
     [Fact]
@@ -138,9 +144,11 @@ public class WorkTests
         files["colony.json"] = colony.ToJsonString();
         var camp = new Camp(content: Content.Read(files));
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
-        // As above, with loading and unloading taking no time: she unloads in the minute she arrives (minute 3),
-        // the grinding job is made then, and the quern turns its 180 minutes from minute 4: done in minute 184.
-        Assert.Equal(1 + 2 + 1 + 180, camp.RunUntil(() => camp.Stocks.Total("flour") == 4));
+        // As above, with loading and unloading taking no time: she loads and sets off in minute 1, walks minutes 2
+        // and 3, and is seen to be there on minute 4 (what is not walking is worked out on the whole minutes), when
+        // she unloads; the grinding job is made then, and the quern turns its 180 minutes from minute 5: done in
+        // minute 185.
+        Assert.Equal(1 + 3 + 1 + 180, camp.RunUntil(() => camp.Stocks.Total("flour") == 4));
     }
 
     [Fact]
@@ -148,11 +156,11 @@ public class WorkTests
     {
         var camp = new Camp(workers: 3);
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 6);
-        camp.RunUntil(() => camp.Granary.Count("flour") == 24 && camp.Work.Jobs.Count == 0, most: 4 * Calendar.TicksPerDay);
+        camp.RunUntil(() => camp.Granary.Count("flour") == 24 && camp.Work.Jobs.Count == 0, most: 4 * Calendar.MinutesPerDay);
         camp.Conserved();
         var test = new Camp(workers: 3);
         test.Work.Order(test.Quern.Id, "grind_wheat", 6);
-        test.Run(Calendar.TicksPerDay, _ =>
+        test.RunMinutes(Calendar.MinutesPerDay, _ =>
         {
             var held = test.Workers.Where(w => w.Job != null).Select(w => w.Job!.Value).ToList();
             Assert.Equal(held.Count, held.Distinct().Count());
@@ -165,7 +173,7 @@ public class WorkTests
     public void A_workshop_with_no_order_asks_for_nothing()
     {
         var camp = new Camp();
-        camp.Run(60);
+        camp.RunMinutes(60);
         Assert.Empty(camp.Work.Jobs);
         Assert.Equal(50, camp.Carts.Count("wheat"));
     }
@@ -178,7 +186,7 @@ public class WorkTests
         var at = camp.Stocks.Reserve(camp.Carts.Id, "wheat", 3, "test").Reservation!;
         camp.Stocks.Move(camp.Colony.Ids.Next<OperationId>(), Start.Tick, at.Id, camp.Quern.Input);
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
-        camp.Run(1);
+        camp.RunMinutes(1);
         var haul = Assert.Single(camp.Work.Jobs);
         Assert.Equal((JobKind.Haul, "wheat", 2), (haul.Kind, haul.Good, haul.Amount));
     }
@@ -194,7 +202,7 @@ public class WorkTests
         var camp = new Camp(content: Content.Read(files));
         camp.Stocks.Arrive(camp.Colony.Ids.Next<OperationId>(), Start.Tick, camp.Carts.Id, "wheat", 20);
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
-        camp.Run(1);
+        camp.RunMinutes(1);
         Assert.Equal(new[] { 25, 25, 10 }, camp.Work.Jobs.Select(j => j.Amount));
     }
 
@@ -207,7 +215,7 @@ public class WorkTests
         camp.Carts.Keep("wheat", 48);
         camp.Stocks.Reserve(camp.Carts.Id, "wheat", 1, "seed corn");
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
-        camp.Run(1);
+        camp.RunMinutes(1);
         // One wheat was free: it is fetched, and the quern waits for the other four.
         Assert.Equal("waiting for wheat: 4 more needed, and no store has any free (50 in the stores: 48 kept as a reserve, 2 claimed for other work)",
                      camp.Quern.Blocked);
@@ -221,7 +229,7 @@ public class WorkTests
         camp.Granary.Accepts.Add("wheat");
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
         camp.RunUntil(() => camp.Stocks[camp.Quern.Output].Count("flour") == 4);
-        camp.Run(1);
+        camp.RunMinutes(1);
         Assert.Equal("no store takes flour", camp.Quern.Blocked);
     }
 
@@ -236,7 +244,7 @@ public class WorkTests
         var carrier = camp.Workers.Single(w => camp.JobOf(w)?.Step == Step.Carrying);
         var job = camp.JobOf(carrier)!;
         camp.Work.Stop(carrier.Id);
-        camp.Run(120);
+        camp.RunMinutes(120);
         // The wheat is still in the carrier's arms, the job still theirs, and nobody else took it.
         Assert.Equal(5, camp.Stocks[carrier.Arms].Count("wheat"));
         Assert.Equal(job.Id, carrier.Job);
@@ -254,14 +262,14 @@ public class WorkTests
         var camp = new Camp(workers: 2);
         var (ada, bram) = (camp.Workers[0], camp.Workers[1]);
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
-        camp.Run(1);                                      // Ada (the lower number, as near) takes the haul
+        camp.RunMinutes(1);                                      // Ada (the lower number, as near) takes the haul
         var job = camp.JobOf(ada)!;
         Assert.Equal(Step.Going, job.Step);
         camp.Work.Stop(ada.Id);
         Assert.Null(ada.Job);
         Assert.Equal(Step.Open, job.Step);
         Assert.Single(job.Claims);                        // the wheat stays claimed for the job
-        camp.Run(1);
+        camp.RunMinutes(1);
         Assert.Equal(job.Id, bram.Job);
         camp.RunUntil(() => camp.Granary.Count("flour") == 4);
         camp.Conserved();
@@ -275,7 +283,7 @@ public class WorkTests
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
         camp.RunUntil(() => camp.JobOf(ada)?.Step == Step.Carrying);
         var job = camp.JobOf(ada)!;
-        camp.Run(1);                                      // she is on the way, the wheat in her arms
+        camp.RunMinutes(1);                                      // she is on the way, the wheat in her arms
         camp.Work.Cancel(job.Id);
         Assert.Equal(camp.Carts.Id, job.To);              // the nearest store taking wheat
         camp.RunUntil(() => ada.Job == null || camp.JobOf(ada)!.Id != job.Id);
@@ -291,7 +299,7 @@ public class WorkTests
     {
         var camp = new Camp();
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
-        camp.Run(1);
+        camp.RunMinutes(1);
         var job = Assert.Single(camp.Work.Jobs);
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 0);
         camp.Work.Cancel(job.Id);
@@ -300,7 +308,7 @@ public class WorkTests
         Assert.Null(camp.Workers[0].Job);
         Assert.Equal(50, camp.Stocks.Free(camp.Carts.Id, "wheat"));
         camp.Work.Cancel(job.Id);                         // cancelling it again does nothing
-        camp.Run(60);
+        camp.RunMinutes(60);
         Assert.Empty(camp.Work.Jobs);
     }
 
@@ -310,7 +318,7 @@ public class WorkTests
         var camp = new Camp(workers: 2);
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
         camp.RunUntil(() => camp.Workers.Any(w => camp.JobOf(w)?.Step == Step.Working));
-        camp.Run(100);
+        camp.RunMinutes(100);
         var grinder = camp.Workers.Single(w => camp.JobOf(w)?.Step == Step.Working);
         var job = camp.JobOf(grinder)!;
         camp.Work.Stop(grinder.Id);
@@ -363,7 +371,7 @@ public class WorkTests
         var shed = camp.Stocks.Open("Shed by the quern", Holder.Store, 130, 0);
         camp.Stocks.Arrive(camp.Colony.Ids.Next<OperationId>(), Start.Tick, shed.Id, "wheat", 5);
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
-        camp.Run(1);
+        camp.RunMinutes(1);
         Assert.Equal(shed.Id, Assert.Single(camp.Work.Jobs).From);
     }
 
@@ -374,7 +382,7 @@ public class WorkTests
         var camp = new Camp();
         var (ada, bram) = (camp.Workers[0], camp.Work.AddWorker("Bram", 0, 5));
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
-        camp.Run(1);
+        camp.RunMinutes(1);
         Assert.NotNull(ada.Job);
         Assert.Null(bram.Job);
         // A stopped worker takes nothing, however near.
@@ -382,12 +390,12 @@ public class WorkTests
         var cara = stopped.Work.AddWorker("Cara", 0, 5);
         stopped.Work.Stop(stopped.Workers[0].Id);
         stopped.Work.Order(stopped.Quern.Id, "grind_wheat", 1);
-        stopped.Run(1);
+        stopped.RunMinutes(1);
         Assert.NotNull(cara.Job);
         // Between two at the same distance, the lower number.
         var even = new Camp(workers: 2);
         even.Work.Order(even.Quern.Id, "grind_wheat", 1);
-        even.Run(1);
+        even.RunMinutes(1);
         Assert.NotNull(even.Workers[0].Job);
         Assert.Null(even.Workers[1].Job);
     }
@@ -400,7 +408,7 @@ public class WorkTests
         var shed = camp.Stocks.Open("Shed by the quern", Holder.Store, 140, 10);
         camp.Stocks.Arrive(camp.Colony.Ids.Next<OperationId>(), Start.Tick, shed.Id, "wheat", 5);
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
-        camp.Run(1);
+        camp.RunMinutes(1);
         Assert.NotNull(byTheQuern.Job);
         Assert.Null(camp.Workers[0].Job);
     }
@@ -417,7 +425,7 @@ public class WorkTests
         var job = camp.Work.Jobs.Single(j => j.Good == "flour");
         camp.Work.Cancel(job.Id);
         Assert.Equal(cellar.Id, job.To);
-        camp.RunUntil(() => cellar.Count("flour") == 4, most: Calendar.TicksPerDay);
+        camp.RunUntil(() => cellar.Count("flour") == 4, most: Calendar.MinutesPerDay);
         Assert.Equal(0, camp.Granary.Count("flour"));
         camp.Conserved();
     }
@@ -448,9 +456,9 @@ public class WorkTests
     static List<string> Fingerprints(Camp camp, int ticks)
     {
         var prints = new List<string>();
-        camp.Run(ticks, c =>
+        camp.RunMinutes(ticks, c =>
         {
-            if (c.Now.Tick % 60 == 0)
+            if (c.Now.MinuteOfDay % 60 == 0)
                 prints.Add(ColonySave.Fingerprint(c));
         });
         return prints;
@@ -465,7 +473,7 @@ public class WorkTests
             camp.Work.Order(camp.Quern.Id, "grind_wheat", 8);
             return camp;
         }
-        Assert.Equal(Fingerprints(Make(), Calendar.TicksPerDay), Fingerprints(Make(), Calendar.TicksPerDay));
+        Assert.Equal(Fingerprints(Make(), Calendar.MinutesPerDay), Fingerprints(Make(), Calendar.MinutesPerDay));
     }
 
     [Fact]
@@ -476,14 +484,14 @@ public class WorkTests
         var halves = new Camp(workers: 2);
         halves.Work.Order(halves.Quern.Id, "grind_wheat", 4);
         int minutes = halves.RunUntil(() => halves.Workers.Any(w => halves.JobOf(w)?.Step == Step.Carrying));
-        halves.Run(1);
-        straight.Run(minutes + 1);
+        halves.RunMinutes(1);
+        straight.RunMinutes(minutes + 1);
         var loaded = ColonySave.Read(ColonySave.Text(halves.Colony), Real);
         Assert.Equal(ColonySave.Text(halves.Colony), ColonySave.Text(loaded));
-        for (int i = 0; i < Calendar.TicksPerDay; i++)
+        for (int i = 0; i < Calendar.MinutesPerDay; i++)
         {
-            straight.Colony.Run(1);
-            loaded.Run(1);
+            straight.Colony.RunMinutes(1);
+            loaded.RunMinutes(1);
         }
         Assert.Equal(ColonySave.Fingerprint(straight.Colony), ColonySave.Fingerprint(loaded));
         Assert.Equal(16, loaded.Stocks.Total("flour"));
@@ -495,7 +503,7 @@ public class WorkTests
         {
             var camp = new Camp(workers: 2);
             camp.Work.Order(camp.Quern.Id, "grind_wheat", 2);
-            camp.Run(1);                                  // Ada has taken the first haul; its wheat is claimed
+            camp.RunMinutes(1);                                  // Ada has taken the first haul; its wheat is claimed
             var save = ColonySave.Write(camp.Colony);
             change(save);
             return new object[] { save.ToJsonString(), reason };

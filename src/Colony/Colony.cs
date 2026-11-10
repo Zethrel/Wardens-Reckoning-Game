@@ -77,8 +77,8 @@ public sealed class Colony
     public void SetDice(string system, Dice saved) => dice[system] = saved;
 
     /// <summary>
-    /// Runs the colony on by `ticks` minutes, one tick at a time: each minute the work is done (Work.Tick), then
-    /// `eachTick`, if given (for the tests).
+    /// Runs the colony on by `ticks` seconds, one tick at a time: each second the work is done (Work.Tick: the
+    /// walking every second, everything else on the whole minutes), then `eachTick`, if given (for the tests).
     /// </summary>
     public void Run(long ticks, Action<Colony>? eachTick = null)
     {
@@ -89,6 +89,19 @@ public sealed class Colony
             Now = Now.After(1);
             Work?.Tick();
             eachTick?.Invoke(this);
+        }
+    }
+
+    /// <summary>Runs the colony on by `minutes` game minutes (60 ticks each), then `eachMinute` after each, if
+    /// given: for tests and tools that think in minutes.</summary>
+    public void RunMinutes(long minutes, Action<Colony>? eachMinute = null)
+    {
+        if (minutes < 0)
+            throw new ArgumentOutOfRangeException(nameof(minutes), "time does not run backwards");
+        for (long i = 0; i < minutes; i++)
+        {
+            Run(Calendar.TicksPerMinute);
+            eachMinute?.Invoke(this);
         }
     }
 
