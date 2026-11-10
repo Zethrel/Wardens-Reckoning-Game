@@ -52,6 +52,7 @@ public sealed partial class Work
         if (!content.Schedules.ContainsKey(schedule))
             throw new ArgumentException("no schedule \"" + schedule + "\" in the content", nameof(schedule));
         workers[id.Value].Schedule = schedule;
+        Urge(workers[id.Value]);
     }
 
     /// <summary>The block a colonist's schedule gives this hour.</summary>
@@ -74,12 +75,14 @@ public sealed partial class Work
         level >= rule.Critical ? 4 : level >= rule.Urgent ? 3 : level >= rule.Wants ? 2 : level >= rule.Peckish ? 1 : 0;
 
     /// <summary>
-    /// A colonist's minute for themselves: needs grow, collapse, sleep, eating and drinking. True if they are free
-    /// to go on with their job this minute.
+    /// A colonist's think for themselves (step 21c): collapse, sleep, eating and drinking (their needs grow on the
+    /// whole minutes, `Grow`). `seconds` since they last thought. True if they are free to go on with their job.
     /// </summary>
-    bool Live(Worker w)
+    bool Live(Worker w, int seconds)
     {
-        Grow(w);
+        // A need at its limit fells them at once, before they think of anything else.
+        if (w.Collapsed == null && Fells(w) is string felled)
+            Collapse(w, felled);
         if (w.Collapsed != null)
         {
             Recover(w);
@@ -89,7 +92,7 @@ public sealed partial class Work
             return Wake(w);
         if (w.Personal != null)
         {
-            Continue(w);
+            Continue(w, seconds);
             return false;
         }
         if (w.Stopped)
@@ -125,15 +128,13 @@ public sealed partial class Work
             var fatigue = w.Needs[content.Fatigue.Name];
             fatigue.Level = Math.Max(0, fatigue.Level - (w.OnBedroll ? content.BedrollPerHour : content.GroundPerHour) / Calendar.MinutesPerHour);
         }
-        if (w.Collapsed != null)
-            return;
-        foreach (var rule in content.Needs.Values)
-            if (w.Needs[rule.Name].Level >= 100 && w.Needs[rule.Name].MinutesAtLimit >= rule.CollapseHours * Calendar.MinutesPerHour)
-            {
-                Collapse(w, rule.Name);
-                return;
-            }
+        if (w.Collapsed == null && Fells(w) is string felled)
+            Collapse(w, felled);
     }
+
+    /// <summary>The need that fells a colonist now, or null: one at 100 for its collapse_hours (fatigue: at once).</summary>
+    string? Fells(Worker w) => content.Needs.Values
+        .FirstOrDefault(rule => w.Needs[rule.Name].Level >= 100 && w.Needs[rule.Name].MinutesAtLimit >= rule.CollapseHours * Calendar.MinutesPerHour)?.Name;
 
     void Collapse(Worker w, string need)
     {
@@ -233,8 +234,11 @@ public sealed partial class Work
         string good = kind == PersonalKind.Eat ? content.Eat.Good : content.Drink.Good;
         if ((kind == PersonalKind.Eat ? Source(w, good) : WaterSourceFor(w)) != null)
             return true;
+        bool somewhere = Stocks.Inventories.Any(i => i.Holder == Holder.Store && Drawable(i)
+                                                     && (kind == PersonalKind.Eat ? Stocks.Free(i.Id, good) > 0 : FreeWater(i.Id) > 0 && DrinkFrom(i)));
         w.Lacking = "no " + content.Goods[good].Name.ToLowerInvariant() + " free in any store"
-                    + (kind == PersonalKind.Drink && Stocks.Inventories.Any(i => i.Mark != WaterMark.None && FreeWater(i.Id) > 0)
+                    + (somewhere ? " they can reach (it is walled off)"
+                       : kind == PersonalKind.Drink && Stocks.Inventories.Any(i => i.Mark != WaterMark.None && FreeWater(i.Id) > 0)
                         ? " the colonists may drink from (some is marked not to be drunk as it is)" : "");
         return false;
     }
@@ -277,12 +281,12 @@ public sealed partial class Work
             var (claim, _) = Stocks.Reserve(from.Id, good, 1, kind == PersonalKind.Eat ? w.Name + " eats" : w.Name + " drinks");
             w.Personal = new Personal { Kind = kind, X = from.X, Y = from.Y, Claim = claim!.Id, Operation = colony.Ids.Next<OperationId>() };
         }
-        Continue(w);
+        Continue(w, 0);
     }
 
-    /// <summary>A minute of seeing to it: heading there (walked second by second), then eating, drinking or lying
+    /// <summary>A think of seeing to it: heading there (walked second by second), then eating, drinking or lying
     /// down.</summary>
-    void Continue(Worker w)
+    void Continue(Worker w, int seconds)
     {
         var p = w.Personal!;
         if (p.Left == null)
@@ -311,14 +315,15 @@ public sealed partial class Work
                 w.Personal = null;
                 return;
             }
-            p.Left = p.Kind switch
+            p.Left = Calendar.TicksPerMinute * p.Kind switch
             {
                 PersonalKind.Eat => content.Eat.Minutes,
                 PersonalKind.Wash => content.Wash.Minutes,
                 _ => content.Drink.Minutes,
             };
+            seconds = 0;                                       // the eating begins now, on arriving
         }
-        if (--p.Left > 0)
+        if ((p.Left -= seconds) > 0)
             return;
         var (rule, eases) = p.Kind switch
         {

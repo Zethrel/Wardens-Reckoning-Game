@@ -3,5 +3,6 @@
   "carry_kg": 25,
   "walk_m_per_minute": 70,
   "pickup_minutes": 1,
-  "drop_minutes": 1
+  "drop_minutes": 1,
+  "think_seconds": [2, 7]
 }

@@ -21,7 +21,7 @@ public class WorkTests
 
     static Dictionary<string, string?> NoNeedsFiles()
     {
-        var files = Content.Files.ToDictionary(f => f, f => (string?)File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", f)));
+        var files = TestContent.ThinkingEverySecond(TestContent.Files());   // thinking every second: see TestContent
         var needs = JsonNode.Parse(files["needs.json"]!)!.AsObject();
         foreach (var (_, rule) in needs["needs"]!.AsObject())
             rule!["per_hour"] = 0;
@@ -108,12 +108,13 @@ public class WorkTests
     public void A_batch_takes_its_walks_loading_and_grinding()
     {
         // Minute 1: the quern asks for wheat and Ada takes the haul. She stands at the carts, so she loads at once
-        // (1 minute), walks 140 m (2), unloads (1); the grinding job is made as she finishes, and she stands at the
-        // quern, so the quern turns at once, for 180 minutes. The flour is made in minute 1+1+2+1+180 = 185.
+        // (1 minute), walks 140 m (2), unloads (1): done a second into minute 5 (she thinks every second here, and
+        // set off a second after loading). The quern asks once a minute, so the grinding job is made at minute 6;
+        // she stands at the quern, and it turns for 180 minutes. The flour is made in minute 6 + 180 = 186.
         var camp = new Camp();
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
         int minutes = camp.RunUntil(() => camp.Stocks.Total("flour") == 4);
-        Assert.Equal(1 + 1 + 2 + 1 + 180, minutes);
+        Assert.Equal(1 + 1 + 2 + 1 + 1 + 180, minutes);
     }
 
     [Fact]
@@ -122,8 +123,9 @@ public class WorkTests
         var camp = new Camp();
         var ada = camp.Workers[0];
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
-        camp.RunUntil(() => camp.JobOf(ada)?.Step == Step.Carrying);
-        camp.RunMinutes(1);                                             // on the next minute she sets off
+        while (camp.JobOf(ada)?.Step != Step.Carrying)
+            camp.Colony.Run(1);
+        camp.Colony.Run(1);                                             // her next think: she sets off
         Assert.Equal((0.0, 0.0), (ada.X, ada.Y));
         Assert.Equal((140.0, 0.0, false), ada.Heading);
         camp.Colony.Run(30);                                            // half a minute: second by second
@@ -144,11 +146,10 @@ public class WorkTests
         files["colony.json"] = colony.ToJsonString();
         var camp = new Camp(content: Content.Read(files));
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
-        // As above, with loading and unloading taking no time: she loads and sets off in minute 1, walks minutes 2
-        // and 3, and is seen to be there on minute 4 (what is not walking is worked out on the whole minutes), when
-        // she unloads; the grinding job is made then, and the quern turns its 180 minutes from minute 5: done in
-        // minute 185.
-        Assert.Equal(1 + 3 + 1 + 180, camp.RunUntil(() => camp.Stocks.Total("flour") == 4));
+        // As above, with loading and unloading taking no time: she loads in minute 1 and sets off a second later,
+        // walks two minutes and unloads as she arrives, a second into minute 3; the quern asks at minute 4, and turns
+        // its 180 minutes: done in minute 184.
+        Assert.Equal(1 + 2 + 1 + 180, camp.RunUntil(() => camp.Stocks.Total("flour") == 4));
     }
 
     [Fact]
@@ -264,7 +265,7 @@ public class WorkTests
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
         camp.RunMinutes(1);                                      // Ada (the lower number, as near) takes the haul
         var job = camp.JobOf(ada)!;
-        Assert.Equal(Step.Going, job.Step);
+        Assert.Equal(Step.Loading, job.Step);                    // taken, not yet picked up (she stands at the carts)
         camp.Work.Stop(ada.Id);
         Assert.Null(ada.Job);
         Assert.Equal(Step.Open, job.Step);
@@ -355,11 +356,12 @@ public class WorkTests
     [Fact]
     public void Loading_and_unloading_take_their_minutes()
     {
-        // Loading 3 minutes and unloading 2: minute 1 the haul is taken; loading minutes 2-4; walking 5-6;
-        // unloading 7-8; the quern from minute 9 to 188. Then the flour waits at the quern while it is loaded.
+        // Loading 3 minutes and unloading 2: minute 1 the haul is taken; loading to minute 4; walking two minutes
+        // (from a second after); unloading two, done a second into minute 8; the quern asks at minute 9 and turns
+        // to minute 189. Then the flour waits at the quern while it is loaded.
         var camp = new Camp(content: With("colony.json", c => { c["pickup_minutes"] = 3; c["drop_minutes"] = 2; }));
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 2);
-        Assert.Equal(1 + 3 + 2 + 2 + 180, camp.RunUntil(() => camp.Stocks.Total("flour") == 4));
+        Assert.Equal(1 + 3 + 2 + 2 + 1 + 180, camp.RunUntil(() => camp.Stocks.Total("flour") == 4));
         camp.RunUntil(() => camp.Granary.Count("flour") == 8 && camp.Work.Jobs.Count == 0);
         camp.Conserved();
     }
@@ -503,13 +505,20 @@ public class WorkTests
         {
             var camp = new Camp(workers: 2);
             camp.Work.Order(camp.Quern.Id, "grind_wheat", 2);
-            camp.RunMinutes(1);                                  // Ada has taken the first haul; its wheat is claimed
+            camp.RunMinutes(1);
+            camp.Colony.Run(10);                                 // Ada has thought, and taken the first haul; its wheat is claimed
             var save = ColonySave.Write(camp.Colony);
             change(save);
             return new object[] { save.ToJsonString(), reason };
         }
         JsonObject Job(JsonObject s) => s["work"]!["jobs"]!.AsArray().Select(j => j!.AsObject()).First(j => j["claims"]!.AsArray().Count > 0);
-        JsonObject Worker(JsonObject s, int i) => s["work"]!["workers"]![i]!.AsObject();
+        // The worker doing that job, and another.
+        JsonObject Worker(JsonObject s, int i)
+        {
+            var all = s["work"]!["workers"]!.AsArray().Select(w => w!.AsObject()).ToList();
+            var doer = all.First(w => w["job"]?.GetValue<long>() == Job(s)["id"]!.GetValue<long>());
+            return i == 0 ? doer : all.First(w => w != doer);
+        }
         yield return Case(s => Job(s)["claims"] = new JsonArray(), "belongs to no job");
         yield return Case(s => Job(s)["claims"] = new JsonArray(99), "holds claim 99, which does not exist");
         yield return Case(s => Job(s)["kind"] = "Dance", "is not a kind of job");

@@ -46,6 +46,14 @@ public class SanitationTests
         }, "map");
     }
 
+    // As Until, a second at a time: for what is measured from the second it happened.
+    static bool EverySecondUntil(Colony.Colony colony, Func<bool> done, int seconds)
+    {
+        for (int i = 0; i < seconds && !done(); i++)
+            colony.Run(1);
+        return done();
+    }
+
     static bool Until(Colony.Colony colony, Func<bool> done, int limit)
     {
         for (int i = 0; i < limit; i++)
@@ -322,17 +330,18 @@ public class SanitationTests
         colony.RunMinutes(1);
         Assert.Single(work.Jobs, j => j.Kind == JobKind.Boil);
         // Thirty minutes of boiling at the water, then the boiled water is carried to the store.
-        Assert.True(Until(colony, () => job.Step == Step.Working, 60), "never began to boil");
+        Assert.True(EverySecondUntil(colony, () => job.Step == Step.Working, 60 * 60), "never began to boil");
         var boiler = work.Workers.Single(w => w.Job == job.Id);
         Assert.Equal(1, colony.Stocks[boiler.Arms].Count("timber"));
         Assert.Equal(Ground.TileOf(brook.X, brook.Y), Ground.TileOf(boiler.X, boiler.Y));
-        int minutes = 0;
+        int seconds = 0;
         while (job.Step == Step.Working)
         {
-            colony.RunMinutes(1);
-            minutes++;
+            colony.Run(1);
+            seconds++;
         }
-        Assert.Equal(29, minutes);                               // and the first, in the minute it began
+        // Thirty minutes from the second it began, seen at the boiler's first think after (every 2 to 7 seconds).
+        Assert.InRange(seconds, 30 * 60, 30 * 60 + 7);
         Assert.Equal((0, 10, 0), (colony.Stocks[boiler.Arms].Count("timber"), colony.Stocks[boiler.Arms].Count("water"), colony.Stocks[boiler.Arms].Count("foul_water")));
         Assert.Equal(timber - 1, Total(colony, "timber"));
         var to = colony.Stocks[job.To];
@@ -503,19 +512,22 @@ public class SanitationTests
     }
 
     [Fact]
-    public void An_ill_colonist_loses_three_minutes_in_ten_and_grows_thirsty_and_tired_half_again_as_fast()
+    public void An_ill_colonist_loses_three_seconds_in_ten_and_grows_thirsty_and_tired_half_again_as_fast()
     {
         var (colony, _) = Founding.Found(7, On(1), Tweaked(illness: 1, onset: 6, ill: 24), Map(40, 30));
         var work = colony.Work!;
         var ada = work.Workers.First();
-        Assert.False(work.Slowed(ada));                          // well: no minute lost
+        Assert.Equal(10, work.Effort(ada, 10));                  // well: nothing lost
         Assert.Equal(1, work.Faster(ada, colony.Content!.Thirst));
         work.Expose(ada);
         colony.RunMinutes(6 * 60);
         Assert.True(work.Ill(ada));
         ada.Slow = 0;
-        Assert.Equal(3, Enumerable.Range(0, 10).Count(_ => work.Slowed(ada)));
-        Assert.Equal(30, Enumerable.Range(0, 100).Count(_ => work.Slowed(ada)));
+        Assert.Equal(7, work.Effort(ada, 10));                   // 3 seconds in 10 lost
+        Assert.Equal(70, Enumerable.Range(0, 100).Sum(_ => work.Effort(ada, 1)));   // the same, a second at a time
+        Assert.Equal(35, work.Effort(ada, 50));
+        Assert.Equal(0, work.Effort(ada, 0));
+        Assert.InRange(ada.Slow, 0, 1);
         Assert.Equal(1.5, work.Faster(ada, colony.Content!.Thirst));
         Assert.Equal(1.5, work.Faster(ada, colony.Content.Fatigue));
         Assert.Equal(1, work.Faster(ada, colony.Content.Hunger));
@@ -545,6 +557,7 @@ public class SanitationTests
     public void An_ill_colonist_takes_longer_over_a_job()
     {
         // The same boiling (thirty minutes) by a well and an ill colonist: the ill one takes 30 / 0.7, about 43.
+        // Measured in seconds, and seen at her first think after the boiling is done (2 to 7 seconds apart).
         int Boiling(bool ill)
         {
             var (colony, carts, brook) = Fouled(Tweaked(illness: 1, onset: 0, ill: 48));
@@ -559,18 +572,18 @@ public class SanitationTests
                 Assert.True(work.Ill(ada));
             }
             work.SetMark(brook.Id, WaterMark.BoilFirst);
-            Assert.True(Until(colony, () => work.Jobs.Any(j => j.Kind == JobKind.Boil && j.Step == Step.Working), 120), "never began to boil");
+            Assert.True(EverySecondUntil(colony, () => work.Jobs.Any(j => j.Kind == JobKind.Boil && j.Step == Step.Working), 120 * 60), "never began to boil");
             var job = work.Jobs.Single(j => j.Kind == JobKind.Boil && j.Step == Step.Working);
-            int minutes = 0;
+            int seconds = 0;
             while (job.Step == Step.Working)
             {
-                colony.RunMinutes(1);
-                minutes++;
+                colony.Run(1);
+                seconds++;
             }
-            return minutes + 1;                                  // and the first, in the minute it began
+            return seconds;
         }
-        Assert.Equal(30, Boiling(false));
-        Assert.InRange(Boiling(true), 42, 44);
+        Assert.InRange(Boiling(false), 30 * 60, 30 * 60 + 7);
+        Assert.InRange(Boiling(true), 30 * 60 / 0.7 - 7, 30 * 60 / 0.7 + 7);
     }
 
     [Fact]

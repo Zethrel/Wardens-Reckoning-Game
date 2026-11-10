@@ -151,6 +151,10 @@ public sealed class Content
     public double WalkMetresPerMinute { get; }
     public int PickupMinutes { get; }
     public int DropMinutes { get; }
+    /// <summary>How often a colonist thinks (step 21c): every so many seconds, drawn once for each colonist from
+    /// `ThinkFrom` to `ThinkTo` (colony.json think_seconds).</summary>
+    public int ThinkFrom { get; private init; } = 1;
+    public int ThinkTo { get; private init; } = 1;
 
     /// <summary>The needs: "hunger", "thirst", "fatigue", "hygiene".</summary>
     public IReadOnlyDictionary<string, NeedRule> Needs { get; private init; } = new Dictionary<string, NeedRule>();
@@ -323,8 +327,10 @@ public sealed class Content
         // Everyday numbers.
         double carry = 0, walk = 0;
         int pickup = 0, drop = 0;
-        if (Open("colony.json", "carry_kg", "walk_m_per_minute", "pickup_minutes", "drop_minutes") is JsonObject c)
+        (int, int)? think = null;
+        if (Open("colony.json", "carry_kg", "walk_m_per_minute", "pickup_minutes", "drop_minutes", "think_seconds") is JsonObject c)
         {
+            think = Ordered(check.Pair(c, "colony.json", "think_seconds", 1), "colony.json.think_seconds");
             carry = check.Positive(c, "colony.json", "carry_kg") ?? 0;
             walk = check.Positive(c, "colony.json", "walk_m_per_minute") ?? 0;
             pickup = check.Int(c, "colony.json", "pickup_minutes", 0) ?? 0;
@@ -787,6 +793,7 @@ public sealed class Content
             Needs = needs, Eat = eat!, Drink = drink!, Wash = wash!, Water = waterRules!, Sanitation = sanitation!, UpsetStomach = stomach!, BedrollPerHour = bedroll, GroundPerHour = ground, SpringPerDay = spring,
             Schedules = schedules, DefaultSchedule = defaultSchedule!, Pieces = pieces, TestGround = testGround!,
             Templates = templates, Founding = founding!, Surfaces = surfaces,
+            ThinkFrom = think!.Value.Item1, ThinkTo = think.Value.Item2,
             Fingerprint = FingerprintOf(files),
         };
     }

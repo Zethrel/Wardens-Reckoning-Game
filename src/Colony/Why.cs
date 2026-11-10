@@ -46,6 +46,7 @@ public sealed partial class Work
         if (!allowed && worker.Job is TaskId t && jobs[t.Value] is var job && KindOf(job) == kind
             && !InHand(job))
             Reopen(job, worker);
+        Urge(worker);
     }
 
     /// <summary>Why a job is waiting for someone to take it, or null if it is not (it has a worker, or does not

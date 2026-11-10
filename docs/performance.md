@@ -27,7 +27,7 @@ seed is 20, the start 1 April of year 1 at 08:00):
 
 Tick times leave out the first in-game hour (the code is still being
 compiled then). These measurements were made on the minute tick (until step
-21a; step 21c measures the second tick). A tick was one in-game minute; the game ran 2 ticks a second
+21a; step 21d measures the second tick). A tick was one in-game minute; the game ran 2 ticks a second
 at ×1 and 6 at ×3, so a tick has 500 ms at ×1 and about 167 ms at ×3, less
 the time for drawing.
 

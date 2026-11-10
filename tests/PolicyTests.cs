@@ -11,7 +11,7 @@ namespace WardensReckoning.Tests;
 /// </summary>
 public class PolicyTests
 {
-    static readonly Content Real = Content.Load(Path.Combine(AppContext.BaseDirectory, "content"));
+    static readonly Content Real = TestContent.EverySecond;              // thinking every second: see TestContent
     static readonly Moment Nine = new(Calendar.TickOf(301, 1, 1, 9, 0));
 
     sealed class Camp
@@ -93,7 +93,7 @@ public class PolicyTests
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
         camp.Colony.RunMinutes(1);
         var job = camp.JobOf(ada)!;
-        Assert.Equal(Step.Going, job.Step);                  // taken, not yet picked up
+        Assert.Equal(Step.Loading, job.Step);                // taken, not yet picked up (she stands at the carts)
         camp.Work.Permit(ada.Id, Work.HaulWork, false);
         Assert.Null(ada.Job);
         camp.Colony.RunMinutes(1);
@@ -198,7 +198,7 @@ public class PolicyTests
         var camp = new Camp(people: 3);
         var (ada, bram, cael) = (camp.People[0], camp.People[1], camp.People[2]);
         camp.Work.Stop(bram.Id);
-        cael.Needs["fatigue"].Level = 99.99;
+        cael.Needs["fatigue"].Level = 100;
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
         camp.Colony.RunMinutes(1);
         Assert.NotNull(ada.Job);

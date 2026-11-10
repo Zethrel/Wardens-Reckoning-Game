@@ -12,7 +12,7 @@ namespace WardensReckoning.Tests;
 /// </summary>
 public class LifeTests
 {
-    static readonly Content Real = Content.Load(Path.Combine(AppContext.BaseDirectory, "content"));
+    static readonly Content Real = TestContent.EverySecond;              // thinking every second: see TestContent
     static readonly Moment Morning = new(Calendar.TickOf(301, 1, 1, 7, 0));
 
     /// <summary>The founders' camp: carts with wheat and rations, a spring, a bedroll each, a quern.</summary>
@@ -133,7 +133,7 @@ public class LifeTests
         Assert.Null(craft.Worker);
         Assert.Equal(Step.Open, craft.Step);
         Assert.Single(craft.Claims);                         // its wheat stays claimed
-        Assert.True(craft.Left is > 0 and < 180, "its progress is kept: " + craft.Left);
+        Assert.True(craft.Left is > 0 and < 180 * 60, "its progress is kept: " + craft.Left + " seconds");
     }
 
     [Fact]
@@ -355,8 +355,8 @@ public class LifeTests
     {
         var camp = new Camp(start: new Moment(Calendar.TickOf(301, 1, 1, 9, 0)));
         var ada = camp.People[0];
-        camp.Set(ada, "fatigue", 99.99);
-        camp.RunMinutes(1);
+        camp.Set(ada, "fatigue", 100);
+        camp.Colony.Run(1);                                  // at her first think, before anything else
         Assert.Equal("fatigue", ada.Collapsed);
         Assert.Equal("collapsed (fatigue)", camp.Work.Doing(ada.Id));
         Assert.True(ada.Asleep);

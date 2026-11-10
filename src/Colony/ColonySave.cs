@@ -49,7 +49,9 @@ public static class ColonySave
     // boiling job, and what the player was told.
     // 13: the second tick (step 21a, library Review 39): every tick in a save is a second, no longer a minute; and
     // where each colonist is heading.
-    public const int Version = 13;
+    // 14: thinking (step 21c): each colonist's rhythm, next think and last think; a job's and a meal's time left
+    // in seconds, no longer minutes.
+    public const int Version = 14;
 
     /// <summary>The colony as JSON.</summary>
     public static JsonObject Write(Colony colony) => new()
@@ -103,6 +105,7 @@ public static class ColonySave
                 ["illness"] = w.Illness is not Illness ill ? null : new JsonArray(ill.Name, ill.Shows, ill.Ends),
                 ["slow"] = w.Slow,
                 ["heading"] = w.Heading is not var (hx, hy, hnear) ? null : new JsonArray(hx, hy, hnear),
+                ["think"] = new JsonArray(w.ThinkEvery, w.NextThink, w.Thought),
                 ["forbidden"] = new JsonArray(w.Forbidden.Select(k => (JsonNode?)k).ToArray()),
                 ["personal"] = w.Personal is not Personal p ? null : new JsonObject
                 {
@@ -527,6 +530,12 @@ public static class ColonySave
             if (!(slow >= 0 && slow < 1))
                 throw new ColonySaveException(at + ".slow is " + slow + ", which should be from 0 to below 1");
             worker.Slow = slow;
+            if (o["think"] is not JsonArray think || think.Count != 3
+                || !(think[0] is JsonValue t0 && t0.TryGetValue(out int every) && every >= 1)
+                || !(think[1] is JsonValue t1 && t1.TryGetValue(out long next) && next > colony.Now.Tick)
+                || !(think[2] is JsonValue t2 && t2.TryGetValue(out long thought) && thought <= colony.Now.Tick))
+                throw new ColonySaveException(at + ".think is not [every (1 or more seconds), next think (after now), last think (not after now)]");
+            (worker.ThinkEvery, worker.NextThink, worker.Thought) = (every, next, thought);
             if (o["heading"] is JsonArray heading)
             {
                 if (heading.Count != 3 || !(heading[0] is JsonValue h0 && h0.TryGetValue(out double hx) && double.IsFinite(hx))

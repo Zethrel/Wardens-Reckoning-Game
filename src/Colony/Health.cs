@@ -23,7 +23,9 @@ public sealed partial class Work
         var dice = colony.DiceFor("health");
         if (w.Illness != null || !dice.Chance(rule.Chance))
             return;
-        long shows = colony.Now.Tick + (long)dice.Int(rule.OnsetFrom, rule.OnsetTo) * Calendar.TicksPerHour;
+        // On a whole minute (illness shows and passes on the minutes, with the colony's own work: step 21c).
+        long minute = (colony.Now.Tick + Calendar.TicksPerMinute - 1) / Calendar.TicksPerMinute * Calendar.TicksPerMinute;
+        long shows = minute + (long)dice.Int(rule.OnsetFrom, rule.OnsetTo) * Calendar.TicksPerHour;
         long ends = shows + (long)dice.Int(rule.LastsFrom, rule.LastsTo) * Calendar.TicksPerHour;
         w.Illness = new Illness(rule.Name, shows, ends);
     }
@@ -50,19 +52,18 @@ public sealed partial class Work
     }
 
     /// <summary>
-    /// Whether this minute of work does not count, for a colonist working slower while ill: they keep a running
-    /// count of the work they miss (0.3 a minute at 70%), and a minute is lost each time it reaches one. No dice:
-    /// the same minutes are lost every time.
+    /// How many of `seconds` of work count, for a colonist working slower while ill: they keep a running count of
+    /// the work they miss (0.3 a second at 70%), and a second is lost each time it reaches one. No dice: the same
+    /// seconds are lost every time. A colonist who is well: all of them.
     /// </summary>
-    internal bool Slowed(Worker w)
+    internal int Effort(Worker w, int seconds)
     {
-        if (!Ill(w))
-            return false;
-        w.Slow += 1 - content.UpsetStomach.Work;
-        if (w.Slow < 1)
-            return false;
-        w.Slow -= 1;
-        return true;
+        if (!Ill(w) || seconds <= 0)
+            return seconds;
+        w.Slow += seconds * (1 - content.UpsetStomach.Work);
+        int lost = (int)Math.Floor(w.Slow + 1e-9);
+        w.Slow = Math.Max(0, w.Slow - lost);
+        return seconds - lost;
     }
 
     /// <summary>How many times as fast a need grows for this colonist now (thirst and fatigue while ill).</summary>

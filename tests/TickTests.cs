@@ -5,8 +5,9 @@ using WardensReckoning.Colony;
 namespace WardensReckoning.Tests;
 
 /// <summary>
-/// Step 21a: the second tick (library Review 39). A tick is a game second; walking is done every second; everything
-/// else is worked out on the whole minutes.
+/// Step 21a: the second tick (library Review 39). A tick is a game second; walking is done every second; the colony's
+/// own work (needs, asking, supplying) on the whole minutes. Step 21c: each colonist decides at their own think, every
+/// 2 to 7 seconds.
 /// </summary>
 public class TickTests
 {
@@ -31,32 +32,38 @@ public class TickTests
         Assert.Equal(3, called);
     }
 
+    // Runs a second at a time until she has just thought (her think falls on this second).
+    static void UntilThought(Colony.Colony colony, Worker w)
+    {
+        long last = w.Thought;
+        Assert.True(Until(colony, () => w.Thought != last, 60), "she never thought");
+    }
+
     [Fact]
-    public void Between_the_minutes_only_the_walking_happens()
+    public void Between_the_minutes_only_walking_and_thinking_happen()
     {
         var (colony, _) = Founded();
-        var work = colony.Work!;
-        var ada = work.Workers.First();
+        var ada = colony.Work!.Workers.First();
         ada.Needs["thirst"].Level = 70;                         // she will go and drink
-        colony.RunMinutes(1);
-        Assert.NotNull(ada.Heading);
-        double thirst = ada.Needs["thirst"].Level, hunger = ada.Needs["hunger"].Level;
-        int ledger = colony.Stocks.Ledger.Count, jobs = work.Jobs.Count();
+        Assert.True(Until(colony, () => ada.Heading != null, 60), "she never set off");
+        Assert.False(colony.Now.OnTheMinute);                   // she set off at her think, not waiting for the minute
+        double hunger = ada.Needs["hunger"].Level;
         var (x, y) = (ada.X, ada.Y);
-        for (int second = 1; second < 60; second++)
+        while (!colony.Now.OnTheMinute || colony.Now.Tick == Start.Tick)
         {
             var before = (ada.X, ada.Y);
+            bool walking = ada.Heading != null;
             colony.Run(1);
-            if (ada.Heading != null)
+            if (colony.Now.OnTheMinute)
+                break;
+            if (walking)
                 Assert.NotEqual(before, (ada.X, ada.Y));        // a step every second
-            // Nothing else moves on: needs, goods, jobs.
-            Assert.Equal((thirst, hunger, ledger, jobs), (ada.Needs["thirst"].Level, ada.Needs["hunger"].Level, colony.Stocks.Ledger.Count, work.Jobs.Count()));
+            Assert.Equal(hunger, ada.Needs["hunger"].Level);    // needs grow only on the whole minutes
+            // What she carries is where she is, every second.
+            Assert.Equal((ada.X, ada.Y), (colony.Stocks[ada.Arms].X, colony.Stocks[ada.Arms].Y));
         }
         Assert.NotEqual((x, y), (ada.X, ada.Y));
-        // What she carries is where she is, every second.
-        Assert.Equal((ada.X, ada.Y), (colony.Stocks[ada.Arms].X, colony.Stocks[ada.Arms].Y));
-        colony.Run(1);                                          // the whole minute: needs grow
-        Assert.True(ada.Needs["hunger"].Level > hunger);
+        Assert.True(ada.Needs["hunger"].Level > hunger);        // the whole minute: needs grow
     }
 
     [Fact]
@@ -65,18 +72,19 @@ public class TickTests
         var (colony, _) = Founded();
         var ada = colony.Work!.Workers.First();
         ada.Needs["thirst"].Level = 70;
-        colony.RunMinutes(1);
+        Assert.True(Until(colony, () => ada.Heading != null, 60), "she never set off");
         var (hx, hy, _) = ada.Heading!.Value;
         var from = (ada.X, ada.Y);
         colony.Run(1);
         double walked = Math.Sqrt((ada.X - from.X) * (ada.X - from.X) + (ada.Y - from.Y) * (ada.Y - from.Y));
         // Grass (0.8 of a road's 70 m a minute): 56 / 60 m a second, unless a tile's corner was turned.
         Assert.InRange(walked, 0.5, 56.0 / 60 + 1e-9);
-        // She walks until she is there, and then stands.
+        // She walks until she is there, and then stands until she next thinks.
         Assert.True(Until(colony, () => ada.Heading == null, 600));
         Assert.Equal((hx, hy), (ada.X, ada.Y));
+        // (Unless her think fell on the second she arrived: then she has already decided where next.)
         var there = (ada.X, ada.Y);
-        while (!colony.Now.OnTheMinute)
+        while (ada.Heading == null && colony.Now.Tick < ada.NextThink)
         {
             colony.Run(1);
             Assert.Equal(there, (ada.X, ada.Y));
@@ -109,22 +117,23 @@ public class TickTests
     }
 
     [Fact]
-    public void Nobody_walks_on_past_a_whole_minute_unless_what_they_do_then_says_so()
+    public void Nobody_walks_on_past_their_next_think_unless_what_they_decide_then_says_so()
     {
-        // Everything but walking is worked out on the whole minutes. Someone heading somewhere with nothing to do
-        // there any more (as when a job is taken away under them) walks on to the whole minute, and then stands.
+        // Someone heading somewhere with nothing to do there any more (as when a job is taken away under them)
+        // walks on until they next think, and then stands.
         var (colony, _) = Founded();
         colony.RunMinutes(1);
         var idle = colony.Work!.Workers.First(w => w.Job == null && w.Personal == null && w.Heading == null);
-        idle.Legs = 0.05;                                       // slow: the way is far from walked in a minute
+        UntilThought(colony, idle);
+        Assert.InRange(idle.NextThink - colony.Now.Tick, 2, 7); // her own rhythm, drawn from 2 to 7 seconds
+        idle.Legs = 0.05;                                       // slow: the way is far from walked before she thinks
         var from = (idle.X, idle.Y);
         idle.Heading = (idle.X - 15, idle.Y, false);
-        colony.Run(30);
+        colony.Run(1);
         Assert.NotEqual(from, (idle.X, idle.Y));
         Assert.NotNull(idle.Heading);
         var half = (idle.X, idle.Y);
-        colony.Run(30);                                         // the whole minute
-        Assert.True(colony.Now.OnTheMinute);
+        colony.Run((int)(idle.NextThink - colony.Now.Tick));    // to her next think
         Assert.NotEqual(half, (idle.X, idle.Y));
         Assert.Null(idle.Job);
         Assert.Null(idle.Heading);
@@ -136,15 +145,15 @@ public class TickTests
     [Fact]
     public void A_save_between_two_minutes_goes_on_as_if_never_saved()
     {
-        // Saved every 97 seconds (so nearly always between two minutes), with people on their way.
+        // Saved every 13 seconds (so nearly always between two minutes), with people on their way.
         var (colony, _) = Founded();
         colony.Work!.Plan("water_barrel", 26, 22);
         var copies = new List<Colony.Colony>();
         bool walking = false;
-        long end = Start.Tick + 4 * Calendar.TicksPerHour;
+        long end = Start.Tick + 2 * Calendar.TicksPerHour;
         colony.Run(end - Start.Tick, c =>
         {
-            if ((c.Now.Tick - Start.Tick) % 97 != 0)
+            if ((c.Now.Tick - Start.Tick) % 13 != 0)
                 return;
             walking |= c.Work!.Workers.Any(w => w.Heading != null) && !c.Now.OnTheMinute;
             string text = ColonySave.Text(c);
@@ -153,7 +162,7 @@ public class TickTests
             copies.Add(copy);
         });
         Assert.True(walking, "no save caught anyone walking between two minutes: " + copies.Count + " saves");
-        Assert.True(copies.Count >= 140);
+        Assert.True(copies.Count >= 500);
         string fingerprint = ColonySave.Fingerprint(colony);
         foreach (var copy in copies)
         {
@@ -180,7 +189,7 @@ public class TickTests
     {
         var (colony, _) = Founded();
         var save = ColonySave.Write(colony);
-        Assert.Equal(13, ColonySave.Version);
+        Assert.Equal(14, ColonySave.Version);
         save["version"] = 12;
         Assert.Contains("older saves are not converted", Assert.Throws<ColonySaveException>(() => ColonySave.Read(save.ToJsonString(), colony.Content!)).Message);
     }

@@ -68,7 +68,8 @@ public class AcceptanceTests
         bool fouled = false, carrying = false, boiling = false, ill = false, marked = false;
         string folder = Path.Combine(Scratch.Root, "fp08-local");
         Directory.CreateDirectory(folder);
-        colony.RunMinutes((end - Start.Tick) / Calendar.TicksPerMinute, c =>
+        // Second by second (a load of water is carried in a few seconds now: step 21c), saved on the minutes.
+        colony.Run(end - Start.Tick, c =>
         {
             Command(c);
             var work = c.Work!;
@@ -77,7 +78,7 @@ public class AcceptanceTests
             boiling |= work.Jobs.Any(j => j.Kind == JobKind.Boil && j.Step == Step.Working);
             ill |= work.Workers.Any(w => w.Illness != null);
             marked |= c.Stocks.Inventories.Any(i => i.Mark != WaterMark.None);
-            if (c.Now.MinuteOfDay % 120 != 90)                    // every two hours, on the half hour
+            if (!c.Now.OnTheMinute || c.Now.MinuteOfDay % 120 != 90)   // every two hours, on the half hour
                 return;
             string path = Path.Combine(folder, "at-" + c.Now.Tick + ".json");
             ColonySave.Save(path, c);
@@ -91,7 +92,7 @@ public class AcceptanceTests
         string fingerprint = ColonySave.Fingerprint(colony);
         foreach (var copy in copies)
         {
-            copy.RunMinutes((end - copy.Now.Tick) / Calendar.TicksPerMinute, Command);
+            copy.Run(end - copy.Now.Tick, Command);
             Assert.Equal(fingerprint, ColonySave.Fingerprint(copy));
         }
         Assert.Equal(colony.Stocks.Ledger.Count, colony.Stocks.Ledger.Select(e => (e.Operation, e.Change, e.Good, e.Amount)).Distinct().Count());

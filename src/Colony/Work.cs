@@ -16,7 +16,16 @@ public sealed class Worker(ColonistId id, string name, double x, double y, Inven
     public TaskId? Job { get; internal set; }
     /// <summary>Stopped by the player (interrupted): they do nothing until resumed.</summary>
     public bool Stopped { get; internal set; }
-    /// <summary>Where they are walking to this minute (step 21a), or null: standing. `Near`: far enough once on a
+    /// <summary>Every how many seconds they think (step 21c): drawn once, when they come, from colony.json
+    /// think_seconds (2 to 7). Some are quick, some slow.</summary>
+    public int ThinkEvery { get; internal set; } = 1;
+    /// <summary>The tick of their next think: when they next decide what to do. Something urgent (an order) brings
+    /// it to the next second.</summary>
+    public long NextThink { get; internal set; }
+    /// <summary>The tick of their last think: the time since is what their work and their eating have gone on
+    /// for.</summary>
+    public long Thought { get; internal set; }
+    /// <summary>Where they are walking to (step 21a), or null: standing. `Near`: far enough once on a
     /// tile beside it. Set on the whole minutes by whatever they are doing; walked every second.</summary>
     public (double X, double Y, bool Near)? Heading { get; internal set; }
     /// <summary>An illness caught (step 19b): it may not have shown yet (Work.Ill says whether it has).</summary>
@@ -225,6 +234,11 @@ public sealed partial class Work
         OnOpenGround(x, y);
         var arms = Stocks.Open(name + "'s arms", Holder.Carrier, x, y);
         var worker = new Worker(colony.Ids.Next<ColonistId>(), name, x, y, arms.Id) { Schedule = content.DefaultSchedule };
+        // Their rhythm (step 21c), on the colony's thinking dice: every so many seconds, and the first think within
+        // that many, so that colonists who come together do not all think in the same second.
+        worker.ThinkEvery = colony.DiceFor("thinking").Int(content.ThinkFrom, content.ThinkTo);
+        worker.Thought = colony.Now.Tick;
+        worker.NextThink = colony.Now.Tick + 1 + worker.Id.Value % worker.ThinkEvery;
         workers[worker.Id.Value] = worker;
         return worker;
     }
@@ -272,12 +286,21 @@ public sealed partial class Work
         worker.Stopped = true;
         if (worker.Personal == null)
             worker.Heading = null;                              // an order counts at once: they stand still
+        Urge(worker);
         if (worker.Job is TaskId t && jobs[t.Value] is var job && !InHand(job))
             Reopen(job, worker);
     }
 
     /// <summary>Lets a stopped worker go on.</summary>
-    public void Resume(ColonistId id) => workers[id.Value].Stopped = false;
+    public void Resume(ColonistId id)
+    {
+        workers[id.Value].Stopped = false;
+        Urge(workers[id.Value]);
+    }
+
+    /// <summary>Something urgent for a colonist (an order now; a fire or a raid later): they think the next
+    /// second, whatever their rhythm (step 21c).</summary>
+    internal void Urge(Worker worker) => worker.NextThink = Math.Min(worker.NextThink, colony.Now.Tick + 1);
 
     /// <summary>
     /// Cancels a job. Goods not picked up are let go where they are; goods being carried are taken to the nearest
@@ -324,9 +347,11 @@ public sealed partial class Work
     // ---- One second, one minute ----------------------------------------------------------------------
 
     /// <summary>
-    /// One tick, a second (library Review 39): everyone walking takes a second's steps towards where they are
-    /// heading; and on the whole minutes, everything else is worked out (`Minute`). Every system here but the
-    /// walking was built on a tick of a minute, and still runs once a minute (its declared interval, Review 39).
+    /// One tick, a second (library Review 39). Everyone walking takes a second's steps towards where they are
+    /// heading. On the whole minutes the colony's own work is done (`Minute`): needs grow, water, building,
+    /// fouling and the rest, which were built on a tick of a minute and still run once a minute (their declared
+    /// interval). Then the colonists whose time to think has come think (step 21c): each on their own rhythm, every
+    /// 2 to 7 seconds.
     /// </summary>
     public void Tick()
     {
@@ -335,20 +360,42 @@ public sealed partial class Work
                 Stride(worker);
         if (colony.Now.OnTheMinute)
             Minute();
+        long now = colony.Now.Tick;
+        var thinking = workers.Values.Where(w => w.NextThink <= now).ToList();
+        if (thinking.Count == 0)
+            return;
+        foreach (var worker in thinking)
+            Think(worker);
+        // Those of them free for work take jobs, and set off at once.
+        foreach (var worker in Assign(thinking))
+            Act(worker, jobs[worker.Job!.Value.Value], 0);
+        foreach (var worker in thinking)
+            worker.NextThink = now + worker.ThinkEvery;
     }
 
-    /// <summary>One minute: needs grow and are seen to (Life.cs), workers act, the water sources fill and freeze in
-    /// the morning and rivers top up each hour (Water.cs), workshops ask, construction projects ask (Build.cs),
-    /// stores are emptied and emptied stockpiles removed (Placing.cs), barrels and basins are filled (Water.cs), the
-    /// collapsed are cared for, workers take jobs.</summary>
+    /// <summary>
+    /// A colonist thinks (step 21c): what they were doing has gone on since their last think (their work, their
+    /// eating); they see to their needs, or go on with their job. Nobody walks on unless what they do now says so
+    /// (`Walk`).
+    /// </summary>
+    void Think(Worker worker)
+    {
+        long now = colony.Now.Tick;
+        int elapsed = (int)Math.Min(now - worker.Thought, int.MaxValue);
+        worker.Thought = now;
+        worker.Heading = null;
+        if (Live(worker, elapsed) && !worker.Stopped && worker.Job is TaskId t)
+            Act(worker, jobs[t.Value], elapsed);
+    }
+
+    /// <summary>One minute of the colony's own work: needs grow (and may fell someone), the water sources fill and
+    /// freeze in the morning and rivers top up each hour (Water.cs), workshops ask, construction projects ask
+    /// (Build.cs), stores are emptied and emptied stockpiles removed (Placing.cs), barrels and basins are filled
+    /// (Water.cs), fouling and illness (Sanitation.cs, Health.cs), the collapsed are cared for.</summary>
     void Minute()
     {
-        // Nobody walks on unless what they do this minute says so (`Walk`).
         foreach (var worker in workers.Values)
-            worker.Heading = null;
-        foreach (var worker in workers.Values)
-            if (Live(worker) && !worker.Stopped && worker.Job is TaskId t)
-                Act(worker, jobs[t.Value]);
+            Grow(worker);
         if (colony.Now.MinuteOfDay == Autosave.MorningMinute)
         {
             Foul();
@@ -368,10 +415,14 @@ public sealed partial class Work
         Notice();
         Sicken();
         Care();
-        Assign();
     }
 
-    void Act(Worker worker, Job job)
+    /// <summary>
+    /// A colonist's job goes on: `seconds` have passed since they last thought (0: they go straight on from the step
+    /// before, in the same think). Loading, unloading and working take their minutes (content) counted in seconds,
+    /// from the second they began.
+    /// </summary>
+    void Act(Worker worker, Job job, int seconds)
     {
         long now = colony.Now.Tick;
         switch (job.Step)
@@ -391,16 +442,16 @@ public sealed partial class Work
                     job.Step = job.Kind is JobKind.Haul or JobKind.Boil ? Step.Loading : Step.Working;
                     job.Left = job.Kind switch
                     {
-                        JobKind.Haul or JobKind.Boil => content.PickupMinutes,
+                        JobKind.Haul or JobKind.Boil => content.PickupMinutes * Calendar.TicksPerMinute,
                         _ when job.Left > 0 => job.Left,
-                        JobKind.Craft => content.Recipes[job.Recipe!].WorkMinutes,
-                        _ => Minutes(projects[job.Site!.Value.Value]),
+                        JobKind.Craft => content.Recipes[job.Recipe!].WorkMinutes * Calendar.TicksPerMinute,
+                        _ => Minutes(projects[job.Site!.Value.Value]) * Calendar.TicksPerMinute,
                     };
-                    Act(worker, job);
+                    Act(worker, job, 0);
                 }
                 break;
             case Step.Loading:
-                if (--job.Left > 0)
+                if ((job.Left -= seconds) > 0)
                     break;
                 // The claimed goods move into the worker's arms: one operation, done once. A boiling picks up its
                 // fuel, and carries it to the water (its water stays claimed where it is).
@@ -413,8 +464,8 @@ public sealed partial class Work
                 if (Walk(worker, bx, by))
                 {
                     job.Step = Step.Working;
-                    job.Left = content.Sanitation.BoilMinutes;
-                    Act(worker, job);
+                    job.Left = content.Sanitation.BoilMinutes * Calendar.TicksPerMinute;
+                    Act(worker, job, 0);
                 }
                 break;
             case Step.Carrying:
@@ -422,22 +473,20 @@ public sealed partial class Work
                 if (Walk(worker, tx, ty))
                 {
                     job.Step = Step.Unloading;
-                    job.Left = content.DropMinutes;
-                    Act(worker, job);
+                    job.Left = content.DropMinutes * Calendar.TicksPerMinute;
+                    Act(worker, job, 0);
                 }
                 break;
             case Step.Unloading:
-                if (--job.Left > 0)
+                if ((job.Left -= seconds) > 0)
                     break;
                 var (claim, _) = Stocks.Reserve(worker.Arms, job.Good, job.Amount, job.Purpose);
                 Stocks.Move(job.Second, now, claim!.Id, job.To);
                 Finish(worker, job);
                 break;
             case Step.Working:
-                // An ill colonist works slower (step 19b): some minutes do not count.
-                if (Slowed(worker))
-                    break;
-                if (--job.Left > 0)
+                // An ill colonist works slower (step 19b): some of the seconds do not count.
+                if ((job.Left -= Effort(worker, seconds)) > 0)
                     break;
                 if (job.Kind == JobKind.Boil)
                 {
@@ -730,8 +779,15 @@ public sealed partial class Work
         jobs[job.Id.Value] = job;
     }
 
-    void Assign()
+    /// <summary>Open jobs go to those of `thinking` who are free for work (step 21c: a colonist takes work when
+    /// they think): each job, in turn, to the nearest by walking of them, allowed and able to get there. Returns
+    /// who took one.</summary>
+    List<Worker> Assign(List<Worker> thinking)
     {
+        var took = new List<Worker>();
+        var free = thinking.Where(Available).ToList();
+        if (free.Count == 0)
+            return took;
         foreach (var job in jobs.Values.Where(j => j.Step == Step.Open))
         {
             // A paused project's building waits.
@@ -739,7 +795,7 @@ public sealed partial class Work
                 continue;
             var (x, y) = Spot(job);
             // The nearest by walking of those free, allowed, and able to get there.
-            var worker = workers.Values.Where(w => Available(w) && !w.Forbidden.Contains(KindOf(job)))
+            var worker = free.Where(w => Available(w) && !w.Forbidden.Contains(KindOf(job)))
                                 .Select(w => (Worker: w, Far: Far(w.X, w.Y, x, y))).Where(p => !double.IsPositiveInfinity(p.Far))
                                 .OrderBy(p => p.Far).ThenBy(p => p.Worker.Id.Value).Select(p => p.Worker).FirstOrDefault();
             if (worker == null)
@@ -747,7 +803,9 @@ public sealed partial class Work
             worker.Job = job.Id;
             job.Worker = worker.Id;
             job.Step = Step.Going;
+            took.Add(worker);
         }
+        return took;
     }
 
     // ---- For loading a save ------------------------------------------------------------------------------

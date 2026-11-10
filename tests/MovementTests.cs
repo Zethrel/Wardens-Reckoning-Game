@@ -11,7 +11,7 @@ namespace WardensReckoning.Tests;
 /// </summary>
 public class MovementTests
 {
-    static readonly Content Real = Content.Load(Path.Combine(AppContext.BaseDirectory, "content"));
+    static readonly Content Real = TestContent.EverySecond;              // thinking every second: see TestContent
     static readonly Moment Nine = new(Calendar.TickOf(301, 1, 1, 9, 0));
     static Surface S(string id) => Real.Surfaces[id];
 
@@ -56,12 +56,12 @@ public class MovementTests
         ada.Legs = legs;
         ada.Needs["thirst"].Level = 90;                                         // she must walk to the far spring
         colony.Work!.AddSpring(190.5, 1.5);
-        colony.RunMinutes(1);                                                   // on the minute she sets off
+        colony.Run(1);                                                          // she thinks, and sets off
         Assert.Equal(PersonalKind.Drink, ada.Personal?.Kind);
         Assert.Equal(0.5, ada.X, 6);
         colony.Run(1);                                                          // a second's walk
         Assert.Equal(0.5 + metres / 60, ada.X, 6);
-        colony.Run(59);
+        colony.Run(59);                                                         // a minute's
         Assert.Equal(0.5 + metres, ada.X, 6);
     }
 
@@ -74,7 +74,8 @@ public class MovementTests
         ada.Legs = 0.01;
         ada.Needs["thirst"].Level = 90;
         colony.Work!.AddSpring(2.9, 2.5);
-        colony.RunMinutes(2);                                                   // she sets off on the first minute
+        colony.Run(1);                                                          // she thinks, and sets off
+        colony.RunMinutes(1);                                                   // a minute's walk
         Assert.Equal(2.1 + 70 * 0.55 * 0.01, ada.X, 6);
         // Someone on a tile that became blocked steps off at the speed of the tile they step onto.
         var ground = new Ground(5, 5, S("rough"));
@@ -227,7 +228,7 @@ public class MovementTests
     [Fact]
     public void A_wall_taken_down_gives_half_its_timber_back_and_leaves_the_tile_open()
     {
-        // Ada starts beside the wall, so she starts work in her first minute (as in lesson 15a's floor test).
+        // Ada starts beside the wall, so she starts work at her first think (as in lesson 15a's floor test).
         var (colony, _, carts) = Camp(Ground.Test(Real), 21.5, 21.5, timber: 0);
         var ground = colony.Ground!;
         var work = colony.Work!;
@@ -236,15 +237,15 @@ public class MovementTests
         Assert.True(placement.Ok);
         Assert.Equal("It is already being taken down.", work.TakeDown(22, 22).Placement.Why);
         long started = -1, done = -1;
-        colony.RunMinutes(120, c =>
+        colony.Run(120 * Calendar.TicksPerMinute, c =>
         {
             if (started < 0 && work.Jobs.Any(j => j.Kind == JobKind.Build && j.Step == Step.Working))
-                started = c.Now.WholeMinutes;
+                started = c.Now.Tick;
             if (done < 0 && ground.PieceAt(22, 22) == null)
-                done = c.Now.WholeMinutes;
+                done = c.Now.Tick;
             Assert.Equal(c.Stocks.Accounted("timber"), c.Stocks.Total("timber"));
         });
-        Assert.Equal(Real.Pieces["wall"].WorkMinutes / 2, done - started + 1);    // half the building time
+        Assert.Equal(Real.Pieces["wall"].WorkMinutes / 2 * Calendar.TicksPerMinute, done - started);    // half the building time
         Assert.True(ground.Open(22, 22));
         Assert.Equal(1, carts.Count("timber"));                                  // half of 2, carried to the carts
         var made = Assert.Single(colony.Stocks.Ledger, e => e.Change == Change.Made && e.Good == "timber");

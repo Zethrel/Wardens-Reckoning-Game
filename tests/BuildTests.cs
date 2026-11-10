@@ -11,7 +11,7 @@ namespace WardensReckoning.Tests;
 /// </summary>
 public class BuildTests
 {
-    static readonly Content Real = Content.Load(Path.Combine(AppContext.BaseDirectory, "content"));
+    static readonly Content Real = TestContent.EverySecond;              // thinking every second: see TestContent
     static readonly Moment Nine = new(Calendar.TickOf(301, 1, 1, 9, 0));
 
     /// <summary>A camp on the content's test ground: the founders' carts with timber, a spring, a quern, colonists
@@ -58,6 +58,16 @@ public class BuildTests
             {
                 Assert.True(i < most, "it never happened");
                 RunMinutes(1);
+            }
+        }
+
+        /// <summary>Runs on a second at a time until `done` (failing after `most` seconds).</summary>
+        public void UntilSecond(Func<bool> done, int most = 600 * 60)
+        {
+            for (int i = 0; !done(); i++)
+            {
+                Assert.True(i < most, "it never happened");
+                Colony.Run(1);
             }
         }
 
@@ -162,7 +172,7 @@ public class BuildTests
         // Straight it is 27 m, under a minute's walk; around the wall's end at y = 40 it is about 90 m.
         Assert.True(camp.Ground.Metres(3, 3, 30, 3) > 80);
         ada.Needs["hunger"].Level = 90;
-        camp.RunMinutes(1);
+        camp.Colony.Run(1);                                                // she thinks, and sets off
         Assert.Equal(PersonalKind.Eat, ada.Personal?.Kind);
         camp.RunMinutes(1);
         Assert.Null(ada.Personal!.Left);                                   // still walking after a minute of it
@@ -231,11 +241,11 @@ public class BuildTests
     {
         var camp = new Camp(people: 1);
         camp.Plan("floor", 4, 3);                                     // next to Ada, so she walks almost nothing
-        camp.Until(() => camp.Work.Jobs.Any(j => j.Kind == JobKind.Build && j.Step == Step.Working));
-        long first = camp.Colony.Now.WholeMinutes;                            // the first minute of building is done
-        camp.Until(() => camp.Ground.PieceAt(4, 3) != null);
+        camp.UntilSecond(() => camp.Work.Jobs.Any(j => j.Kind == JobKind.Build && j.Step == Step.Working));
+        long first = camp.Colony.Now.Tick;                                 // the second the building began
+        camp.UntilSecond(() => camp.Ground.PieceAt(4, 3) != null);
         Assert.Equal("floor", camp.Ground.PieceAt(4, 3));
-        Assert.Equal(Real.Pieces["floor"].WorkMinutes, camp.Colony.Now.WholeMinutes - first + 1);
+        Assert.Equal(Real.Pieces["floor"].WorkMinutes * Calendar.TicksPerMinute, camp.Colony.Now.Tick - first);
         Assert.True(camp.Ground.Open(4, 3));                          // a floor does not block
     }
 
@@ -373,11 +383,11 @@ public class BuildTests
         Assert.Equal("A timber wall at (5, 3) is waiting: it is paused.", camp.Work.WhyBuild(wall.Id)!.Player);
         Assert.Equal("Resume it.", camp.Work.WhyBuild(wall.Id)!.NextStep);
         camp.Work.Pause(wall.Id, false);
-        camp.Until(() => camp.Build(wall)?.Step == Step.Working);
-        long again = camp.Colony.Now.WholeMinutes;
-        camp.Until(() => camp.Ground.PieceAt(5, 3) != null);
+        camp.UntilSecond(() => camp.Build(wall)?.Step == Step.Working);
+        long again = camp.Colony.Now.Tick;
+        camp.UntilSecond(() => camp.Ground.PieceAt(5, 3) != null);
         Assert.Equal("wall", camp.Ground.PieceAt(5, 3));
-        Assert.Equal(left, camp.Colony.Now.WholeMinutes - again + 1);              // it carried on; it did not start again
+        Assert.Equal(left, camp.Colony.Now.Tick - again);                  // it carried on (its seconds left); it did not start again
     }
 
     [Fact]
@@ -466,10 +476,13 @@ public class BuildTests
         Assert.Equal(PersonalKind.Eat, ada.Personal?.Kind);
         Assert.Equal(1, camp.Stocks.Reserved(pantry.Id, "ration"));
         camp.Ground.AddPiece("wall", true, 152, 150);
-        camp.RunMinutes(1);
+        camp.Colony.Run(1);                                                // her next think
         Assert.Null(ada.Personal);
         Assert.Equal(0, camp.Stocks.Reserved(pantry.Id, "ration"));        // the ration is let go
         Assert.Equal("cannot reach the store", ada.Lacking);
+        camp.Colony.Run(1);                                                // and the one after: still nothing to be had
+        Assert.Null(ada.Personal);
+        Assert.Equal("no travel ration free in any store they can reach (it is walled off)", ada.Lacking);
     }
 
     [Fact]
