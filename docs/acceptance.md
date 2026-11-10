@@ -138,15 +138,60 @@ Migration: none is supported. Saves of an older version are refused until 1.0
 | Date | Where | Commit | Result |
 |---|---|---|---|
 | 10 Nov 2026 | Cloud (Linux, .NET 8) | step 20a | 144 cases passed, 0 failed (49 tests) |
-| | The maintainer's PC (Windows) | step 20a | to be run |
+| 10 Nov 2026 | The maintainer's PC (Windows) | step 20a | 144 cases passed |
 
 Every FP case passed in the cloud run: FP-01 3, FP-02 1, FP-03 2, FP-04 12,
 FP-05 7, FP-06 6, FP-07 6, FP-08 4, FP-09 10, FP-10 93.
 
+## FP-11: accessible core interactions
+
+Checked by a person: "keyboard/mouse operation, visible focus, legible
+scalable text, and meaningful non-colour-only feedback work for the first
+playable's central workflows". The checklist (from lesson 18b, with the water
+of step 19):
+
+**Keyboard only** (the mouse put aside):
+
+1. Main menu: Tab and the arrows reach every button, the focused one is
+   visibly marked, Enter presses it.
+2. Open a world; pick a founding site from the list on the right; Enter on
+   **Found a colony here**.
+3. In the colony: Space, 1, 2, 3; Tab through the colonists.
+4. B, the arrows to **Small house**, Enter; the arrows move the outline; R and
+   F; Enter places it.
+5. B, **Stockpile**: Enter, the arrows, Enter.
+6. B, **Timber wall**: Enter, the arrows along a line, Enter.
+7. A project (J and its **Go to** button): P, P, X.
+8. The water: inspect its tile (with the mouse: see the known gap below),
+   then K, N and U from the keyboard.
+9. Esc puts down the tool; Esc again opens the menu.
+
+**Mouse only:** the same, by clicking and dragging.
+
+**Text:** Settings, Interface size, at 150% and 200%: everything readable,
+nothing cut off or overlapping.
+
+**Not by colour alone:** a tile that cannot be built is crossed out, not only
+red; the speed in use is named in the Pause button's tooltip; paused projects
+are crossed through; each surface has a symbol; a marked store says so in
+words in the inspector.
+
+**Known gap:** picking a tile to inspect needs the mouse, or J's list (a
+keyboard tile cursor would close it).
+
+| Date | Who | Result |
+|---|---|---|
+| 9 Nov 2026 | The maintainer | Interface size 200%: the bar and the build panel cut off; fixed in 18b |
+| | The maintainer | The whole checklist: to be run |
+
+## FP-12: performance
+
+Measured, not passed or failed: `docs/performance.md`.
+
 ## Still to come
 
-- **FP-11** (accessible core interactions): the maintainer's checklist
-  (step 18b) run once more and its results written here.
-- **FP-12** (performance): step 20b, the named scenarios measured.
+- **FP-11**: the maintainer's run of the whole checklist above.
+- **FP-12**: the maintainer's PC measured; the path-finding bottleneck
+  decided on (`docs/performance.md`).
 - Then a library review recording the results, adopted only on the
   maintainer's word.

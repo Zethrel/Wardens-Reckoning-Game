@@ -1,4 +1,5 @@
 // Copyright (c) 2026 Zethrel. All rights reserved. See LICENSE.
+using System.Diagnostics;
 using WardensReckoning.World;
 
 namespace WardensReckoning.Colony;
@@ -46,6 +47,20 @@ public sealed class Ground
     readonly string[] surfaceOf;
     readonly Dictionary<string, Surface> surfaces = new(StringComparer.Ordinal);
     readonly double[] pieceSpeed;
+
+    /// <summary>
+    /// For measuring only (step 20b, the performance scenarios): how many times a way was asked for, how many of
+    /// them had to be worked out (not already known), and the time that took, in `Stopwatch` ticks
+    /// (`Stopwatch.Frequency` a second). Nothing in the colony reads these, and they are not saved, so measuring
+    /// changes nothing that happens.
+    /// </summary>
+    public long WaysAsked { get; private set; }
+    /// <inheritdoc cref="WaysAsked"/>
+    public long WaysWorked { get; private set; }
+    /// <inheritdoc cref="WaysAsked"/>
+    public long WayTime { get; private set; }
+    /// <summary>How many ways are known now (each holds a number for every tile of the ground).</summary>
+    public int WaysKept => ways.Count;
 
     /// <summary>A ground of `surface` everywhere (if not given: plain ground at a road's speed).</summary>
     public Ground(int width, int height, Surface? surface = null)
@@ -305,8 +320,10 @@ public sealed class Ground
     double[] WayTo(int gx, int gy)
     {
         int goal = Index(gx, gy);
+        WaysAsked++;
         if (ways.TryGetValue(goal, out var known))
             return known;
+        long started = Stopwatch.GetTimestamp();
         var far = new double[Width * Height];
         Array.Fill(far, double.PositiveInfinity);
         far[goal] = 0;
@@ -335,6 +352,8 @@ public sealed class Ground
             }
         }
         ways[goal] = far;
+        WaysWorked++;
+        WayTime += Stopwatch.GetTimestamp() - started;
         return far;
     }
 

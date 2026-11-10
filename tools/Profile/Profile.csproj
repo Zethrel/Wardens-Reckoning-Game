@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Copyright (c) 2026 Zethrel. All rights reserved. See LICENSE. -->
+  <!-- The performance scenarios (step 20b, the design library's FP-12): a console program that runs named colony
+       scenarios and measures them. Plain .NET, no Godot; run it as a Release build:
+       dotnet run -c Release with the project tools/Profile (see Program.cs). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>WardensReckoning.Profile</AssemblyName>
+    <RootNamespace>WardensReckoning.Profile</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Colony/Colony.csproj" />
+  </ItemGroup>
+</Project>

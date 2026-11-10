@@ -42,7 +42,7 @@ carts (**E**), remove a stockpile (**R**). **J** lists what waits and why;
 `dotnet test` in this folder runs the tests of `src/World`, `src/Sim` and `src/Colony`,
 with no Godot needed.
 
-The plan, step by step: `docs/plan.md`. The first playable's evidence, scenario by scenario: `docs/acceptance.md`.
+The plan, step by step: `docs/plan.md`. The first playable's evidence, scenario by scenario: `docs/acceptance.md`. Its performance: `docs/performance.md` (measured with `dotnet run -c Release --project tools/Profile`).
 
 ## Layout
 

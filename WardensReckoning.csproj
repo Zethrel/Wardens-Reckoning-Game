@@ -15,6 +15,7 @@
     <Compile Remove="src/Sim/**" />
     <Compile Remove="src/Colony/**" />
     <Compile Remove="tests/**" />
+    <Compile Remove="tools/**" />
     <ProjectReference Include="src/World/World.csproj" />
     <ProjectReference Include="src/Sim/Sim.csproj" />
     <ProjectReference Include="src/Colony/Colony.csproj" />
