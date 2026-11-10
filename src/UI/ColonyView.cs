@@ -51,6 +51,35 @@ public partial class ColonyView : Node2D
 
     public ColonyView() : this(null!) { }
 
+    // Where each colonist stood before the last tick (step 21b), by their number, and the colony that was: the
+    // colonists are drawn on the way from there to where they are now, as far as the next tick is due, so that a
+    // walk of a metre a second looks like walking, not a hop a second.
+    readonly Dictionary<long, (double X, double Y)> before = new();
+    Colony.Colony? beforeOf;
+
+    /// <summary>How far the next tick is due, 0 to 1 (the pacer's), or 1 when paused: where colonists are drawn
+    /// between where they stood and where they are.</summary>
+    public double Due { get; set; } = 1;
+
+    /// <summary>Notes where everyone stands, just before a tick (the session calls it).</summary>
+    public void Remember()
+    {
+        var now = colony();
+        before.Clear();
+        beforeOf = now;
+        foreach (var w in now.Work?.Workers ?? Array.Empty<Worker>())
+            before[w.Id.Value] = (w.X, w.Y);
+    }
+
+    /// <summary>Where a colonist is drawn now.</summary>
+    Vector2 DrawnAt(Worker w)
+    {
+        if (beforeOf != colony() || !before.TryGetValue(w.Id.Value, out var from))
+            return new Vector2((float)w.X, (float)w.Y);
+        float t = (float)Math.Clamp(Due, 0, 1);
+        return new Vector2((float)(from.X + (w.X - from.X) * t), (float)(from.Y + (w.Y - from.Y) * t));
+    }
+
     /// <summary>`colony` gives the colony to draw each frame (a loaded save replaces the one being played).</summary>
     public ColonyView(Func<Colony.Colony> colony) => this.colony = colony;
 
@@ -220,7 +249,7 @@ public partial class ColonyView : Node2D
         var drawn = new List<(Vector2 At, int Level)>();
         foreach (var w in work.Workers)
         {
-            var at = new Vector2((float)w.X, (float)w.Y);
+            var at = DrawnAt(w);
             // The lowest line no name nearby is on already.
             var taken = drawn.Where(d => Math.Abs(d.At.X - at.X) * pixels < 70 && Math.Abs(d.At.Y - at.Y) * pixels < 20)
                              .Select(d => d.Level).ToHashSet();
@@ -228,7 +257,7 @@ public partial class ColonyView : Node2D
             while (taken.Contains(level))
                 level++;
             drawn.Add((at, level));
-            var middle = new Vector2((float)w.X, (float)w.Y);
+            var middle = at;
             DrawCircle(middle, radius, w.Collapsed != null ? new Color(0.6f, 0.6f, 0.6f) : new Color(0.95f, 0.85f, 0.65f));
             DrawArc(middle, radius, 0, Mathf.Tau, 20, Ink, radius * 0.18f);
             if (SelectedWorker == w.Id)

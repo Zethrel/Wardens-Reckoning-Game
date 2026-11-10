@@ -156,7 +156,7 @@ of step 19):
    visibly marked, Enter presses it.
 2. Open a world; pick a founding site from the list on the right; Enter on
    **Found a colony here**.
-3. In the colony: Space, 1, 2, 3; Tab through the colonists.
+3. In the colony: Space, 1 to 5 (the speeds, step 21b); Tab through the colonists.
 4. B, the arrows to **Small house**, Enter; the arrows move the outline; R and
    F; Enter places it.
 5. B, **Stockpile**: Enter, the arrows, Enter.

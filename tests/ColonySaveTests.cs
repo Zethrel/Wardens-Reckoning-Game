@@ -277,12 +277,15 @@ public class ColonySaveTests
     public void The_session_runs_ticks_at_the_chosen_speed()
     {
         var session = new Session(FirstDay(), Folder());
-        Assert.Equal(120, session.Frame(1.0));                                  // ×1: two game minutes a real second
-        session.Speed = Speed.Triple;
-        Assert.Equal(360, session.Frame(1.0));
+        int before = 0;
+        session.BeforeTick += () => before++;
+        Assert.Equal(1, session.Frame(1.0));                                    // ×1: a game second a real second
+        session.Speed = Speed.X60;
+        Assert.Equal(60, session.Frame(1.0));
+        Assert.Equal(61, before);                                               // told before each tick
         session.Speed = Speed.Paused;
         Assert.Equal(0, session.Frame(5.0));
-        Assert.Equal(Arrival.Tick + 480, session.Colony.Now.Tick);
+        Assert.Equal(Arrival.Tick + 61, session.Colony.Now.Tick);
     }
 
     [Fact]
@@ -290,9 +293,9 @@ public class ColonySaveTests
     {
         string folder = Folder();
         var session = new Session(FirstDay(), Path.Combine(folder, "autosaves"));
-        session.Speed = Speed.Triple;
+        session.Speed = Speed.X60;
         var days = new Dictionary<int, long>();
-        // Four mornings, a frame at a time (10 real seconds a frame at ×3 is 60 ticks, the most a frame runs).
+        // Four mornings, a frame at a time (10 real seconds a frame at ×60 is 600 ticks, the most a frame runs).
         while (session.Colony.Now.Tick < Arrival.Tick + 4 * Calendar.TicksPerDay)
         {
             var before = session.Colony.Now;
@@ -307,7 +310,7 @@ public class ColonySaveTests
         {
             var saved = ColonySave.Load(Autosave.PathOf(Path.Combine(folder, "autosaves"), slot), Real);
             Assert.Equal(day, saved.Now.AbsoluteDay);
-            Assert.Equal(Autosave.MorningMinute, saved.Now.MinuteOfDay);          // saved at 06:00 exactly
+            Assert.Equal(Autosave.MorningMinute * 60, saved.Now.SecondOfDay);     // saved at 06:00:00 exactly
         }
         // The newest one is found, and loads.
         var skipped = new List<string>();
@@ -323,7 +326,7 @@ public class ColonySaveTests
         string blocked = Path.Combine(folder, "autosaves");
         File.WriteAllText(blocked, "a file where the folder should be");
         var session = new Session(FirstDay(), blocked);
-        session.Speed = Speed.Triple;
+        session.Speed = Speed.X60;
         while (session.Colony.Now.Tick < Arrival.Tick + Calendar.TicksPerDay)
             session.Frame(10);
         Assert.Contains("The morning autosave failed", Assert.Single(session.Reports));

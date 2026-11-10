@@ -121,6 +121,10 @@ public readonly record struct Moment(long Tick)
         Ordinal(DayOfMonth) + " of " + Calendar.MonthNames[Month - 1] + ", Year " + Year.ToString(CultureInfo.InvariantCulture)
         + ", " + Hour.ToString("00", CultureInfo.InvariantCulture) + ":" + Minute.ToString("00", CultureInfo.InvariantCulture);
 
+    /// <summary>As the colony screen's bar shows it, with the seconds: "14th of Orven, Year 12, 06:30:15".</summary>
+    public string WithSeconds =>
+        Ordinal(DayOfMonth) + " of " + Calendar.MonthNames[Month - 1] + ", Year " + Year.ToString(CultureInfo.InvariantCulture) + ", " + Clock;
+
     /// <summary>1st, 2nd, 3rd, 4th... 11th, 12th, 13th, 21st, 22nd.</summary>
     public static string Ordinal(int n)
     {

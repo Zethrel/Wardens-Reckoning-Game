@@ -29,7 +29,7 @@ public partial class ColonyScreen : Node
     Label? clock;
     Label? said;
     Button? pause;
-    readonly Button[] speeds = new Button[3];
+    readonly Button[] speeds = new Button[Pacer.Speeds.Length];
     VBoxContainer? inspector;
     VBoxContainer? commandBox;
     string shownCommands = "";
@@ -54,6 +54,12 @@ public partial class ColonyScreen : Node
 
     Colony.Colony Colony => session.Colony;
 
+    public override void _ExitTree()
+    {
+        if (view != null)
+            session.BeforeTick -= view.Remember;
+    }
+
     public override void _Ready()
     {
         // Laid out as the world map's screen is: the map in a SubViewport in the middle, panels around it.
@@ -75,6 +81,7 @@ public partial class ColonyScreen : Node
         frame.AddChild(port);
         view = new ColonyView(() => Colony);
         port.AddChild(view);
+        session.BeforeTick += view.Remember;
         camera = new MapCamera(Colony.Ground!.Width);
         port.AddChild(camera);
         // Start close, over the colonists (a whole local map is 256 metres; a colonist would be a speck).
@@ -111,10 +118,11 @@ public partial class ColonyScreen : Node
         row.AddThemeConstantOverride("v_separation", 4);
         bar.AddChild(row);
         pause = Bar(row, "Pause", "Pause or play (Space)", TogglePause);
-        for (int i = 0; i < 3; i++)
+        // The speeds (library Review 39): 1x is real time, a game second a real second.
+        for (int i = 0; i < Pacer.Speeds.Length; i++)
         {
-            var speed = (Speed)(i + 1);
-            speeds[i] = Bar(row, (i + 1) + "x", "Speed " + (i + 1) + " (key " + (i + 1) + ")", () => SetSpeed(speed));
+            var speed = Pacer.Speeds[i];
+            speeds[i] = Bar(row, (int)speed + "x", SpeedText(speed) + " (key " + (i + 1) + ")", () => SetSpeed(speed));
             speeds[i].ToggleMode = true;
         }
         clock = new Label { CustomMinimumSize = new Vector2(250, 0), VerticalAlignment = VerticalAlignment.Center,
@@ -157,8 +165,9 @@ public partial class ColonyScreen : Node
     public override void _Process(double delta)
     {
         session.Frame(delta);
+        view!.Due = session.Speed == Speed.Paused ? 1 : session.Pacer.Due;
         FitBuildPanel();
-        clock!.Text = Colony.Now.ToString();
+        clock!.Text = Colony.Now.WithSeconds;
         // Anything the session has to tell (a failed autosave, a warning about a loaded save) is shown on the bar.
         if (session.Reports.Count > reportsShown)
         {
@@ -186,9 +195,18 @@ public partial class ColonyScreen : Node
 
     void TogglePause() => SetSpeed(session.Speed == Speed.Paused ? lastSpeed : Speed.Paused);
 
-    Speed lastSpeed = Speed.Normal;
+    Speed lastSpeed = Speed.X1;
 
-    /// <summary>Sets the speed (Paused, Normal, Double, Triple), and shows it on the bar.</summary>
+    /// <summary>What a speed means, in words: "1x: a game second a real second (a day in 24 hours)".</summary>
+    static string SpeedText(Speed speed)
+    {
+        double dayMinutes = Calendar.TicksPerDay / (double)(int)speed / 60;
+        string day = dayMinutes >= 120 ? (dayMinutes / 60).ToString("0.#") + " hours" : dayMinutes.ToString("0.#") + " minutes";
+        string pace = speed == Speed.X1 ? "a game second a real second" : (int)speed + " game seconds a real second";
+        return (int)speed + "x: " + pace + " (a day in " + day + ")";
+    }
+
+    /// <summary>Sets the speed (Paused or one of `Pacer.Speeds`), and shows it on the bar.</summary>
     public void SetSpeed(Speed speed)
     {
         if (speed != Speed.Paused)
@@ -203,8 +221,8 @@ public partial class ColonyScreen : Node
     {
         bool paused = session.Speed == Speed.Paused;
         pause!.Text = paused ? "Play" : "Pause";
-        for (int i = 0; i < 3; i++)
-            speeds[i].ButtonPressed = !paused && (int)session.Speed == i + 1;
+        for (int i = 0; i < speeds.Length; i++)
+            speeds[i].ButtonPressed = !paused && session.Speed == Pacer.Speeds[i];
         pause.TooltipText = paused ? "Paused: play at " + (int)lastSpeed + "x (Space)" : "Playing at " + (int)session.Speed + "x: pause (Space)";
     }
 
@@ -382,14 +400,8 @@ public partial class ColonyScreen : Node
             case Key.Space:
                 TogglePause();
                 break;
-            case Key.Key1:
-                SetSpeed(Speed.Normal);
-                break;
-            case Key.Key2:
-                SetSpeed(Speed.Double);
-                break;
-            case Key.Key3:
-                SetSpeed(Speed.Triple);
+            case >= Key.Key1 and <= Key.Key5:
+                SetSpeed(Pacer.Speeds[(int)(key.Keycode - Key.Key1)]);
                 break;
             case Key.Tab:
                 NextWorker();

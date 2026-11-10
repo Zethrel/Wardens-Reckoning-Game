@@ -1,36 +1,47 @@
 // Copyright (c) 2026 Zethrel. All rights reserved. See LICENSE.
 namespace WardensReckoning.Colony;
 
-/// <summary>The speeds the player can choose (library Review 30): paused, or 1, 2 or 3 times normal.</summary>
+/// <summary>
+/// The speeds the player can choose (library Review 39): paused, or 1, 3, 10, 30 or 60 times real time. The
+/// number of each is how many game seconds pass in a real second.
+/// </summary>
 public enum Speed
 {
     Paused = 0,
-    Normal = 1,
-    Double = 2,
-    Triple = 3,
+    X1 = 1,
+    X3 = 3,
+    X10 = 10,
+    X30 = 30,
+    X60 = 60,
 }
 
 /// <summary>
-/// Turns real time into ticks. For now (step 21a) the screen keeps the pace of library Review 30: at normal speed
-/// a day lasts 12 real minutes, 86,400 ticks in 720 seconds, so 120 ticks (two game minutes) a real second; double
-/// speed is 240 and triple 360. Step 21b brings Review 39's speeds (real time at ×1, up to ×60).
+/// Turns real time into ticks. A tick is a game second, and at ×1 a game second lasts a real second (library Review
+/// 39): a day takes 24 real hours at ×1, and 24 real minutes at ×60.
 ///
 /// This is the only place real time touches the colony, and it only says how many ticks to run. The simulation
-/// itself never sees seconds or frames, so the same ticks always give the same colony, however fast or slow the
-/// screen draws (FP-01: "advancement cannot depend on UI rendering timing"). The part of a tick not yet due is
-/// carried over to the next frame and is not part of the colony's state.
+/// itself never sees real seconds or frames, so the same ticks always give the same colony, however fast or slow
+/// the screen draws (FP-01: "advancement cannot depend on UI rendering timing"). The part of a tick not yet due is
+/// carried over to the next frame and is not part of the colony's state; the screen uses it to draw walkers
+/// between two ticks (`Due`).
 /// </summary>
 public sealed class Pacer
 {
-    /// <summary>Ticks a real second at normal speed.</summary>
-    public const double TicksPerSecond = Calendar.TicksPerDay / (12.0 * 60.0);
+    /// <summary>The speeds in order, for the screen's buttons and keys 1 to 5.</summary>
+    public static readonly Speed[] Speeds = { Speed.X1, Speed.X3, Speed.X10, Speed.X30, Speed.X60 };
 
-    /// <summary>The most ticks one frame may ask for (an hour of game time: ten real seconds at triple speed). If
-    /// the computer stalls, the game slows down instead of trying to catch up all at once.</summary>
-    public const int MostTicksAFrame = 60 * Calendar.TicksPerMinute;
+    /// <summary>Ticks a real second at ×1: one.</summary>
+    public const double TicksPerSecond = 1;
+
+    /// <summary>The most ticks one frame may ask for: ten real seconds at ×60. If the computer stalls, the game
+    /// slows down instead of trying to catch up all at once.</summary>
+    public const int MostTicksAFrame = 600;
 
     double owed;
-    public Speed Speed { get; set; } = Speed.Normal;
+    public Speed Speed { get; set; } = Speed.X1;
+
+    /// <summary>How far the next tick is due, from 0 (just run) to just under 1 (about to run).</summary>
+    public double Due => Speed == Speed.Paused ? 0 : Math.Clamp(owed, 0, 1);
 
     /// <summary>How many ticks to run after `seconds` of real time at the current speed.</summary>
     public int TicksFor(double seconds)
@@ -42,7 +53,7 @@ public sealed class Pacer
         // within a billionth of being due counts as due.
         int whole = (int)Math.Min(Math.Floor(owed + 1e-9), MostTicksAFrame);
         owed -= whole;
-        if (owed > MostTicksAFrame)
+        if (owed >= 1)
             owed = 0;      // what could not be run after a stall is dropped, not saved up
         return whole;
     }

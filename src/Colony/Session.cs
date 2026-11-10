@@ -25,12 +25,16 @@ public sealed class Session
     public string Autosaves { get; }
     public Pacer Pacer { get; } = new();
 
-    /// <summary>The speed the player chose (paused, or 1, 2 or 3 times normal).</summary>
+    /// <summary>The speed the player chose (paused, or 1, 3, 10, 30 or 60 times real time).</summary>
     public Speed Speed
     {
         get => Pacer.Speed;
         set => Pacer.Speed = value;
     }
+
+    /// <summary>Called just before each tick a frame runs (the screen notes where everyone stands, to draw them
+    /// walking smoothly from there).</summary>
+    public event Action? BeforeTick;
 
     /// <summary>What the player should be told, oldest first: failed saves, warnings about a loaded save.</summary>
     public IReadOnlyList<string> Reports => reports;
@@ -45,6 +49,7 @@ public sealed class Session
         for (int i = 0; i < ticks; i++)
         {
             var before = Colony.Now;
+            BeforeTick?.Invoke();
             Colony.Run(1);
             if (Autosave.MorningPassed(before, Colony.Now))
                 AutosaveNow();

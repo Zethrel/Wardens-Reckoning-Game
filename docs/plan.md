@@ -50,7 +50,7 @@ in `docs/lessons/`.
 | 20c | Path-finding about twice as fast with the same ways (a priority queue, and neighbours already done passed over), and at most 512 ways kept (the least lately asked for forgotten); measured again; FP-11 passed by the maintainer, and the PC's measurements, in the records (lesson 20c) | 10 Nov |
 | | Library Review 39 (adopted 10 Nov): the first playable accepted on the minute clock; one tick is one game second, real time at ×1, speeds Pause, ×1, ×3, ×10, ×30, ×60 (chosen after a throwaway trial of three clocks) | 10 Nov |
 | 21a | The second tick in the colony (library Review 39): a tick is a game second; walking is done every second towards where each colonist is heading, everything else on the whole minutes as before; saves version 13 (ticks in seconds, each colonist's heading); the screen keeps its old pace until 21b (lesson 21a) | 10 Nov |
-| 21b | The screen on the second tick: the speeds Pause, ×1, ×3, ×10, ×30, ×60; the clock with its seconds | |
+| 21b | The screen on the second tick: the speeds Pause, ×1 (real time), ×3, ×10, ×30, ×60 on the bar and keys 1 to 5, each named with how long a day takes; the clock with its seconds; colonists drawn walking smoothly between two ticks (lesson 21b) | 10 Nov |
 | 21c | Every first-playable scenario again on the second tick, and the performance scenarios measured again | |
 | 22 | Asking for fewer ways: jobs ranked by straight-line distance first, measured against one search outward from each colonist choosing | |
 | | Then: skills and character development; basic healthcare; the colony joins the world's years; the Wardens' war, peace, path and rituals; the legacy number; losing when the Wardens fall | |
