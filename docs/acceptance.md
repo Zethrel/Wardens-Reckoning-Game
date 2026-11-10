@@ -182,7 +182,7 @@ keyboard tile cursor would close it).
 | Date | Who | Result |
 |---|---|---|
 | 9 Nov 2026 | The maintainer | Interface size 200%: the bar and the build panel cut off; fixed in 18b |
-| | The maintainer | The whole checklist: to be run |
+| 10 Nov 2026 | The maintainer | The whole checklist: nothing failed |
 
 ## FP-12: performance
 
@@ -190,8 +190,7 @@ Measured, not passed or failed: `docs/performance.md`.
 
 ## Still to come
 
-- **FP-11**: the maintainer's run of the whole checklist above.
-- **FP-12**: the maintainer's PC measured; the path-finding bottleneck
-  decided on (`docs/performance.md`).
+- **FP-12**: the path-finding bottleneck (steps 20c and 20d,
+  `docs/performance.md`).
 - Then a library review recording the results, adopted only on the
   maintainer's word.

@@ -29,6 +29,51 @@ public class MeasureTests
     }
 
     [Fact]
+    public void Past_the_most_ways_kept_the_least_lately_asked_for_is_forgotten()
+    {
+        var ground = new Ground(20, 20) { MostWays = 2 };
+        Assert.Equal(512, Ground.DefaultMostWays);
+        ground.Metres(0, 0, 10, 10);                            // a way to (10, 10)
+        ground.Metres(0, 0, 3, 3);                              // and to (3, 3)
+        ground.Metres(5, 5, 10, 10);                            // (10, 10) asked for again: (3, 3) is the older
+        ground.Metres(0, 0, 15, 15);                            // a third: (3, 3) is forgotten
+        Assert.Equal((3, 2), (ground.WaysWorked, ground.WaysKept));
+        ground.Metres(1, 1, 10, 10);                            // still known
+        Assert.Equal(3, ground.WaysWorked);
+        ground.Metres(1, 1, 3, 3);                              // worked out again
+        Assert.Equal(4, ground.WaysWorked);
+    }
+
+    [Fact]
+    public void A_way_forgotten_and_worked_out_again_is_the_same_way()
+    {
+        // The content's test ground (its rough patches and what is in the way) with a wall and a road added:
+        // every tile's metres to one goal, kept or worked out again after being forgotten, the same.
+        var content = Content.Load(Path.Combine(AppContext.BaseDirectory, "content"));
+        Ground Made(int most)
+        {
+            var g = Ground.Test(content);
+            g.MostWays = most;
+            for (int y = 5; y < 25; y++)
+                g.AddPiece("wall", blocks: true, 15, y);
+            for (int x = 0; x < g.Width; x++)
+                g.AddPiece("road", blocks: false, x, 27, speed: 1.0);
+            return g;
+        }
+        double[] Every(Ground g) => Enumerable.Range(0, g.Width * g.Height).Select(i => g.Metres(i % g.Width, i / g.Width, 20, 10)).ToArray();
+        var first = Every(Made(512));
+        var small = Made(1);
+        small.Metres(0, 0, 1, 1);
+        var again = Every(small);
+        small.Metres(0, 0, 2, 2);                               // pushes the way to (20, 10) out
+        Assert.Equal(first, again);
+        Assert.Equal(first, Every(small));
+        Assert.Equal(4, small.WaysWorked);                     // (1, 1), (20, 10), (2, 2), (20, 10) again
+        // From (10, 15), on the far side of the wall: round its end, well over the 11.2 m straight across.
+        Assert.True(first[10 + 15 * small.Width] > Math.Sqrt(125) + 5);
+    }
+
+    [Fact]
     public void Measuring_changes_nothing_that_happens()
     {
         // The counters are not saved: a colony whose ways were counted saves exactly as one just loaded.

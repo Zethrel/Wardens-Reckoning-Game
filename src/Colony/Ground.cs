@@ -38,8 +38,10 @@ public sealed class Ground
     readonly bool[] blocked;
     readonly bool[] pieceBlocks;
     readonly bool[] encloses;
-    // Ways already worked out, by the tile they lead to; forgotten whenever something that blocks is built.
-    readonly Dictionary<int, double[]> ways = new();
+    // Ways already worked out, by the tile they lead to, each with when it was last asked for (a count of the
+    // asking); forgotten whenever something that blocks is built, and the least lately asked for when there are
+    // more than `MostWays` (step 20c).
+    readonly Dictionary<int, (double[] Far, long Asked)> ways = new();
     // The rooms, once worked out; forgotten whenever anything is built.
     List<IReadOnlyList<(int X, int Y)>>? rooms;
     int[]? roomOf;
@@ -61,6 +63,21 @@ public sealed class Ground
     public long WayTime { get; private set; }
     /// <summary>How many ways are known now (each holds a number for every tile of the ground).</summary>
     public int WaysKept => ways.Count;
+
+    /// <summary>
+    /// How many ways are kept at most (step 20c). Each holds a number for every tile: on a local map of 256 ×
+    /// 256 tiles that is half a megabyte, so 512 ways are 256 MB. When a way is worked out and there are already
+    /// this many, the one least lately asked for is forgotten (and worked out again if it is asked for again: the
+    /// same way, so this changes only how long things take, never what happens).
+    ///
+    /// It is a ceiling, not a saving: the colonists ask for a way to every job they weigh up, and with fewer kept
+    /// than the jobs in play they work the same ways out again and again (measured in step 20c: 300 walls planned
+    /// and 64 kept took five times as long as keeping them all).
+    /// </summary>
+    public int MostWays { get; set; } = DefaultMostWays;
+
+    /// <summary>The usual `MostWays`.</summary>
+    public const int DefaultMostWays = 512;
 
     /// <summary>A ground of `surface` everywhere (if not given: plain ground at a road's speed).</summary>
     public Ground(int width, int height, Surface? surface = null)
@@ -315,43 +332,58 @@ public sealed class Ground
     /// <summary>
     /// The way to a tile: for every tile, the metres of walking from its centre to the centre of (gx, gy), or
     /// infinity where there is no way. Worked out once (Dijkstra's method: spread out from the goal, always
-    /// going on from the nearest tile not yet done) and kept until something blocking is built.
+    /// going on from the nearest tile not yet done) and kept until something blocking is built, or until it is the
+    /// least lately asked for of more than `MostWays`.
     /// </summary>
     double[] WayTo(int gx, int gy)
     {
         int goal = Index(gx, gy);
         WaysAsked++;
         if (ways.TryGetValue(goal, out var known))
-            return known;
+        {
+            ways[goal] = (known.Far, WaysAsked);
+            return known.Far;
+        }
         long started = Stopwatch.GetTimestamp();
         var far = new double[Width * Height];
         Array.Fill(far, double.PositiveInfinity);
         far[goal] = 0;
-        // Tiles still to do, nearest first (and the lower index on a tie, so it always works out the same).
-        var todo = new SortedSet<(double Metres, int Index)> { (0, goal) };
-        while (todo.Count > 0)
+        // Tiles still to do, nearest first. A tile is put in again each time a quicker way to it is found, and
+        // the older entries are passed over when they come out (`metres > far[i]`): cheaper than finding and
+        // taking out the old entry (step 20c; until then a SortedSet did that). Which of two equally near tiles
+        // comes out first does not matter: the metres every tile ends with are the same either way.
+        var todo = new PriorityQueue<int, double>();
+        todo.Enqueue(goal, 0);
+        while (todo.TryDequeue(out int i, out double metres))
         {
-            var (metres, i) = todo.Min;
-            todo.Remove(todo.Min);
+            if (metres > far[i])
+                continue;                                       // an older entry: this tile is already done
             int x = i % Width, y = i / Width;
+            // Stepping from a neighbour onto this tile: the step's length at this tile's speed.
+            double speed = Speed(x, y);
             foreach (var (dx, dy, step) in Steps)
             {
+                if (!Inside(x + dx, y + dy))
+                    continue;
+                int n = Index(x + dx, y + dy);
+                // A neighbour already as near as this tile cannot be reached any quicker through it: skip it
+                // before the dearer checks below (step 20c).
+                if (far[n] <= metres)
+                    continue;
                 // A step from the neighbour to here is allowed exactly when a step from here to it is.
                 if (!CanStep(x, y, dx, dy))
                     continue;
-                int n = Index(x + dx, y + dy);
-                // Stepping from the neighbour onto this tile: its length at this tile's speed.
-                double through = metres + step / Speed(x, y);
+                double through = metres + step / speed;
                 if (through < far[n])
                 {
-                    if (!double.IsPositiveInfinity(far[n]))
-                        todo.Remove((far[n], n));
                     far[n] = through;
-                    todo.Add((through, n));
+                    todo.Enqueue(n, through);
                 }
             }
         }
-        ways[goal] = far;
+        if (ways.Count >= MostWays)
+            ways.Remove(ways.MinBy(w => w.Value.Asked).Key);    // the least lately asked for
+        ways[goal] = (far, WaysAsked);
         WaysWorked++;
         WayTime += Stopwatch.GetTimestamp() - started;
         return far;

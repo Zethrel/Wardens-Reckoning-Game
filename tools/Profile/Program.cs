@@ -32,13 +32,16 @@ namespace WardensReckoning.Profile;
 /// Measuring only reads the colony: the same scenario plays out the same, measured or not.
 ///
 /// Run it as a Release build, from the repository's folder:
-/// <code>dotnet run -c Release --project tools/Profile -- [scenario...] [--site site-01.json] [--out results.md]</code>
+/// <code>dotnet run -c Release --project tools/Profile -- [scenario...] [--site site-01.json] [--out results.md] [--most-ways n]</code>
 /// Without a scenario, all five run. Without `--site`, the colonies stand on the program's own map (256 × 256
 /// tiles, a brook, trees and rocks, always the same); with it, on that local map from a world's export.
 /// </summary>
 public static class Program
 {
     const int WarmUp = 60;
+
+    // How many ways the ground keeps at most (`--most-ways`; if not given, the game's own).
+    static int MostWays = Ground.DefaultMostWays;
 
     static readonly Moment Start = new(Calendar.TickOf(1, 4, 1, 8, 0));
 
@@ -52,6 +55,8 @@ public static class Program
                 site = args[++i];
             else if (args[i] == "--out" && i + 1 < args.Length)
                 outPath = args[++i];
+            else if (args[i] == "--most-ways" && i + 1 < args.Length)
+                MostWays = int.Parse(args[++i], CultureInfo.InvariantCulture);
             else
                 names.Add(args[i]);
         }
@@ -72,6 +77,7 @@ public static class Program
                           + " on " + RuntimeInformation.OSDescription + ", " + Environment.ProcessorCount + " logical processors, "
                           + RuntimeInformation.FrameworkDescription + (Debugger.IsAttached ? " (debugger attached)" : "")
                           + (IsRelease ? ", Release build" : ", DEBUG BUILD: not comparable") + ".");
+        report.AppendLine("Ways kept at most: " + MostWays + ".");
         report.AppendLine("Map: " + (site == null ? "the profiler's own (256 × 256, a brook, trees and rocks)" : Path.GetFileName(site) + " (" + map.Size + " × " + map.Size + ")") + ".");
         report.AppendLine();
         report.AppendLine("| Scenario | Ticks | Tick mean ms | Median | 95% | 99% | Slowest | Ways asked | Worked out | Their ms | Most kept | Peak MB | GCs (0/1/2) |");
@@ -121,6 +127,7 @@ public static class Program
     static (Colony.Colony Colony, Action<Colony.Colony>? Command, int Days) Setup(string name, Content content, LocalMap map)
     {
         var (colony, carts) = Founding.Found(20, Start, content, map);
+        colony.Ground!.MostWays = MostWays;
         if (name == "idle")
             return (colony, null, 3);
         var work = colony.Work!;

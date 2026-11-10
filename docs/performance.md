@@ -77,9 +77,67 @@ on site 01.
 interrupted; 47/8/5 in arbitration on the own map, 13/1/0 on site 01. The
 process's peak working set was about 890 MB in a run of all five.
 
-### The maintainer's PC
+### The maintainer's PC, 10 November 2026
 
-To be measured.
+Windows 10.0.26200, 16 logical processors, .NET 8.0.33, Release build; the
+same commit (step 20b). Every count (ways asked and worked out, walls built)
+is the same as in the cloud, to the unit: the colony plays out the same on
+Windows and Linux.
+
+**The profiler's own map:**
+
+| Scenario | Mean | Median | 95% | 99% | Slowest | Worked out | Their ms | Peak MB |
+|---|---|---|---|---|---|---|---|---|
+| idle | 0.045 | 0.011 | 0.015 | 0.034 | 101 | 4 | 134 | 31 |
+| hauling | 0.145 | 0.072 | 0.265 | 0.375 | 104 | 8 | 273 | 56 |
+| arbitration | 7.80 | 0.961 | 4.16 | 48.2 | 1,454 | 1,852 | 17,883 | 565 |
+| interrupted | 0.037 | 0.017 | 0.063 | 0.089 | 31 | 8 | 78 | 123 |
+
+**Site 01:**
+
+| Scenario | Mean | Median | 95% | 99% | Slowest | Worked out | Their ms | Peak MB |
+|---|---|---|---|---|---|---|---|---|
+| idle | 0.041 | 0.011 | 0.015 | 0.032 | 87 | 4 | 116 | 30 |
+| hauling | 0.131 | 0.066 | 0.206 | 0.280 | 89 | 7 | 203 | 55 |
+| arbitration | 1.93 | 0.954 | 3.69 | 33.7 | 103 | 246 | 1,903 | 325 |
+| interrupted | 0.033 | 0.016 | 0.049 | 0.070 | 22 | 7 | 52 | 62 |
+
+**Saving:** 479 KB (20 KB more than in the cloud, most likely because Windows
+ends each line with two characters and Linux with one; not checked), text 9.7 / 30 ms, written 31 / 56 ms, loaded 20 / 32 ms on the own
+map; 8.5 / 25, 29 / 48 and 19 / 37 ms on site 01.
+
+The PC is about twice as fast as the cloud machine throughout; the
+bottleneck is the same.
+
+### After step 20c, cloud, 10 November 2026
+
+The faster search (the same ways, worked out about twice as fast) and a
+ceiling of 512 ways kept. The same machine as above; the counts are
+unchanged, as they must be.
+
+| Scenario | Map | Mean | 99% | Slowest | Their ms | Before: mean / slowest / their ms |
+|---|---|---|---|---|---|---|
+| idle | own | 0.050 | 0.069 | 70 | 93 | 0.079 / 165 / 224 |
+| hauling | own | 0.249 | 0.677 | 67 | 183 | 0.301 / 140 / 415 |
+| arbitration | own | 7.61 | 41.4 | 1,189 | 14,517 | 14.9 / 2,636 / 33,809 |
+| interrupted | own | 0.053 | 0.136 | 23 | 62 | 0.071 / 50 / 140 |
+| idle | site 01 | 0.060 | 0.135 | 66 | 86 | 0.076 / 157 / 206 |
+| hauling | site 01 | 0.278 | 0.758 | 67 | 142 | 0.308 / 126 / 322 |
+| arbitration | site 01 | 3.02 | 35.4 | 125 | 1,840 | 4.13 / 230 / 3,955 |
+| interrupted | site 01 | 0.052 | 0.130 | 22 | 48 | 0.066 / 44 / 107 |
+
+Peak memory is unchanged (arbitration about 600 MB on the own map): the
+ceiling is above the 302 ways that scenario keeps. A ceiling below the goals
+in play makes the colonists work the same ways out again and again; measured
+on the own map's arbitration:
+
+| Most ways kept | Worked out | Mean ms | Peak MB |
+|---|---|---|---|
+| 64 | 37,346 | 71.4 | 260 |
+| 128 | 32,442 | 56.6 | 257 |
+| 256 | 6,680 | 7.8 | 718 |
+| 320 | 1,852 | 8.0 | 607 |
+| no ceiling | 1,852 | 8.6 | 607 |
 
 ## Assessment
 
@@ -112,5 +170,8 @@ the number of pieces; to be looked into with the fix.
 **Not measured yet:** colonies larger than twelve; maps larger than 256; the
 screen's own drawing time (Godot); the maintainer's PC.
 
-The fix is a decision for the maintainer (the next step); this step changes
-nothing in how ways are found.
+Decided (the maintainer, 10 November): step 20c makes the search faster with
+the same results and sets a ceiling (512) on the ways kept; step 20d measures
+two ways of asking for fewer ways (ranking jobs by straight-line distance
+first, or one search outward from each colonist choosing). After 20c the
+slowest minute with 300 walls planned is still 1.2 s in the cloud.
