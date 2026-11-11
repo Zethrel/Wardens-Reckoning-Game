@@ -207,7 +207,7 @@ Measured, not passed or failed: `docs/performance.md`.
 
 ## Still to come
 
-- **FP-12**: the path-finding bottleneck (step 22, `docs/performance.md`),
-  measured on the second tick in step 21d.
+- **FP-12**: measured on the second tick (step 21d); the path-finding freezes
+  taken away by the areas (step 22, `docs/performance.md`).
 - Then a library review recording the results, adopted only on the
   maintainer's word.

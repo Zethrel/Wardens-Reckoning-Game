@@ -53,7 +53,7 @@ in `docs/lessons/`.
 | 21b | The screen on the second tick: the speeds Pause, ×1 (real time), ×3, ×10, ×30, ×60 on the bar and keys 1 to 5, each named with how long a day takes; the clock with its seconds; colonists drawn walking smoothly between two ticks (lesson 21b) | 10 Nov |
 | 21c | Each colonist thinks on their own rhythm, every 2 to 7 seconds (`think_seconds`, drawn once, the first thinks spread out); an order is thought over the next second; work and personal tasks counted in seconds from when they began; loading and unloading 5 seconds each (`pickup_seconds`, `drop_seconds`); a finished job makes the workplaces ask again at once; the colony's own work (needs, asking, supplying) stays on the whole minutes; saves version 14 (lesson 21c) | |
 | 21d | Every first-playable scenario again on the second tick (FP-08 saving at any second of the minute), and the performance scenarios measured again, with the slowest tick between the minutes and the time a tick has at each speed (lesson 21d) | |
-| 22 | Asking for fewer ways: jobs ranked by straight-line distance first, measured against one search outward from each colonist choosing | |
+| 22 | Asking for fewer ways: measured where the ways go (choosing jobs nobody can reach); areas, so a way that cannot exist is never searched for (the maintainer's choice over ranking by straight line or one search per colonist, which stay for later if needed); measured on several variations (lesson 22) | |
 | | Then: skills and character development; basic healthcare; the colony joins the world's years; the Wardens' war, peace, path and rituals; the legacy number; losing when the Wardens fall | |
 
 For each step, the generator adds what that system carries from year to year

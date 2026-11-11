@@ -673,6 +673,9 @@ public sealed partial class Work
             return Distance(ax, ay, bx, by);
         var (tx, ty) = Ground.TileOf(ax, ay);
         var (gx, gy) = Ground.TileOf(bx, by);
+        // No way at all (walled in, across water): known from the areas, without working out a way (step 22).
+        if (!ground.CanReach(tx, ty, gx, gy))
+            return double.PositiveInfinity;
         return ground.Metres(tx, ty, gx, gy);
     }
 

@@ -42,6 +42,9 @@ public sealed class Ground
     // asking); forgotten whenever something that blocks is built, and the least lately asked for when there are
     // more than `MostWays` (step 20c).
     readonly Dictionary<int, (double[] Far, long Asked)> ways = new();
+    // The areas, once worked out (step 22): for every tile, the number of the area of open tiles it belongs to, or
+    // -1 if it is blocked. Forgotten whenever a tile becomes blocked or open.
+    int[]? areaOf;
     // The rooms, once worked out; forgotten whenever anything is built.
     List<IReadOnlyList<(int X, int Y)>>? rooms;
     int[]? roomOf;
@@ -234,7 +237,13 @@ public sealed class Ground
 
     /// <summary>Whether a tile is blocked: something in the way on it, a piece that blocks, or a surface that cannot be
     /// walked on (water).</summary>
-    void Reblock(int i) => blocked[i] = obstacles[i] != null || pieceBlocks[i] || !surfaces[surfaceOf[i]].CanWalk;
+    void Reblock(int i)
+    {
+        bool was = blocked[i];
+        blocked[i] = obstacles[i] != null || pieceBlocks[i] || !surfaces[surfaceOf[i]].CanWalk;
+        if (blocked[i] != was)
+            areaOf = null;                                // the areas are worked out again when next asked for
+    }
 
     /// <summary>Whether a tile is water, or anything else that cannot be walked on by its surface.</summary>
     public bool Water(int x, int y) => Inside(x, y) && !surfaces[surfaceOf[Index(x, y)]].CanWalk;
@@ -387,6 +396,87 @@ public sealed class Ground
         WaysWorked++;
         WayTime += Stopwatch.GetTimestamp() - started;
         return far;
+    }
+
+    /// <summary>
+    /// Whether there is any way at all from tile (x, y) to tile (gx, gy) (step 22): exactly when `Metres` would
+    /// not be infinity, but without working the way out. The open tiles fall into areas: tiles you can walk
+    /// between, across (on the slant only past two open tiles, so a slant step never joins two areas). Two open
+    /// tiles have a way between them when they are in the same area. Someone standing on a blocked tile can
+    /// step off it onto any open tile beside it (as `Metres` allows), and a blocked tile can be walked onto from
+    /// beside it if it has a speed (a finished wall's tile, to work at it; not water).
+    /// </summary>
+    public bool CanReach(int x, int y, int gx, int gy)
+    {
+        if (!Inside(x, y) || !Inside(gx, gy))
+            return false;
+        if (x == gx && y == gy)
+            return true;
+        var area = Areas();
+        if (Open(x, y) && Open(gx, gy))
+            return area[Index(x, y)] == area[Index(gx, gy)];
+        // At least one end blocked: the areas it touches.
+        var from = Touching(x, y, area);
+        if (!Open(gx, gy) && !(Speed(gx, gy) > 0))
+            return false;                                 // nothing can be stepped onto there (water)
+        var to = Touching(gx, gy, area);
+        foreach (int a in from)
+            if (to.Contains(a))
+                return true;
+        return false;
+    }
+
+    // The areas of tile (x, y): its own if it is open, or else of the open tiles beside it that can be stepped to.
+    List<int> Touching(int x, int y, int[] area)
+    {
+        var touching = new List<int>(8);
+        if (Open(x, y))
+            touching.Add(area[Index(x, y)]);
+        else
+            foreach (var (dx, dy, _) in Steps)
+                if (CanStep(x, y, dx, dy))
+                    touching.Add(area[Index(x + dx, y + dy)]);
+        return touching;
+    }
+
+    /// <summary>How many areas of open tiles the ground has now (step 22; see `CanReach`).</summary>
+    public int AreaCount => Areas().DefaultIfEmpty(-1).Max() + 1;
+
+    // The areas: a fill from each open tile not yet in one, across to open tiles beside it. Every tile is looked at
+    // a few times, with no sorting: far cheaper than working out one way.
+    int[] Areas()
+    {
+        if (areaOf != null)
+            return areaOf;
+        var area = new int[Width * Height];
+        Array.Fill(area, -1);
+        var todo = new Stack<int>();
+        int next = 0;
+        for (int start = 0; start < area.Length; start++)
+        {
+            if (blocked[start] || area[start] != -1)
+                continue;
+            area[start] = next;
+            todo.Push(start);
+            while (todo.Count > 0)
+            {
+                int i = todo.Pop();
+                int x = i % Width, y = i / Width;
+                for (int s = 0; s < 4; s++)                  // the four steps across (the first four of Steps)
+                {
+                    int nx = x + Steps[s].Dx, ny = y + Steps[s].Dy;
+                    if (!Inside(nx, ny))
+                        continue;
+                    int n = Index(nx, ny);
+                    if (blocked[n] || area[n] != -1)
+                        continue;
+                    area[n] = next;
+                    todo.Push(n);
+                }
+            }
+            next++;
+        }
+        return areaOf = area;
     }
 
     /// <summary>How far it is to walk from tile (x, y) to tile (gx, gy), counted in metres of road (a metre of

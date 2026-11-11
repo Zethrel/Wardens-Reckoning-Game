@@ -247,6 +247,57 @@ machine.
 - Everything else (idle, hauling, interrupted, saving) is as fast or faster:
   the minute ticks do less, because deciding moved off them.
 
+### Step 22: areas, cloud, 11 November 2026
+
+Measured first (with a counter on each caller, not kept): of the 43.6 s the
+own map's arbitration spent working out ways, 42.4 s were the colonists
+choosing jobs, and almost all of it for jobs they could not reach. A
+colonist walled in weighs every open job; each job's way is worked out over
+the whole map only to find there is none, and again after every finished
+wall (each one makes the ground forget its ways). Checking that someone can
+still reach a project cost nothing extra: the same ways.
+
+Step 22 gives the ground **areas**: one fill marks which open tiles connect.
+"Is there any way at all?" is then answered from the areas, without a search,
+and only a way that exists is worked out. The areas are worked out again only
+when a tile becomes blocked or open (about 2 ms on a 256 × 256 map in the cloud,
+measured on site 01).
+The answer is exactly the search's (`AreaTests` compares them on scattered
+grounds, tile by tile), so the colony plays out the same: the same walls
+built, the same fingerprints, every test unchanged.
+
+| Scenario | Map | Ways asked | Worked out | Their ms | Minute mean | Slowest | Second mean | Slowest second |
+|---|---|---|---|---|---|---|---|---|
+| arbitration, before | own | 1,632,441 | 4,061 | 43,650 | 2.68 | 1,465 | 0.381 | 1,658 |
+| arbitration, areas | own | 55,793 | 622 | 6,682 | 2.39 | 23 | 0.177 | 53 |
+| arbitration, before | site 01 | 56,409 | 696 | 6,856 | 2.11 | 37 | 0.106 | 91 |
+| arbitration, areas | site 01 | 56,409 | 696 | 7,092 | 2.02 | 41 | 0.104 | 88 |
+
+(Ways asked counts only the ways looked up now: one with no way at all is
+no longer asked for. On site 01 nobody was walled in, so nothing changed.)
+Idle, hauling and interrupted are as before; saving too.
+
+**Several variations** of the own map's arbitration, loading set to 4, 6 and
+8 seconds (5 is the content's): before the areas the same scenario swung
+between about 97,000 and 1.6 million ways asked depending on which walls went
+up first; with them:
+
+| Loading | Ways asked | Worked out | Their ms | Slowest | Slowest second | Walls built |
+|---|---|---|---|---|---|---|
+| 4 s | 56,450 | 729 | 6,937 | 28 | 65 | 192 |
+| 5 s | 55,793 | 622 | 6,682 | 23 | 53 | 186 |
+| 6 s | 56,105 | 603 | 6,205 | 23 | 50 | 192 |
+| 8 s | 56,384 | 621 | 6,422 | 30 | 65 | 192 |
+
+**What is left:** the slowest ticks (50 to 65 ms in the cloud, so about half
+that on the maintainer's PC) are ticks where a few ways are worked out at
+once, each over the whole map (about 10 ms each here). At ×60 that is two to
+four frames late, now and then while a large plan is built; nothing freezes.
+The two ideas measured against each other in the plan (jobs ranked by
+straight-line distance first; one search outward from each colonist
+choosing) would make those fewer or smaller; not built, as the areas took
+away what blocked play (the maintainer's choice, 11 November).
+
 ## Assessment
 
 **Everyday play is far within its time.** A colony at rest or hauling takes a
@@ -303,3 +354,10 @@ two frames late. The budget per tick shrinks with speed (1,000 ms at ×1,
 16.7 ms at ×60), so step 22 (fewer ways asked and worked out) is measured
 against ×60. On the maintainer's PC (about twice as fast) the worst ticks
 are 0.74 to 0.85 s: still a visible freeze.
+
+**After step 22 (areas):** the freezes are gone: the worst tick of the
+300-wall scenario is 50 to 65 ms in the cloud, in every variation measured,
+against 1.5 to 1.7 s before. Path-finding is still the largest cost (about
+6.5 s of the scenario's two days) but no longer blocks the intended
+experience; at ×60 a large plan can make a frame or a few late now and
+then.
