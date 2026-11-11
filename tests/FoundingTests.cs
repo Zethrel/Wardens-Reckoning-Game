@@ -190,7 +190,7 @@ public class FoundingTests(ITestOutputHelper output)
         carts.Emptying = true;
         Assert.False(carts.Takes("timber"));                                     // nothing is brought to it now
         work.Order(work.AddSite("quern", 20.5, 30.5).Id, "grind_wheat", 1);      // other work: a grinding
-        colony.RunMinutes(1);
+        colony.Run(10);
         Assert.DoesNotContain(work.Jobs, j => j.From == carts.Id && j.To == pile.Id);   // the grinding's haul comes first
         colony.RunMinutes(16 * 60, _ =>
         {

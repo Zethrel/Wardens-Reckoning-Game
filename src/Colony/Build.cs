@@ -145,11 +145,19 @@ public sealed partial class Work
         var placement = Check(piece, x, y);
         if (!placement.Ok)
             return (null, placement);
+        var project = Planned(piece, x, y);
+        Supply(project);                                  // it asks for its materials at once (step 21c)
+        return (project, placement);
+    }
+
+    /// <summary>A project for `piece` on tile (x, y), already checked.</summary>
+    Project Planned(string piece, int x, int y)
+    {
         var (cx, cy) = WorkSpot(content.Pieces[piece], x, y);
         var stock = Stocks.Open(content.Pieces[piece].Name + " at (" + x + ", " + y + ") (site)", Holder.Construction, cx, cy);
         var project = new Project(colony.Ids.Next<BuildingId>(), piece, x, y, stock.Id);
         projects[project.Id.Value] = project;
-        return (project, placement);
+        return project;
     }
 
     /// <summary>
@@ -172,7 +180,9 @@ public sealed partial class Work
             if (check.Warning != null)
                 warnings.Add(check.Warning);
         }
-        var planned = laid.Select(p => Plan(p.Piece, p.X, p.Y).Project!).ToList();
+        var planned = laid.Select(p => Planned(p.Piece, p.X, p.Y)).ToList();
+        foreach (var project in planned)
+            Supply(project);
         return (planned, new Placement(true, Warning: warnings.Count == 0 ? null : string.Join(" ", warnings)));
     }
 
@@ -209,6 +219,7 @@ public sealed partial class Work
         var stock = Stocks.Open(kind.Name + " at (" + x + ", " + y + ") (taking down)", Holder.Construction, cx, cy);
         var project = new Project(colony.Ids.Next<BuildingId>(), piece, x, y, stock.Id) { Removing = true };
         projects[project.Id.Value] = project;
+        Supply(project);
         return (project, new Placement(true));
     }
 
@@ -217,13 +228,19 @@ public sealed partial class Work
         kind.Materials.Where(m => m.Value / 2 > 0).ToDictionary(m => m.Key, m => m.Value / 2);
 
     /// <summary>Pauses or resumes a project. Paused, nothing more is brought to it and its building is put down
-    /// (keeping its progress); goods already on their way are still delivered.</summary>
+    /// (keeping its progress); goods already on their way (in someone's arms) are still delivered, and hauls not
+    /// yet picked up are dropped, letting their goods go.</summary>
     public void Pause(BuildingId id, bool paused)
     {
         var project = projects[id.Value];
         project.Paused = paused;
         if (paused && BuildJob(project) is Job job && job.Worker is ColonistId w)
             Reopen(job, workers[w.Value]);
+        if (paused)
+            foreach (var haul in jobs.Values.Where(j => j.Kind == JobKind.Haul && j.To == project.Stock
+                                                        && j.Step is Step.Open or Step.Going or Step.Loading).ToList())
+                Cancel(haul.Id);
+        Supply(project);
     }
 
     /// <summary>Cancels a project: its building job is dropped (letting its materials go), hauls not yet carrying
@@ -236,6 +253,7 @@ public sealed partial class Work
         foreach (var job in jobs.Values.Where(j => (j.Kind == JobKind.Build && j.Site == project.Id)
                                                    || (j.Kind == JobKind.Haul && j.To == project.Stock)).ToList())
             Cancel(job.Id);
+        Supply(project);
     }
 
     Job? BuildJob(Project project) => jobs.Values.FirstOrDefault(j => j.Kind == JobKind.Build && j.Site == project.Id);

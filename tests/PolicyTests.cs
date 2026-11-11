@@ -91,7 +91,7 @@ public class PolicyTests
         var camp = new Camp();
         var (ada, bram) = (camp.People[0], camp.People[1]);
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
-        camp.Colony.RunMinutes(1);
+        camp.Colony.Run(2);                                  // the quern asks at once; Ada takes the haul
         var job = camp.JobOf(ada)!;
         Assert.Equal(Step.Loading, job.Step);                // taken, not yet picked up (she stands at the carts)
         camp.Work.Permit(ada.Id, Work.HaulWork, false);

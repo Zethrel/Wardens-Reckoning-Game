@@ -145,7 +145,7 @@ public class TickTests
     [Fact]
     public void A_save_between_two_minutes_goes_on_as_if_never_saved()
     {
-        // Saved every 13 seconds (so nearly always between two minutes), with people on their way.
+        // Saved every 7 seconds (so nearly always between two minutes), with people on their way.
         var (colony, _) = Founded();
         colony.Work!.Plan("water_barrel", 26, 22);
         var copies = new List<Colony.Colony>();
@@ -153,7 +153,7 @@ public class TickTests
         long end = Start.Tick + 2 * Calendar.TicksPerHour;
         colony.Run(end - Start.Tick, c =>
         {
-            if ((c.Now.Tick - Start.Tick) % 13 != 0)
+            if ((c.Now.Tick - Start.Tick) % 7 != 0)
                 return;
             walking |= c.Work!.Workers.Any(w => w.Heading != null) && !c.Now.OnTheMinute;
             string text = ColonySave.Text(c);

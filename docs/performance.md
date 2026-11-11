@@ -176,3 +176,12 @@ the same results and sets a ceiling (512) on the ways kept; step 20d measures
 two ways of asking for fewer ways (ranking jobs by straight-line distance
 first, or one search outward from each colonist choosing). After 20c the
 slowest minute with 300 walls planned is still 1.2 s in the cloud.
+
+**Found in step 21c (cloud, 11 November):** since colonists decide between
+the minutes, slow ticks can fall between them too, and the table's "Slowest"
+counted only the whole-minute ticks. The profiler now shows the slowest
+in-between tick as well ("Slowest second"). In arbitration, once walls close
+colonists in on the second day, single ticks between the minutes take 1.4 to
+1.9 s, in step 21c's code as first pushed and after its follow-ups alike
+(over a million ways asked in the two days instead of about 100,000, depending
+on which walls go up first). To be measured in step 21d and taken on in step 22.

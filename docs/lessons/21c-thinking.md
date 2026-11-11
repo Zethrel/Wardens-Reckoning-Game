@@ -123,16 +123,27 @@ colonists still stood for up to a minute, for two other reasons.
   `drop_minutes`, from the time a minute was the smallest step). They are now
   `pickup_seconds` and `drop_seconds` in `colony.json`, 5 seconds each.
 - A wall or a quern asked for its next job only on the whole minute. Now, when
-  a job is finished, `Finish` sets a flag, and the tick lets the workplaces ask
-  again before anyone takes a job:
+  a job is finished, `Finish` notes where it took from and brought to, and the
+  tick lets those workplaces ask again before anyone takes a job:
 
 ```csharp
-if (stirred)
-    Asks();
+if (stirred.Count > 0)
+    AsksAfterFinishing();
 ```
 
+`stirred` is a `HashSet<long>`: a set of numbers, each in it at most once (like
+Python's `set`). Only the quern or the building site the job touched asks
+again, not every one: asking all 300 walls of the profiler's test after every
+haul cost over a million searches for a way an hour once walls closed
+colonists in (each project checks that someone can still reach it).
+
 `Asks` is the asking part that used to sit in `Minute` (workshops, building
-projects, stores being emptied, barrels, boiling); `Minute` now calls it too.
+projects, stores being emptied, barrels, boiling); `Minute` and founding call
+it. The player's orders make the workplace they change ask at once: ordering a
+batch asks that quern (`Ask(here)`), planning asks that project
+(`Supply(project)`), a stockpile or a mark asks the stores or the water. So new
+work is there at the colonists' very next think. Pausing a building now also
+drops its hauls not yet picked up, since they would otherwise be taken at once.
 Asking twice is harmless, because each workplace looks at how things stand and
 counts what is already on its way. The flag is cleared at the start of every
 tick, so it never needs saving: a save is made between ticks.
@@ -148,9 +159,9 @@ refused, as every older version is until 1.0.
 
 A colonist given something to do sets off within a few seconds, loads for 5
 seconds and unloads for 5. One whose job is done takes the next within a few
-seconds. A new order (a wall just planned, a batch at the quern) is still
-noticed on the next whole minute, so the very first haul can wait up to a
-minute.
+seconds, and a new order (a wall just planned, a batch at the quern) is taken
+up within a few seconds too. What still waits for the whole minute: needs
+growing, water filling and illness, the colony's own slow work.
 
 ## Exercise
 

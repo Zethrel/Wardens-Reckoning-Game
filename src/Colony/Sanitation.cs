@@ -52,7 +52,12 @@ public sealed partial class Work
     bool DrinkFrom(Inventory inventory) => inventory.Mark == WaterMark.None && Drawable(inventory);
 
     /// <summary>Marks a store or a source (step 19b): the colonists go by it from now on.</summary>
-    public void SetMark(InventoryId id, WaterMark mark) => Stocks[id].Mark = mark;
+    public void SetMark(InventoryId id, WaterMark mark)
+    {
+        Stocks[id].Mark = mark;
+        Fetch();                                          // water is fetched and boiled by the new mark at once
+        BoilJobs();
+    }
 
     // ---- Release ----------------------------------------------------------------------------------------------
 

@@ -181,7 +181,7 @@ public class MovementTests
         var (colony, ada, _) = Camp(Ground.Test(Real), 10.5, 40.5);
         var work = colony.Work!;
         var well = work.Plan("well", 24, 24).Project!;
-        colony.Stocks.Arrive(colony.Ids.Next<OperationId>(), colony.Now.Tick, well.Stock, "timber", 8);
+        TestContent.Deliver(colony, well, "timber", 8);
         int working = 0;
         colony.RunMinutes(6 * 60, _ =>
         {
@@ -311,7 +311,7 @@ public class MovementTests
         work.Order(westQuern.Id, "grind_wheat", 1);
         work.Order(eastQuern.Id, "grind_wheat", 1);
         var hauls = new List<(InventoryId From, InventoryId To)>();
-        colony.RunMinutes(6 * 60, _ =>
+        colony.Run(6 * 3600, _ =>                               // every second: a haul lasts seconds
         {
             foreach (var j in work.Jobs.Where(j => j.Kind == JobKind.Haul))
                 if (!hauls.Contains((j.From, j.To)))

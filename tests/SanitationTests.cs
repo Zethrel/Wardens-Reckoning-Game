@@ -320,8 +320,7 @@ public class SanitationTests
         work.SetMark(brook.Id, WaterMark.BoilFirst);
         int timber = Total(colony, "timber");
         int cleanBefore = Total(colony, "water");
-        colony.RunMinutes(1);
-        var job = Assert.Single(work.Jobs, j => j.Kind == JobKind.Boil);
+        var job = Assert.Single(work.Jobs, j => j.Kind == JobKind.Boil);   // asked for as the mark is set
         Assert.Equal((10, brook.Id, carts.Id, "water"), (job.Amount, job.Boiling!.Value, job.From, job.Good));
         Assert.Equal(WaterMark.None, colony.Stocks[job.To].Mark);
         Assert.NotEqual(brook.Id, job.To);
@@ -387,10 +386,9 @@ public class SanitationTests
         var barrel = colony.Stocks.Open("Water barrel", Holder.Store, 20.5, 20.5);
         barrel.Accepts.UnionWith(Real.Drinkable);
         barrel.Capacity = 5;
-        work.SetMark(carts.Id, WaterMark.DoNotDrink);           // the barrel is the only place for boiled water
-        work.SetMark(brook.Id, WaterMark.BoilFirst);
-        colony.RunMinutes(1);
-        var job = Assert.Single(work.Jobs, j => j.Kind == JobKind.Boil);
+        carts.Mark = WaterMark.DoNotDrink;                      // the barrel is the only place for boiled water
+        work.SetMark(brook.Id, WaterMark.BoilFirst);            // (both marks before the colony asks, as at once)
+        var job = Assert.Single(work.Jobs, j => j.Kind == JobKind.Boil);   // asked for as the mark is set
         Assert.Equal((barrel.Id, 5), (job.To, job.Amount));      // a batch only as big as the room
         Assert.Equal(0, work.RoomIn(barrel));
         Assert.DoesNotContain(work.Jobs, j => j.Kind == JobKind.Haul && j.To == barrel.Id);

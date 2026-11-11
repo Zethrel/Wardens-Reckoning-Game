@@ -81,7 +81,7 @@ public static class Program
         report.AppendLine("Ways kept at most: " + MostWays + ".");
         report.AppendLine("Map: " + (site == null ? "the profiler's own (256 × 256, a brook, trees and rocks)" : Path.GetFileName(site) + " (" + map.Size + " × " + map.Size + ")") + ".");
         report.AppendLine();
-        report.AppendLine("| Scenario | Ticks | Minute tick mean ms | Median | 95% | 99% | Slowest | Second tick mean ms | Ways asked | Worked out | Their ms | Most kept | Peak MB | GCs (0/1/2) |");
+        report.AppendLine("| Scenario | Ticks | Minute tick mean ms | Median | 95% | 99% | Slowest | Second tick mean ms | Slowest second | Ways asked | Worked out | Their ms | Most kept | Peak MB | GCs (0/1/2) |");
         report.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
         string? saveLine = null;
         var notes = new List<string>();
@@ -213,10 +213,12 @@ public static class Program
         // The whole-minute ticks (the clock starts on a whole minute, so every 60th), and the ones in between.
         var measured = times.Where((_, t) => t >= WarmUp && (t + 1) % Calendar.TicksPerMinute == 0).OrderBy(x => x).ToArray();
         double between = times.Where((_, t) => t >= WarmUp && (t + 1) % Calendar.TicksPerMinute != 0).Average();
+        // Since step 21c colonists decide between the minutes too, so the slowest of those ticks is shown as well.
+        double slowestBetween = times.Where((_, t) => t >= WarmUp && (t + 1) % Calendar.TicksPerMinute != 0).Max();
         double Pct(double p) => measured[Math.Min(measured.Length - 1, (int)Math.Ceiling(p * measured.Length) - 1)];
         string F(double v) => v.ToString(v < 10 ? "0.000" : "0.0", CultureInfo.InvariantCulture);
         return "| " + name + " | " + ticks + " | " + F(measured.Average()) + " | " + F(Pct(0.5)) + " | " + F(Pct(0.95)) + " | " + F(Pct(0.99))
-               + " | " + F(measured[^1]) + " | " + between.ToString("0.0000", CultureInfo.InvariantCulture) + " | " + (ground.WaysAsked - asked) + " | " + (ground.WaysWorked - worked)
+               + " | " + F(measured[^1]) + " | " + between.ToString("0.0000", CultureInfo.InvariantCulture) + " | " + F(slowestBetween) + " | " + (ground.WaysAsked - asked) + " | " + (ground.WaysWorked - worked)
                + " | " + F((ground.WayTime - wayTime) * 1000.0 / Stopwatch.Frequency) + " | " + mostKept
                + " | " + (peakBytes / 1048576.0).ToString("0", CultureInfo.InvariantCulture)
                + " | " + (GC.CollectionCount(0) - gcBefore[0]) + "/" + (GC.CollectionCount(1) - gcBefore[1]) + "/" + (GC.CollectionCount(2) - gcBefore[2]) + " |";

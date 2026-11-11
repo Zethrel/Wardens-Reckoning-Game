@@ -25,4 +25,17 @@ internal static class TestContent
     }
 
     public static readonly Content EverySecond = Content.Read(ThinkingEverySecond(Files()));
+
+    /// <summary>
+    /// Puts `amount` of `good` straight onto a project's site, as if already delivered. A planned project asks for
+    /// its materials at once (step 21c), so its hauls not yet picked up are dropped first; otherwise they would
+    /// bring more on top.
+    /// </summary>
+    public static void Deliver(Colony.Colony colony, Project project, string good, int amount)
+    {
+        foreach (var haul in colony.Work!.Jobs.Where(j => j.Kind == JobKind.Haul && j.To == project.Stock
+                                                         && j.Step is Step.Open or Step.Going or Step.Loading).ToList())
+            colony.Work.Cancel(haul.Id);
+        colony.Stocks.Arrive(colony.Ids.Next<OperationId>(), colony.Now.Tick, project.Stock, good, amount);
+    }
 }

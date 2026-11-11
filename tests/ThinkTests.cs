@@ -84,6 +84,23 @@ public class ThinkTests
     }
 
     [Fact]
+    public void A_new_order_is_taken_up_within_a_colonists_rhythm_not_on_the_whole_minute()
+    {
+        // Planned a few seconds after the minute: the wall asks for its timber at once, and someone takes the haul
+        // at their next think (7 seconds at the most).
+        var colony = Founded();
+        var work = colony.Work!;
+        colony.Run(3);
+        var (wall, placed) = work.Plan("wall", 22, 14);
+        Assert.True(placed.Ok, placed.Why);
+        Assert.Contains(work.Jobs, j => j.Kind == JobKind.Haul && j.To == wall!.Stock);
+        long planned = colony.Now.Tick;
+        while (!work.Jobs.Any(j => j.Kind == JobKind.Haul && j.To == wall!.Stock && j.Worker != null))
+            colony.Run(1);
+        Assert.InRange(colony.Now.Tick - planned, 1, 7);
+    }
+
+    [Fact]
     public void A_save_keeps_each_ones_rhythm_and_where_they_are_in_it()
     {
         var colony = Founded();

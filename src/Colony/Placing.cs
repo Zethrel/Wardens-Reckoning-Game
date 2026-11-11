@@ -99,7 +99,9 @@ public sealed partial class Work
         int n = 1;
         while (names.Contains("Stockpile " + n))
             n++;
-        return (AddStockpile("Stockpile " + n, area.X, area.Y, area.Width, area.Height), check);
+        var pile = AddStockpile("Stockpile " + n, area.X, area.Y, area.Width, area.Height);
+        Tidy();                                           // what it takes is brought to it at once (step 21c)
+        return (pile, check);
     }
 
     /// <summary>Whether a bedroll may be laid out on tile (x, y): open ground, with no other bedroll on it.</summary>
@@ -124,6 +126,7 @@ public sealed partial class Work
             throw new ArgumentException(pile.Name + " is not a stockpile", nameof(id));
         pile.Emptying = true;
         Clear(pile);
+        Tidy();
     }
 
     /// <summary>Closes a stockpile being emptied once nothing is in it or claimed from it (each tick).</summary>

@@ -28,6 +28,7 @@ public static class Founding
         colony.Work!.Cold = map.Biome != null && content.Water.ColdBiomes.Contains(map.Biome);
         if (Bank(ground, map, x, y, used) is var (bx, by))
             colony.Work.AddSpring(bx + 0.5, by + 0.5, WaterName(map.Water), kind: KindOf(map.Water));
+        colony.Work.Asks();                               // what there is to do from the start (step 21c)
         return (colony, carts);
     }
 
@@ -80,6 +81,7 @@ public static class Founding
         var (colony, carts, used) = Arrive(seed, arrival, content, ground, x, y);
         var (sx, sy) = OpenNear(ground, x, y + 6, used);
         colony.Work!.AddSpring(sx + 0.5, sy + 0.5, "The stream");
+        colony.Work.Asks();
         return (colony, carts);
     }
 

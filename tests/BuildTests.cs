@@ -202,7 +202,7 @@ public class BuildTests
         var wall = camp.Plan("wall", 20, 20);
         var site = wall.Stock;
         bool sawHaul = false, sawClaim = false, sawWork = false;
-        camp.RunMinutes(120, () =>
+        camp.Colony.Run(120 * 60, _ =>                           // every second: a haul lasts seconds
         {
             var p = camp.Work.Project(wall.Id);
             if (p == null)
@@ -337,7 +337,7 @@ public class BuildTests
                     ground.AddPiece("wall", true, x, y);
         var camp = new Camp(ground: ground);
         var inside = camp.Plan("floor", 6, 6);
-        camp.Stocks.Arrive(camp.Colony.Ids.Next<OperationId>(), camp.Colony.Now.Tick, inside.Stock, "timber", 1);
+        TestContent.Deliver(camp.Colony, inside, "timber", 1);
         foreach (var w in camp.People)
             camp.Work.Stop(w.Id);
         camp.RunMinutes(1);
@@ -428,7 +428,7 @@ public class BuildTests
     {
         var camp = new Camp(people: 1);
         var wall = camp.Plan("wall", 20, 20);
-        camp.Stocks.Arrive(camp.Colony.Ids.Next<OperationId>(), camp.Colony.Now.Tick, wall.Stock, "timber", 2);
+        TestContent.Deliver(camp.Colony, wall, "timber", 2);
         camp.Until(() => camp.Build(wall)?.Step == Step.Working);
         var ada = camp.People[0];
         var (tx, ty) = Ground.TileOf(ada.X, ada.Y);
@@ -452,7 +452,7 @@ public class BuildTests
     {
         var camp = new Camp(people: 1, ground: RingedFar());
         var floor = camp.Plan("floor", 152, 152);
-        camp.Stocks.Arrive(camp.Colony.Ids.Next<OperationId>(), camp.Colony.Now.Tick, floor.Stock, "timber", 1);
+        TestContent.Deliver(camp.Colony, floor, "timber", 1);
         camp.RunMinutes(1);
         var ada = camp.People[0];
         Assert.Equal(Step.Going, camp.Build(floor)!.Step);
@@ -583,7 +583,7 @@ public class BuildTests
     {
         var camp = new Camp();
         camp.Plan("wall", 20, 20);
-        camp.RunMinutes(1);
+        camp.Colony.Run(2);                                      // its haul is taken
         string good = ColonySave.Text(camp.Colony);
         object[] Case(Action<JsonObject> change, string reason)
         {

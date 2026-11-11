@@ -122,14 +122,15 @@ public class WorkTests
     [Fact]
     public void A_batch_takes_its_walks_loading_and_grinding()
     {
-        // Minute 1: the quern asks for wheat and Ada takes the haul. She stands at the carts, so she loads at once
-        // (5 seconds), walks 140 m (2 minutes) and unloads (5 seconds): done some 12 seconds into minute 3. The
-        // quern asks again as soon as she has finished, so she takes the grinding there and then; it turns for 180
-        // minutes, and the flour is there 12 seconds into minute 183: seen on the whole minute after, 184.
+        // The quern asks for wheat as it is ordered, and Ada takes the haul in the first second. She stands at the
+        // carts, so she loads at once (5 seconds), walks 140 m (2 minutes) and unloads (5 seconds): done some 12
+        // seconds into minute 2. The quern asks again as soon as she has finished, so she takes the grinding there
+        // and then; it turns for 180 minutes, and the flour is there 12 seconds into minute 182: seen on the whole
+        // minute after, 183.
         var camp = new Camp();
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
         int minutes = camp.RunUntil(() => camp.Stocks.Total("flour") == 4);
-        Assert.Equal(1 + 2 + 1 + 180, minutes);
+        Assert.Equal(2 + 1 + 180, minutes);
     }
 
     [Fact]
@@ -161,10 +162,10 @@ public class WorkTests
         files["colony.json"] = colony.ToJsonString();
         var camp = new Camp(content: Content.Read(files));
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
-        // As above, with loading and unloading taking no time: she loads in minute 1 and sets off a second later,
-        // walks two minutes and unloads as she arrives, a second into minute 3; the quern asks at once, and turns its
-        // 180 minutes: done a second into minute 183, seen on the whole minute after, 184.
-        Assert.Equal(1 + 2 + 1 + 180, camp.RunUntil(() => camp.Stocks.Total("flour") == 4));
+        // As above, with loading and unloading taking no time: she loads in the first second and sets off a second
+        // later, walks two minutes and unloads as she arrives, a few seconds into minute 2; the quern asks at once,
+        // and turns its 180 minutes: done a few seconds into minute 182, seen on the whole minute after, 183.
+        Assert.Equal(2 + 1 + 180, camp.RunUntil(() => camp.Stocks.Total("flour") == 4));
     }
 
     [Fact]
@@ -231,7 +232,7 @@ public class WorkTests
         camp.Carts.Keep("wheat", 48);
         camp.Stocks.Reserve(camp.Carts.Id, "wheat", 1, "seed corn");
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
-        camp.RunMinutes(1);
+        camp.Colony.Run(2);                                      // the quern asks at once, and Ada takes the haul
         // One wheat was free: it is fetched, and the quern waits for the other four.
         Assert.Equal("waiting for wheat: 4 more needed, and no store has any free (50 in the stores: 48 kept as a reserve, 2 claimed for other work)",
                      camp.Quern.Blocked);
@@ -278,7 +279,7 @@ public class WorkTests
         var camp = new Camp(workers: 2);
         var (ada, bram) = (camp.Workers[0], camp.Workers[1]);
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
-        camp.RunMinutes(1);                                      // Ada (the lower number, as near) takes the haul
+        camp.Colony.Run(2);                                      // Ada (the lower number, as near) takes the haul
         var job = camp.JobOf(ada)!;
         Assert.Equal(Step.Loading, job.Step);                    // taken, not yet picked up (she stands at the carts)
         camp.Work.Stop(ada.Id);
@@ -317,7 +318,7 @@ public class WorkTests
     {
         var camp = new Camp();
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
-        camp.RunMinutes(1);
+        camp.Colony.Run(2);                                      // the haul is taken; she is loading
         var job = Assert.Single(camp.Work.Jobs);
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 0);
         camp.Work.Cancel(job.Id);
@@ -373,13 +374,12 @@ public class WorkTests
     [Fact]
     public void Loading_and_unloading_take_their_minutes()
     {
-        // Loading 3 minutes and unloading 2: minute 1 the haul is taken; loading to minute 4; walking two minutes
-        // (from a second after); unloading two, done a second into minute 8; the quern asks at once and turns to a
-        // second into minute 188, seen on the whole minute after, 189. Then the flour waits at the quern while it is
-        // loaded.
+        // Loading 3 minutes and unloading 2: the haul is taken in the first second; loading to minute 3; walking two
+        // minutes; unloading two, done a few seconds into minute 7; the quern asks at once and turns to a few seconds
+        // into minute 187, seen on the whole minute after, 188. Then the flour waits at the quern while it is loaded.
         var camp = new Camp(content: With("colony.json", c => { c["pickup_seconds"] = 180; c["drop_seconds"] = 120; }));
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 2);
-        Assert.Equal(1 + 3 + 2 + 2 + 1 + 180, camp.RunUntil(() => camp.Stocks.Total("flour") == 4));
+        Assert.Equal(3 + 2 + 2 + 1 + 180, camp.RunUntil(() => camp.Stocks.Total("flour") == 4));
         camp.RunUntil(() => camp.Granary.Count("flour") == 8 && camp.Work.Jobs.Count == 0);
         camp.Conserved();
     }
@@ -523,7 +523,6 @@ public class WorkTests
         {
             var camp = new Camp(workers: 2);
             camp.Work.Order(camp.Quern.Id, "grind_wheat", 2);
-            camp.RunMinutes(1);
             camp.Colony.Run(2);                                  // Ada has taken the first haul and is loading; its wheat is claimed
             var save = ColonySave.Write(camp.Colony);
             change(save);

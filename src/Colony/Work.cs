@@ -274,6 +274,7 @@ public sealed partial class Work
             throw new ArgumentOutOfRangeException(nameof(batches), "an order cannot be below 0");
         here.Recipe = batches == 0 ? null : recipe;
         here.Batches = batches;
+        Ask(here);                                        // it asks at once (step 21c)
     }
 
     // ---- The player's controls ------------------------------------------------------------------------
@@ -355,7 +356,7 @@ public sealed partial class Work
     /// </summary>
     public void Tick()
     {
-        stirred = false;
+        stirred.Clear();
         foreach (var worker in workers.Values)
             if (worker.Heading != null)
                 Stride(worker);
@@ -367,10 +368,10 @@ public sealed partial class Work
             return;
         foreach (var worker in thinking)
             Think(worker);
-        // A job finished (goods brought, a piece built): the workplaces ask for what comes next at once, so the one
-        // who finished need not wait for the whole minute.
-        if (stirred)
-            Asks();
+        // A job finished (goods brought, a piece built): the workplaces it took from or brought to ask for what comes
+        // next at once, so the one who finished need not wait for the whole minute.
+        if (stirred.Count > 0)
+            AsksAfterFinishing();
         // Those of them free for work take jobs, and set off at once.
         foreach (var worker in Assign(thinking))
             Act(worker, jobs[worker.Job!.Value.Value], 0);
@@ -393,16 +394,40 @@ public sealed partial class Work
             Act(worker, jobs[t.Value], elapsed);
     }
 
-    // Set when a job is finished during this tick (Finish); read and cleared in the same tick, so never saved.
-    bool stirred;
+    // The inventories that jobs finished during this tick took from or brought to (Finish); read and cleared in the
+    // same tick, so never saved.
+    readonly HashSet<long> stirred = new();
+
+    /// <summary>
+    /// The asking after a job is finished: the workshops and building projects it took from or brought to (not every
+    /// one: a project far off asks for nothing new because a haul elsewhere was done, and asking all of them each
+    /// time cost a search for a way per project and colonist, over a million an hour once walls closed colonists
+    /// in), and the stores, barrels and boiling, which ask without searching for ways.
+    /// </summary>
+    void AsksAfterFinishing()
+    {
+        foreach (var site in sites.Values)
+            if (stirred.Contains(site.Input.Value) || stirred.Contains(site.Output.Value))
+                Ask(site);
+        foreach (var project in projects.Values.Where(p => stirred.Contains(p.Stock.Value)).ToList())
+            Supply(project);
+        Tidy();
+        ClearStockpiles();
+        Fetch();
+        BoilJobs();
+    }
 
     /// <summary>
     /// The workplaces ask for what they need (step 13 on): workshops for their inputs and to have what they made
     /// stored, construction projects for their materials and their building, stores being emptied, barrels and
     /// basins for water, marked water for boiling. Each looks only at how things stand now, so asking again changes
-    /// nothing that is already asked for. Done on every whole minute, and in a second when a job was finished.
+    /// nothing that is already asked for. Done on every whole minute (and in part when a job is finished: AsksAfterFinishing).
+    /// Also done when the colony is founded; and each of the player's orders makes the workplace it changes ask
+    /// at once (a batch ordered, a building planned, paused or cancelled, a stockpile, a mark), so the colonists
+    /// can take the work at their next think rather than on the whole minute. (Never when a save is loaded: a
+    /// loaded colony goes on exactly as if it had never been saved.)
     /// </summary>
-    void Asks()
+    internal void Asks()
     {
         foreach (var site in sites.Values)
             Ask(site);
@@ -535,7 +560,8 @@ public sealed partial class Work
     {
         worker.Job = null;
         jobs.Remove(job.Id.Value);
-        stirred = true;                                   // the workplaces ask again before anyone takes a job
+        stirred.Add(job.From.Value);                      // where it took from and brought to ask again, before
+        stirred.Add(job.To.Value);                        // anyone takes a job
     }
 
     /// <summary>
