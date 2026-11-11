@@ -149,8 +149,9 @@ public sealed class Content
     public double CarryKg { get; }
     /// <summary>Walking speed, in metres a minute (a tick).</summary>
     public double WalkMetresPerMinute { get; }
-    public int PickupMinutes { get; }
-    public int DropMinutes { get; }
+    /// <summary>Time to load a haul, and to unload it, in seconds (step 21c).</summary>
+    public int PickupSeconds { get; }
+    public int DropSeconds { get; }
     /// <summary>How often a colonist thinks (step 21c): every so many seconds, drawn once for each colonist from
     /// `ThinkFrom` to `ThinkTo` (colony.json think_seconds).</summary>
     public int ThinkFrom { get; private init; } = 1;
@@ -202,7 +203,7 @@ public sealed class Content
         Goods = new SortedDictionary<string, Good>(goods, StringComparer.Ordinal);
         Workshops = new SortedDictionary<string, Workshop>(workshops, StringComparer.Ordinal);
         Recipes = new SortedDictionary<string, Recipe>(recipes, StringComparer.Ordinal);
-        (CarryKg, WalkMetresPerMinute, PickupMinutes, DropMinutes) = (carryKg, walk, pickup, drop);
+        (CarryKg, WalkMetresPerMinute, PickupSeconds, DropSeconds) = (carryKg, walk, pickup, drop);
     }
 
     /// <summary>Reads and checks the content in `folder` (every file of `Files`).</summary>
@@ -328,13 +329,13 @@ public sealed class Content
         double carry = 0, walk = 0;
         int pickup = 0, drop = 0;
         (int, int)? think = null;
-        if (Open("colony.json", "carry_kg", "walk_m_per_minute", "pickup_minutes", "drop_minutes", "think_seconds") is JsonObject c)
+        if (Open("colony.json", "carry_kg", "walk_m_per_minute", "pickup_seconds", "drop_seconds", "think_seconds") is JsonObject c)
         {
             think = Ordered(check.Pair(c, "colony.json", "think_seconds", 1), "colony.json.think_seconds");
             carry = check.Positive(c, "colony.json", "carry_kg") ?? 0;
             walk = check.Positive(c, "colony.json", "walk_m_per_minute") ?? 0;
-            pickup = check.Int(c, "colony.json", "pickup_minutes", 0) ?? 0;
-            drop = check.Int(c, "colony.json", "drop_minutes", 0) ?? 0;
+            pickup = check.Int(c, "colony.json", "pickup_seconds", 0) ?? 0;
+            drop = check.Int(c, "colony.json", "drop_seconds", 0) ?? 0;
         }
 
         // Needs, eating, drinking, sleeping, the spring.

@@ -326,11 +326,9 @@ public class SanitationTests
         Assert.Equal(WaterMark.None, colony.Stocks[job.To].Mark);
         Assert.NotEqual(brook.Id, job.To);
         Assert.Null(work.WhyNotBoiled(brook.Id));
-        // One boiling at a time for a store.
-        colony.RunMinutes(1);
-        Assert.Single(work.Jobs, j => j.Kind == JobKind.Boil);
         // Thirty minutes of boiling at the water, then the boiled water is carried to the store.
         Assert.True(EverySecondUntil(colony, () => job.Step == Step.Working, 60 * 60), "never began to boil");
+        Assert.Single(work.Jobs, j => j.Kind == JobKind.Boil);  // one boiling at a time for a store
         var boiler = work.Workers.Single(w => w.Job == job.Id);
         Assert.Equal(1, colony.Stocks[boiler.Arms].Count("timber"));
         Assert.Equal(Ground.TileOf(brook.X, brook.Y), Ground.TileOf(boiler.X, boiler.Y));

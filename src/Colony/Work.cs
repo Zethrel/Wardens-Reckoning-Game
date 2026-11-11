@@ -355,6 +355,7 @@ public sealed partial class Work
     /// </summary>
     public void Tick()
     {
+        stirred = false;
         foreach (var worker in workers.Values)
             if (worker.Heading != null)
                 Stride(worker);
@@ -366,6 +367,10 @@ public sealed partial class Work
             return;
         foreach (var worker in thinking)
             Think(worker);
+        // A job finished (goods brought, a piece built): the workplaces ask for what comes next at once, so the one
+        // who finished need not wait for the whole minute.
+        if (stirred)
+            Asks();
         // Those of them free for work take jobs, and set off at once.
         foreach (var worker in Assign(thinking))
             Act(worker, jobs[worker.Job!.Value.Value], 0);
@@ -388,6 +393,27 @@ public sealed partial class Work
             Act(worker, jobs[t.Value], elapsed);
     }
 
+    // Set when a job is finished during this tick (Finish); read and cleared in the same tick, so never saved.
+    bool stirred;
+
+    /// <summary>
+    /// The workplaces ask for what they need (step 13 on): workshops for their inputs and to have what they made
+    /// stored, construction projects for their materials and their building, stores being emptied, barrels and
+    /// basins for water, marked water for boiling. Each looks only at how things stand now, so asking again changes
+    /// nothing that is already asked for. Done on every whole minute, and in a second when a job was finished.
+    /// </summary>
+    void Asks()
+    {
+        foreach (var site in sites.Values)
+            Ask(site);
+        foreach (var project in projects.Values.ToList())
+            Supply(project);
+        Tidy();
+        ClearStockpiles();
+        Fetch();
+        BoilJobs();
+    }
+
     /// <summary>One minute of the colony's own work: needs grow (and may fell someone), the water sources fill and
     /// freeze in the morning and rivers top up each hour (Water.cs), workshops ask, construction projects ask
     /// (Build.cs), stores are emptied and emptied stockpiles removed (Placing.cs), barrels and basins are filled
@@ -403,14 +429,7 @@ public sealed partial class Work
         }
         if (colony.Now.MinuteOfDay % Calendar.MinutesPerHour == 0)
             TopUp();
-        foreach (var site in sites.Values)
-            Ask(site);
-        foreach (var project in projects.Values.ToList())
-            Supply(project);
-        Tidy();
-        ClearStockpiles();
-        Fetch();
-        BoilJobs();
+        Asks();
         Mix();
         Notice();
         Sicken();
@@ -442,7 +461,7 @@ public sealed partial class Work
                     job.Step = job.Kind is JobKind.Haul or JobKind.Boil ? Step.Loading : Step.Working;
                     job.Left = job.Kind switch
                     {
-                        JobKind.Haul or JobKind.Boil => content.PickupMinutes * Calendar.TicksPerMinute,
+                        JobKind.Haul or JobKind.Boil => content.PickupSeconds,
                         _ when job.Left > 0 => job.Left,
                         JobKind.Craft => content.Recipes[job.Recipe!].WorkMinutes * Calendar.TicksPerMinute,
                         _ => Minutes(projects[job.Site!.Value.Value]) * Calendar.TicksPerMinute,
@@ -473,7 +492,7 @@ public sealed partial class Work
                 if (Walk(worker, tx, ty))
                 {
                     job.Step = Step.Unloading;
-                    job.Left = content.DropMinutes * Calendar.TicksPerMinute;
+                    job.Left = content.DropSeconds;
                     Act(worker, job, 0);
                 }
                 break;
@@ -516,6 +535,7 @@ public sealed partial class Work
     {
         worker.Job = null;
         jobs.Remove(job.Id.Value);
+        stirred = true;                                   // the workplaces ask again before anyone takes a job
     }
 
     /// <summary>

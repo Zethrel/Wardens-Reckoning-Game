@@ -120,9 +120,9 @@ public class WaterTests
         // and its room counts the water already on its way.
         Assert.DoesNotContain(Inspect.Commands(colony, 26, 22), c => c.Label == "Take down");   // not with its water in it
         bool sawLoad = false;
-        for (int i = 0; i < 12 * 60; i++)
+        for (int i = 0; i < 12 * 60 * 12; i++)                // every 5 seconds (a load is carried for seconds)
         {
-            colony.RunMinutes(1);
+            colony.Run(5);
             Assert.True(barrel.Count("water") <= 100);
             var carrying = work.Workers.Where(w => colony.Stocks[w.Arms].Count("water") > 0).ToList();
             Assert.True(carrying.Count <= 1, "two fetching at once");

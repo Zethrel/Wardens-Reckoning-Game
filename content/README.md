@@ -13,8 +13,9 @@ what is wrong, before anything runs.
   and `work_minutes`. A good may not be made, directly or through other
   recipes, from itself.
 - `colony.json`: `carry_kg` (what one person carries by hand),
-  `walk_m_per_minute` (walking speed), `pickup_minutes` and `drop_minutes`
-  (time to load and unload).
+  `walk_m_per_minute` (walking speed), `pickup_seconds` and `drop_seconds`
+  (time to load and unload), `think_seconds` (how often a colonist decides what
+  to do next: every so many seconds, drawn once for each colonist between the two).
 - `needs.json`: how the needs grow (`hunger`, `thirst`, `fatigue`, `hygiene`): points an
   hour awake (`per_hour`) and asleep (`asleep_per_hour`), from 0 (none) to 100
   (the limit); the levels at which a colonist eats or drinks at mealtimes

@@ -92,7 +92,8 @@ public class ContentTests
         yield return Case("goods.json", r => Good(r, 0)["mass_kg"] = 0, "goods.json.goods[0].mass_kg: should be a number above 0");
         yield return Case("goods.json", r => Good(r, 0)["volume_l"] = -1, "goods.json.goods[0].volume_l: should be a number above 0");
         yield return Case("colony.json", r => r["carry_kg"] = "a lot", "colony.json.carry_kg: should be a number above 0");
-        yield return Case("colony.json", r => r["pickup_minutes"] = -1, "colony.json.pickup_minutes: should be a whole number of 0 or more");
+        yield return Case("colony.json", r => r["pickup_seconds"] = -1, "colony.json.pickup_seconds: should be a whole number of 0 or more");
+        yield return Case("colony.json", r => r["drop_seconds"] = 2.5, "colony.json.drop_seconds: should be a whole number of 0 or more");
         yield return Case("colony.json", r => r["think_seconds"] = new JsonArray(0, 3), "colony.json.think_seconds: should be two whole numbers [a, b] of 1 or more");
         yield return Case("colony.json", r => r["think_seconds"] = new JsonArray(7, 2), "colony.json.think_seconds: the first should not be more than the second");
         yield return Case("colony.json", r => r.Remove("think_seconds"), "colony.json: \"think_seconds\" is missing");

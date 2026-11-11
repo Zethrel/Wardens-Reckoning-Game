@@ -114,6 +114,29 @@ internal void Urge(Worker worker) => worker.NextThink = Math.Min(worker.NextThin
 `Math.Min` keeps the sooner of the two, so an order never puts a think off.
 Later steps (a fire breaking out, say) can call the same `Urge`.
 
+## Loading in seconds, and asking at once
+
+Thinking sooner was not enough on its own: in the first try of this step,
+colonists still stood for up to a minute, for two other reasons.
+
+- Loading and unloading took a whole game minute each (`pickup_minutes` and
+  `drop_minutes`, from the time a minute was the smallest step). They are now
+  `pickup_seconds` and `drop_seconds` in `colony.json`, 5 seconds each.
+- A wall or a quern asked for its next job only on the whole minute. Now, when
+  a job is finished, `Finish` sets a flag, and the tick lets the workplaces ask
+  again before anyone takes a job:
+
+```csharp
+if (stirred)
+    Asks();
+```
+
+`Asks` is the asking part that used to sit in `Minute` (workshops, building
+projects, stores being emptied, barrels, boiling); `Minute` now calls it too.
+Asking twice is harmless, because each workplace looks at how things stand and
+counts what is already on its way. The flag is cleared at the start of every
+tick, so it never needs saving: a save is made between ticks.
+
 ## Saves
 
 Version 14 saves each colonist's `"think": [every, next, thought]`. A save that
@@ -123,10 +146,11 @@ refused, as every older version is until 1.0.
 
 ## What to expect at 1x
 
-A colonist given something to do sets off within a few seconds. One whose job
-is done stands for a few seconds before the next. Waiting for a workshop to
-ask for goods can still take up to a minute, because asking is the colony's
-own work, on the whole minutes.
+A colonist given something to do sets off within a few seconds, loads for 5
+seconds and unloads for 5. One whose job is done takes the next within a few
+seconds. A new order (a wall just planned, a batch at the quern) is still
+noticed on the next whole minute, so the very first haul can wait up to a
+minute.
 
 ## Exercise
 
@@ -135,7 +159,8 @@ own work, on the whole minutes.
    test fails, and why?
 2. Set it to `[20, 30]`. How long does someone stand after being given work?
    What does `dotnet test tests --filter ContentTests` say about `[30, 20]`?
-3. Put it back to `[2, 7]`.
+3. Put it back to `[2, 7]`. Then set `"pickup_seconds": 60`: how long does a
+   colonist now stand at the carts? Put it back to 5.
 4. In `Work.Urge`, `Math.Min` keeps the sooner think. Today every order comes
    between two ticks, when everyone's next think is at least a second away, so
    `worker.NextThink = colony.Now.Tick + 1;` would give the same. Why keep

@@ -100,7 +100,7 @@ public class TickTests
         var (wall, placed) = work.Plan("wall", 4, 22);
         Assert.True(placed.Ok, placed.Why);
         bool Far(Worker w) => w.Heading is var (hx, hy, _) && w.Job != null && w.Personal == null
-                              && Math.Abs(hx - w.X) + Math.Abs(hy - w.Y) > 8 && colony.Now.Second is >= 3 and <= 10;
+                              && Math.Abs(hx - w.X) + Math.Abs(hy - w.Y) > 8;
         Assert.True(Until(colony, () => work.Workers.Any(Far), 6 * 3600), string.Join("; ", work.Workers.Select(w => w.Name + ": " + work.Doing(w.Id))));
         return (colony, work.Workers.First(Far), wall!);
     }
