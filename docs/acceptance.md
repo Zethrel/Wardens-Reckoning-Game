@@ -144,6 +144,7 @@ Migration: none is supported. Saves of an older version are refused until 1.0
 | 10 Nov 2026 | Cloud (Linux, .NET 8) | step 20a | 144 cases passed, 0 failed (49 tests) |
 | 10 Nov 2026 | The maintainer's PC (Windows) | step 20a | 144 cases passed |
 | 11 Nov 2026 | Cloud (Linux, .NET 8) | step 21d (second tick, Review 39) | 148 cases passed, 0 failed (49 tests) |
+| 11 Nov 2026 | The maintainer's PC (Windows) | step 21d | 148 cases passed |
 
 Every FP case passed in the cloud run: FP-01 3, FP-02 1, FP-03 2, FP-04 12,
 FP-05 7, FP-06 6, FP-07 6, FP-08 4, FP-09 10, FP-10 93.
@@ -156,7 +157,8 @@ colonist's think; listed in the commits of steps 21a and 21c). FP-08 on the
 local map now saves at a different second of the minute each time, since a
 player can save mid-stride. The cloud run: FP-01 3, FP-02 1, FP-03 2, FP-04
 12, FP-05 7, FP-06 6, FP-07 6, FP-08 4, FP-09 10, FP-10 97 (four more content
-cases: `think_seconds` and `drop_seconds`).
+cases: `think_seconds` and `drop_seconds`). The same on the maintainer's PC,
+case for case.
 
 ## FP-11: accessible core interactions
 
@@ -207,6 +209,5 @@ Measured, not passed or failed: `docs/performance.md`.
 
 - **FP-12**: the path-finding bottleneck (step 22, `docs/performance.md`),
   measured on the second tick in step 21d.
-- The maintainer's PC run on the second tick (step 21d).
 - Then a library review recording the results, adopted only on the
   maintainer's word.

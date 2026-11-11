@@ -195,6 +195,31 @@ map; 443 KB, 22 / 55, 59 / 107 and 38 / 57 ms on site 01.
 hauling and interrupted; 56/28/28 in arbitration on the own map, 12/1/0 on
 site 01. Peak working set of a whole run: about 890 MB.
 
+**The maintainer's PC, 11 November 2026** (Windows 10.0.26200, 16 logical
+processors, .NET 8.0.33, Release build; the same commit, step 21d). Every
+count (ways asked and worked out, walls built) is the same as in the cloud,
+to the unit.
+
+| Scenario | Map | Minute mean | 99% | Slowest | Second mean | Slowest second | Their ms | Peak MB |
+|---|---|---|---|---|---|---|---|---|
+| idle | own | 0.018 | 0.050 | 16 | 0.0026 | 17 | 63 | 55 |
+| hauling | own | 0.027 | 0.076 | 16 | 0.0071 | 14 | 119 | 57 |
+| arbitration | own | 1.52 | 3.57 | 741 | 0.209 | 847 | 23,912 | 454 |
+| interrupted | own | 0.025 | 0.070 | 7 | 0.0070 | 7 | 49 | 60 |
+| idle | site 01 | 0.019 | 0.060 | 16 | 0.0028 | 14 | 56 | 55 |
+| hauling | site 01 | 0.028 | 0.070 | 17 | 0.0068 | 16 | 113 | 57 |
+| arbitration | site 01 | 1.04 | 3.40 | 18 | 0.0542 | 43 | 3,866 | 550 |
+| interrupted | site 01 | 0.026 | 0.068 | 6 | 0.0070 | 7 | 41 | 63 |
+
+Saving on the PC: 469 KB, text 11 / 32 ms, written 38 / 67 ms, loaded
+20 / 32 ms on the own map; 462 KB, 11 / 34, 34 / 57 and 18 / 29 ms on site
+01. Peak working set of a whole run: 787 MB.
+
+As on the minute tick, the PC is about twice as fast as the cloud machine.
+On the PC the 300-wall stress test on the own map still has single ticks of
+0.74 to 0.85 s; at ×60 even idle's slowest (16 to 17 ms) is about one
+frame's time.
+
 **What a game minute costs now:** the minute tick plus 59 second ticks. At
 rest about 0.3 ms (idle), hauling about 1 ms, arbitration on site 01 about 8
 ms and on the own map about 25 ms on average. At ×60 a game minute passes in a
@@ -276,4 +301,5 @@ planned: a tick of 1.5 to 1.7 s freezes the screen at every speed, and at ×60
 already a tick of 35 to 40 ms (idle's slowest, when a way is worked out) makes
 two frames late. The budget per tick shrinks with speed (1,000 ms at ×1,
 16.7 ms at ×60), so step 22 (fewer ways asked and worked out) is measured
-against ×60. Still to measure: the maintainer's PC on the second tick.
+against ×60. On the maintainer's PC (about twice as fast) the worst ticks
+are 0.74 to 0.85 s: still a visible freeze.
