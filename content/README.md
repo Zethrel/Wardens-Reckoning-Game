@@ -89,7 +89,17 @@ what is wrong, before anything runs.
   `[proficiency, speed]` from 0 to 100 joined by straight lines (1 is the
   usual pace: 0.5 takes twice as long, 1.5 two thirds of the time).
   `standard`: the proficiency of a colonist added without one (the tests'),
-  where the speed should be 1.
+  where the speed should be 1. Learning (step 23b): `challenge`, how hard
+  each piece, recipe and `boil` is, from 0 to 100 (every one must be
+  there); `learning`: `points_per_hour` of proficiency an hour of work
+  teaches when the colonist is as good as the work is hard, more when it is
+  above them (at most `most` times), nothing once they are `reach` past it;
+  `aptitude` `[from, to]` founders' learning speed is drawn from (1 is the
+  usual), shown in the inspector as quick (at least `quick`) or slow (at most
+  `slow`) after `aptitude_seen_hours` of practice; a skill not practised for
+  `decay_after_days` loses `decay_per_day` each morning, never below
+  `kept_share` of the best ever reached; below that best, learning goes
+  `recovery` times as fast.
 
 Every file has `"version": 1`: the shape of the file, raised when it changes.
 Unknown keys are refused, so a misspelt key is caught rather than ignored.

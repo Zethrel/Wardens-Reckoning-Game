@@ -53,7 +53,8 @@ public static class ColonySave
     // in seconds, no longer minutes.
     // 15: skills (step 23a): each colonist's proficiency in each skill, and the work carried over between thinks
     // ("carry", which replaces "slow": it holds a skilled colonist's extra as well as an ill one's shortfall).
-    public const int Version = 15;
+    // 16: learning (step 23b): for each skill [proficiency, best reached, aptitude, seconds practised, last practised].
+    public const int Version = 16;
 
     /// <summary>The colony as JSON.</summary>
     public static JsonObject Write(Colony colony) => new()
@@ -106,7 +107,8 @@ public static class ColonySave
                 ["lacking"] = w.Lacking,
                 ["illness"] = w.Illness is not Illness ill ? null : new JsonArray(ill.Name, ill.Shows, ill.Ends),
                 ["carry"] = w.Carry,
-                ["skills"] = new JsonObject(w.Skills.Select(s => KeyValuePair.Create(s.Key, (JsonNode?)s.Value))),
+                ["skills"] = new JsonObject(w.Skills.Select(s => KeyValuePair.Create(s.Key,
+                    (JsonNode?)new JsonArray(s.Value.Proficiency, s.Value.Peak, s.Value.Aptitude, s.Value.Practised, s.Value.LastPractised)))),
                 ["heading"] = w.Heading is not var (hx, hy, hnear) ? null : new JsonArray(hx, hy, hnear),
                 ["think"] = new JsonArray(w.ThinkEvery, w.NextThink, w.Thought),
                 ["forbidden"] = new JsonArray(w.Forbidden.Select(k => (JsonNode?)k).ToArray()),
@@ -533,20 +535,26 @@ public static class ColonySave
             if (!(carry >= 0 && carry < 1))
                 throw new ColonySaveException(at + ".carry is " + carry + ", which should be from 0 to below 1");
             worker.Carry = carry;
-            // Skills (step 23a): each one the content knows, from 0 to 100. One the content no longer has is refused;
-            // one the content has added since gets the usual proficiency.
+            // Skills (steps 23a, 23b): each one the content knows. One the content no longer has is refused; one the
+            // content has added since starts at the usual proficiency, as for a colonist added by hand.
             if (o["skills"] is not JsonObject skills)
-                throw new ColonySaveException(at + ".skills is not a table of skill and proficiency");
+                throw new ColonySaveException(at + ".skills is not a table of skill and [proficiency, best, aptitude, practised, last practised]");
             foreach (var (skill, value) in skills)
             {
                 if (!content.Skills.ContainsKey(skill))
                     throw new ColonySaveException(at + ".skills." + skill + " is not a skill the content knows");
-                if (value is not JsonValue sv || !sv.TryGetValue(out double proficiency) || !(proficiency >= 0 && proficiency <= 100))
-                    throw new ColonySaveException(at + ".skills." + skill + " is not a proficiency from 0 to 100");
-                worker.Skills[skill] = proficiency;
+                if (value is not JsonArray sa || sa.Count != 5
+                    || !(sa[0] is JsonValue p0 && p0.TryGetValue(out double proficiency) && proficiency >= 0 && proficiency <= 100)
+                    || !(sa[1] is JsonValue p1 && p1.TryGetValue(out double peak) && peak >= proficiency && peak <= 100)
+                    || !(sa[2] is JsonValue p2 && p2.TryGetValue(out double aptitude) && aptitude > 0 && double.IsFinite(aptitude))
+                    || !(sa[3] is JsonValue p3 && p3.TryGetValue(out long practised) && practised >= 0)
+                    || !(sa[4] is JsonValue p4 && p4.TryGetValue(out long last) && last <= colony.Now.Tick))
+                    throw new ColonySaveException(at + ".skills." + skill + " is not [proficiency (0 to 100), best reached (not below it, 100 at most), "
+                                                  + "aptitude (above 0), seconds practised (0 or more), last practised (not after now)]");
+                worker.Skills[skill] = new SkillState(proficiency, aptitude, last) { Peak = peak, Practised = practised };
             }
             foreach (string skill in content.Skills.Keys.Where(k => !worker.Skills.ContainsKey(k)))
-                worker.Skills[skill] = content.StandardProficiency;
+                worker.Skills[skill] = new SkillState(content.StandardProficiency, 1, colony.Now.Tick);
             if (o["think"] is not JsonArray think || think.Count != 3
                 || !(think[0] is JsonValue t0 && t0.TryGetValue(out int every) && every >= 1)
                 || !(think[1] is JsonValue t1 && t1.TryGetValue(out long next) && next > colony.Now.Tick)

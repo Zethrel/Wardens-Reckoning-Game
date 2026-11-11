@@ -9,6 +9,8 @@ namespace WardensReckoning.Tests;
 /// second (colony.json think_seconds [1, 1]), for the tests of one mechanic at a time (walking, loading, building,
 /// meals): a colonist decides the second something happens, so their minutes are the mechanic's own. The thinking
 /// rhythm itself (2 to 7 seconds) is tested in TickTests, and runs in every scenario test (FP, founding, water).
+/// `EverySecond` also learns nothing (step 23b: skills.json points_per_hour 0), so that a colonist's pace stays the
+/// same through a test that times work; learning is tested in LearningTests.
 /// </summary>
 internal static class TestContent
 {
@@ -24,7 +26,16 @@ internal static class TestContent
         return files;
     }
 
-    public static readonly Content EverySecond = Content.Read(ThinkingEverySecond(Files()));
+    /// <summary>`files` with skills.json's learning points_per_hour set to 0: nobody learns (step 23b).</summary>
+    public static Dictionary<string, string?> NotLearning(Dictionary<string, string?> files)
+    {
+        var skills = JsonNode.Parse(files["skills.json"]!)!.AsObject();
+        skills["learning"]!["points_per_hour"] = 0;
+        files["skills.json"] = skills.ToJsonString();
+        return files;
+    }
+
+    public static readonly Content EverySecond = Content.Read(NotLearning(ThinkingEverySecond(Files())));
 
     /// <summary>
     /// Puts `amount` of `good` straight onto a project's site, as if already delivered. A planned project asks for

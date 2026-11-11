@@ -122,6 +122,18 @@ public sealed record FoundingRules(int Founders, IReadOnlyList<string> Names, IR
 }
 
 /// <summary>
+/// How skills are learned and lost (step 23b; skills.json "learning"). Work teaches `PointsPerHour` proficiency an
+/// hour at its fullest; how full depends on how far the work's challenge is above the colonist's proficiency
+/// (`(challenge + Reach - proficiency) / Reach`, at most `Most`, at least 0); times the colonist's aptitude; times
+/// `Recovery` while below the best they ever reached. A skill not practised for `DecayAfterDays` loses
+/// `DecayPerDay` each morning, never below `KeptShare` of the best. Aptitude is drawn for founders from
+/// `AptitudeFrom` to `AptitudeTo`, and shown as quick or slow (`Quick`, `Slow`) after `AptitudeSeenHours` of practice.
+/// </summary>
+public sealed record LearningRules(double PointsPerHour, double Reach, double Most, double AptitudeFrom, double AptitudeTo,
+                                   double AptitudeSeenHours, double Quick, double Slow, double DecayAfterDays, double DecayPerDay,
+                                   double KeptShare, double Recovery);
+
+/// <summary>
 /// A skill (step 23a, design library: Skills, Traits and Knowledge Progression): how good a colonist is at a kind of
 /// work, from 0 to 100. `UsedFor` names the work it is used for: "build" (construction), "boil" (boiling water),
 /// or a workshop's id (working a recipe there).
@@ -179,6 +191,11 @@ public sealed class Content
     public IReadOnlyList<(double Proficiency, double Speed)> SkillSpeed { get; private init; } = new[] { (0.0, 1.0), (100.0, 1.0) };
     /// <summary>The proficiency a colonist has when nothing else gives one (one added by hand, as in the tests).</summary>
     public double StandardProficiency { get; private init; }
+
+    /// <summary>How challenging each piece, recipe and "boil" is (step 23b), from 0 to 100.</summary>
+    public IReadOnlyDictionary<string, double> Challenge { get; private init; } = new Dictionary<string, double>();
+    /// <summary>How skills are learned and lost (step 23b).</summary>
+    public LearningRules Learning { get; private init; } = null!;
 
     /// <summary>The rank shown for a proficiency ("Journeyman").</summary>
     public string RankOf(double proficiency) => Ranks.Last(r => r.From <= Math.Max(0, proficiency)).Name;
@@ -711,7 +728,9 @@ public sealed class Content
         var ranks = new List<(int From, string Name)>();
         var paces = new List<(double Proficiency, double Speed)>();
         double? standard = null;
-        if (Open("skills.json", "skills", "ranks", "speed", "standard") is JsonObject sk)
+        var challenge = new SortedDictionary<string, double>(StringComparer.Ordinal);
+        LearningRules? learning = null;
+        if (Open("skills.json", "skills", "ranks", "speed", "standard", "challenge", "learning") is JsonObject sk)
         {
             // The work a skill can be used for: building, boiling, or any workshop.
             var work = new[] { Work.BuildWork, Work.BoilWork }.Concat(workshops.Keys).ToList();
@@ -785,6 +804,55 @@ public sealed class Content
                 problems.Add("skills.json.speed: should be a list of at least two points, from proficiency 0 to 100");
             standard = sk["standard"] is JsonValue stv && stv.TryGetValue(out double sd) && sd >= 0 && sd <= 100 ? sd
                 : sk.ContainsKey("standard") ? Bad<double?>("skills.json.standard: should be a number from 0 to 100") : null;
+            // How challenging each piece of work is (step 23b): every piece, every recipe, and boiling.
+            if (sk["challenge"] is JsonObject ch)
+            {
+                var items = pieces.Keys.Concat(recipes.Keys).Append(Work.BoilWork).ToList();
+                foreach (var (item, value) in ch)
+                {
+                    string at = "skills.json.challenge." + item;
+                    if (!items.Contains(item))
+                        problems.Add(at + ": no piece, recipe or \"boil\" called \"" + item + "\"");
+                    else if (value is JsonValue cv && cv.TryGetValue(out double hard) && hard >= 0 && hard <= 100)
+                        challenge[item] = hard;
+                    else
+                        problems.Add(at + ": should be a number from 0 to 100");
+                }
+                foreach (string item in items.Where(i => !ch.ContainsKey(i)))
+                    problems.Add("skills.json.challenge: no challenge for \"" + item + "\"");
+            }
+            else if (sk.ContainsKey("challenge"))
+                problems.Add("skills.json.challenge: should be a table of piece, recipe or \"boil\" and a number from 0 to 100");
+            if (sk["learning"] is JsonObject le)
+            {
+                const string at = "skills.json.learning";
+                check.Keys(le, at, "points_per_hour", "reach", "most", "aptitude", "aptitude_seen_hours", "quick", "slow",
+                           "decay_after_days", "decay_per_day", "kept_share", "recovery");
+                double? perHour = check.NotNegative(le, at, "points_per_hour"), reach = check.Positive(le, at, "reach"),
+                        most = check.Positive(le, at, "most"), seen = check.NotNegative(le, at, "aptitude_seen_hours"),
+                        quick = check.Positive(le, at, "quick"), slow = check.Positive(le, at, "slow"),
+                        after = check.NotNegative(le, at, "decay_after_days"), perDay = check.NotNegative(le, at, "decay_per_day"),
+                        recovery = check.Positive(le, at, "recovery");
+                double? kept = le["kept_share"] is JsonValue kv && kv.TryGetValue(out double share) && share >= 0 && share <= 1 ? share
+                    : le.ContainsKey("kept_share") ? Bad<double?>(at + ".kept_share: should be a number from 0 to 1") : null;
+                (double, double)? aptitude = null;
+                if (le["aptitude"] is JsonArray ap && ap.Count == 2 && ap[0] is JsonValue a0 && a0.TryGetValue(out double lo)
+                    && ap[1] is JsonValue a1 && a1.TryGetValue(out double hi) && lo > 0 && lo <= hi && double.IsFinite(hi))
+                    aptitude = (lo, hi);
+                else if (le.ContainsKey("aptitude"))
+                    problems.Add(at + ".aptitude: should be [from, to], two numbers above 0, the first no more than the second");
+                if (slow != null && quick != null && slow >= quick)
+                {
+                    problems.Add(at + ".slow: should be below quick");
+                    slow = null;
+                }
+                if (perHour != null && reach != null && most != null && aptitude is var (af, at2) && seen != null && quick != null && slow != null
+                    && after != null && perDay != null && kept != null && recovery != null)
+                    learning = new LearningRules(perHour.Value, reach.Value, most.Value, af, at2, seen.Value, quick.Value, slow.Value,
+                                                 after.Value, perDay.Value, kept.Value, recovery.Value);
+            }
+            else if (sk.ContainsKey("learning"))
+                problems.Add("skills.json.learning: should be an object { ... }");
         }
 
         // Who founds the colony.
@@ -938,6 +1006,7 @@ public sealed class Content
             Templates = templates, Founding = founding!, Surfaces = surfaces,
             ThinkFrom = think!.Value.Item1, ThinkTo = think.Value.Item2,
             Skills = skills, SkillFor = skillFor, Ranks = ranks, SkillSpeed = paces, StandardProficiency = standard!.Value,
+            Challenge = challenge, Learning = learning!,
             Fingerprint = FingerprintOf(files),
         };
     }

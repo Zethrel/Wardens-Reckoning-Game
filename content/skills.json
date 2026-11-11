@@ -6,5 +6,22 @@
   ],
   "ranks": [ [ 0, "Untrained" ], [ 10, "Novice" ], [ 25, "Apprentice" ], [ 40, "Journeyman" ], [ 60, "Adept" ], [ 75, "Expert" ], [ 90, "Master" ] ],
   "speed": [ [ 0, 0.5 ], [ 40, 1.0 ], [ 100, 1.5 ] ],
-  "standard": 40
+  "standard": 40,
+  "challenge": {
+    "road": 5, "ice_hole": 10, "floor": 15, "wall": 25, "wash_basin": 30, "water_barrel": 35, "door": 40, "well": 55,
+    "grind_wheat": 20, "boil": 15
+  },
+  "learning": {
+    "points_per_hour": 1.0,
+    "reach": 20,
+    "most": 2.0,
+    "aptitude": [ 0.5, 1.5 ],
+    "aptitude_seen_hours": 8,
+    "quick": 1.25,
+    "slow": 0.8,
+    "decay_after_days": 14,
+    "decay_per_day": 0.5,
+    "kept_share": 0.5,
+    "recovery": 3.0
+  }
 }

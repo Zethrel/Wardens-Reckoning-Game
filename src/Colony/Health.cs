@@ -60,7 +60,7 @@ public sealed partial class Work
     /// <summary>How fast a colonist works at a job now: their skill at it (step 23a: 1 at the usual proficiency) times
     /// their health (an ill colonist at 70%).</summary>
     internal double Pace(Worker w, Job job) =>
-        (SkillOf(job) is string skill ? content.SpeedAt(w.Skills.GetValueOrDefault(skill)) : 1) * (Ill(w) ? content.UpsetStomach.Work : 1);
+        (SkillOf(job) is string skill && w.Skills.TryGetValue(skill, out var state) ? content.SpeedAt(state.Proficiency) : 1) * (Ill(w) ? content.UpsetStomach.Work : 1);
 
     /// <summary>The skill a job uses (step 23a): building, boiling or a workshop's recipe, as skills.json says; null
     /// for work that uses none (carrying).</summary>

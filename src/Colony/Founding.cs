@@ -108,8 +108,12 @@ public static class Founding
             // How good they are at each skill (step 23a): drawn from the skill's range, on dice of their own, so
             // that adding a skill changes nothing else that is drawn.
             var skillDice = colony.DiceFor("skills");
+            // And how fast they learn each (step 23b): on dice of their own again.
+            var aptitudeDice = colony.DiceFor("aptitude");
             foreach (var (skill, (from, to)) in content.Founding.Skills)
-                founder.Skills[skill] = skillDice.Int(from, to);
+                founder.Skills[skill] = new SkillState(skillDice.Int(from, to),
+                                                       aptitudeDice.Uniform(content.Learning.AptitudeFrom, content.Learning.AptitudeTo),
+                                                       colony.Now.Tick);
             if (content.Founding.BedrollEach)
             {
                 var (bx, by) = OpenNear(ground, x, y + 2, used);

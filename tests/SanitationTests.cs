@@ -32,7 +32,7 @@ public class SanitationTests
             .Replace("\"skills\": { \"construction\": [ 5, 65 ], \"food_preparation\": [ 5, 65 ] }",
                      "\"skills\": { \"construction\": [ 40, 40 ], \"food_preparation\": [ 40, 40 ] }");
         Assert.Contains("[ 40, 40 ]", files["founding.json"]);
-        return Content.Read(files);
+        return Content.Read(TestContent.NotLearning(files));      // and learning nothing (step 23b)
     }
 
     static Moment On(int month, int hour = 8) => new(Calendar.TickOf(1, month, 1, hour, 0));

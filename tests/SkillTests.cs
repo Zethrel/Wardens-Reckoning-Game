@@ -41,12 +41,12 @@ public class SkillTests
         Assert.All(founders, w =>
         {
             Assert.Equal(new[] { "construction", "food_preparation" }, w.Skills.Keys);
-            Assert.All(w.Skills.Values, p => Assert.InRange(p, 5, 65));
+            Assert.All(w.Skills.Values, p => Assert.InRange(p.Proficiency, 5, 65));
         });
         // They differ (library R21-08: at least two colonists observably differ in competence).
-        Assert.True(founders.Select(w => w.Skills["construction"]).Distinct().Count() > 1
-                    || founders.Select(w => w.Skills["food_preparation"]).Distinct().Count() > 1);
-        string Skills(Colony.Colony c) => string.Join(";", c.Work!.Workers.Select(w => string.Join(",", w.Skills.Values)));
+        Assert.True(founders.Select(w => w.Skills["construction"].Proficiency).Distinct().Count() > 1
+                    || founders.Select(w => w.Skills["food_preparation"].Proficiency).Distinct().Count() > 1);
+        string Skills(Colony.Colony c) => string.Join(";", c.Work!.Workers.Select(w => string.Join(",", w.Skills.Values.Select(v => v.Proficiency))));
         Assert.Equal(Skills(colony), Skills(Drawn(7)));
         Assert.Contains(Enumerable.Range(8, 5), seed => Skills(Drawn(seed)) != Skills(colony));
     }
@@ -63,8 +63,8 @@ public class SkillTests
         var colony = Usual();
         var work = colony.Work!;
         var ada = work.Workers.First();
-        ada.Skills["construction"] = 100;
-        ada.Skills["food_preparation"] = 0;
+        ada.Skills["construction"].Proficiency = 100;
+        ada.Skills["food_preparation"].Proficiency = 0;
         var quern = work.AddSite("quern", 24.5, 14.5);
         work.Order(quern.Id, "grind_wheat", 1);
         var haul = Assert.Single(work.Jobs, j => j.Kind == JobKind.Haul);
@@ -80,7 +80,7 @@ public class SkillTests
         foreach (var w in work.Workers.Skip(1))
             work.Stop(w.Id);                              // one builder
         var builder = work.Workers.First();
-        builder.Skills["construction"] = proficiency;
+        builder.Skills["construction"].Proficiency = proficiency;
         if (ill)
             builder.Illness = new Illness(colony.Content!.UpsetStomach.Name, colony.Now.Tick, colony.Now.Tick + 10 * Calendar.TicksPerDay);
         var (wall, placed) = work.Plan("wall", 22, 14);
@@ -120,8 +120,8 @@ public class SkillTests
         var boil = Assert.Single(work.Jobs, j => j.Kind == JobKind.Boil);
         Assert.Equal("food_preparation", work.SkillOf(boil));
         var ada = work.Workers.First();
-        ada.Skills["food_preparation"] = 100;
-        ada.Skills["construction"] = 0;
+        ada.Skills["food_preparation"].Proficiency = 100;
+        ada.Skills["construction"].Proficiency = 0;
         Assert.Equal(1.5, work.Pace(ada, boil), 9);
     }
 
@@ -138,21 +138,22 @@ public class SkillTests
     {
         var colony = Usual();
         var ada = colony.Work!.Workers.First();
-        ada.Skills["construction"] = 72.4;
-        ada.Skills["food_preparation"] = 3;
+        ada.Skills["construction"].Proficiency = 72.4;
+        ada.Skills["construction"].Aptitude = 1;                 // the founders' are drawn (step 23b)
+        ada.Skills["food_preparation"].Proficiency = 3;
         var lines = Inspect.Worker(colony, ada.Id).Lines;
         Assert.Equal("Adept, works at 127% of the usual pace", lines.Single(l => l.Label == "Construction").Text);
         Assert.Equal("Untrained, works at 54% of the usual pace", lines.Single(l => l.Label == "Food preparation").Text);
         Assert.DoesNotContain(lines, l => l.Text.Contains("72.4"));
         var traced = Inspect.Worker(colony, ada.Id, trace: true).Lines;
-        Assert.Equal("Adept, works at 127% of the usual pace (72.4)", traced.Single(l => l.Label == "Construction").Text);
+        Assert.Equal("Adept, works at 127% of the usual pace (72.4, best 72.4, aptitude 1.00, practised 0.0 h)", traced.Single(l => l.Label == "Construction").Text);
     }
 
     [Fact]
     public void A_save_keeps_every_colonists_skills()
     {
         var colony = Drawn(7);
-        colony.Work!.Workers.First().Skills["construction"] = 33.25;
+        colony.Work!.Workers.First().Skills["construction"].Proficiency = 33.25;
         string text = ColonySave.Text(colony);
         var loaded = ColonySave.Read(text, colony.Content!);
         Assert.Equal(colony.Work.Workers.Select(w => string.Join(",", w.Skills)), loaded.Work!.Workers.Select(w => string.Join(",", w.Skills)));
@@ -161,9 +162,9 @@ public class SkillTests
 
     [Theory]
     [InlineData("smithing", "12", "skills.smithing is not a skill the content knows")]
-    [InlineData("construction", "101", "skills.construction is not a proficiency from 0 to 100")]
-    [InlineData("construction", "-1", "skills.construction is not a proficiency from 0 to 100")]
-    [InlineData("construction", "\"good\"", "skills.construction is not a proficiency from 0 to 100")]
+    [InlineData("construction", "101", "skills.construction is not [proficiency (0 to 100)")]
+    [InlineData("construction", "-1", "skills.construction is not [proficiency (0 to 100)")]
+    [InlineData("construction", "\"good\"", "skills.construction is not [proficiency (0 to 100)")]
     public void A_save_with_a_broken_skill_is_refused(string skill, string value, string reason)
     {
         var colony = Drawn(7);
@@ -171,7 +172,7 @@ public class SkillTests
         save["work"]!["workers"]![0]!["skills"]![skill] = JsonNode.Parse(value);
         Assert.Contains(reason, Assert.Throws<ColonySaveException>(() => ColonySave.Read(save.ToJsonString(), colony.Content!)).Message);
         save["work"]!["workers"]![0]!["skills"] = 5;
-        Assert.Contains("skills is not a table", Assert.Throws<ColonySaveException>(() => ColonySave.Read(save.ToJsonString(), colony.Content!)).Message);
+        Assert.Contains("skills is not a table of skill and [proficiency", Assert.Throws<ColonySaveException>(() => ColonySave.Read(save.ToJsonString(), colony.Content!)).Message);
     }
 
     [Fact]
@@ -181,6 +182,6 @@ public class SkillTests
         var save = ColonySave.Write(colony);
         save["work"]!["workers"]![0]!["skills"]!.AsObject().Remove("food_preparation");
         var loaded = ColonySave.Read(save.ToJsonString(), colony.Content!, acceptChanged: true);
-        Assert.Equal(Real.StandardProficiency, loaded.Work!.Workers.First().Skills["food_preparation"]);
+        Assert.Equal(Real.StandardProficiency, loaded.Work!.Workers.First().Skills["food_preparation"].Proficiency);
     }
 }

@@ -5,6 +5,39 @@ namespace WardensReckoning.Colony;
 /// A person who works (step 13b: no needs yet; those come in step 14). They stand somewhere, carry goods in their
 /// arms (an inventory of their own, so whatever they carry always has a keeper: them), and do one job at a time.
 /// </summary>
+/// <summary>
+/// A colonist's state in one skill (steps 23a and 23b): how good they are now (`Proficiency`, 0 to 100), the best they
+/// have ever been (`Peak`), how fast they learn it (`Aptitude`, 1 the usual; hidden from the player until seen in
+/// practice), how long they have practised it in all (`Practised`, seconds) and when they last did (`LastPractised`,
+/// a tick).
+/// </summary>
+public sealed class SkillState(double proficiency, double aptitude, long lastPractised)
+{
+    double proficiency = proficiency;
+
+    /// <summary>How good they are now. Raising it raises the best ever reached with it.</summary>
+    public double Proficiency
+    {
+        get => proficiency;
+        set
+        {
+            proficiency = value;
+            Peak = Math.Max(Peak, value);
+        }
+    }
+
+    /// <summary>The best they have ever been (step 23b): decay never takes them below a share of it, and they learn
+    /// faster again up to it.</summary>
+    public double Peak { get; internal set; } = proficiency;
+
+    public double Aptitude { get; internal set; } = aptitude;
+    public long Practised { get; internal set; }
+    public long LastPractised { get; internal set; } = lastPractised;
+
+    /// <summary>Losing proficiency (decay, step 23b): the best ever reached stays.</summary>
+    internal void Lose(double points) => proficiency = Math.Max(0, proficiency - points);
+}
+
 public sealed class Worker(ColonistId id, string name, double x, double y, InventoryId arms)
 {
     public ColonistId Id { get; } = id;
@@ -34,8 +67,8 @@ public sealed class Worker(ColonistId id, string name, double x, double y, Inven
     /// an ill or unskilled one's shortfall, carried over from one think to the next.</summary>
     public double Carry { get; internal set; }
 
-    /// <summary>How good they are at each skill (step 23a): proficiency from 0 to 100, by skill id.</summary>
-    public SortedDictionary<string, double> Skills { get; } = new(StringComparer.Ordinal);
+    /// <summary>How good they are at each skill (step 23a) and how they learn it (step 23b), by skill id.</summary>
+    public SortedDictionary<string, SkillState> Skills { get; } = new(StringComparer.Ordinal);
 
     double legs = 1;
     /// <summary>How well their legs carry them (step 15c), as a share of a healthy walk: 1 (100%) until body
@@ -240,7 +273,7 @@ public sealed partial class Work
         var worker = new Worker(colony.Ids.Next<ColonistId>(), name, x, y, arms.Id) { Schedule = content.DefaultSchedule };
         // The usual proficiency in every skill, until something says otherwise (founding draws its own, step 23a).
         foreach (string skill in content.Skills.Keys)
-            worker.Skills[skill] = content.StandardProficiency;
+            worker.Skills[skill] = new SkillState(content.StandardProficiency, 1, colony.Now.Tick);
         // Their rhythm (step 21c), on the colony's thinking dice: every so many seconds, and the first think within
         // that many, so that colonists who come together do not all think in the same second.
         worker.ThinkEvery = colony.DiceFor("thinking").Int(content.ThinkFrom, content.ThinkTo);
@@ -458,6 +491,7 @@ public sealed partial class Work
         {
             Foul();
             Morning();
+            Forget();
         }
         if (colony.Now.MinuteOfDay % Calendar.MinutesPerHour == 0)
             TopUp();
@@ -537,8 +571,10 @@ public sealed partial class Work
                 break;
             case Step.Working:
                 // How much work the seconds are worth: by the colonist's skill at it (step 23a) and their health (step
-                // 19b).
-                if ((job.Left -= Effort(worker, job, seconds)) > 0)
+                // 19b). The seconds teach them too (step 23b).
+                int worth = Effort(worker, job, seconds);
+                Practise(worker, job, seconds);
+                if ((job.Left -= worth) > 0)
                     break;
                 if (job.Kind == JobKind.Boil)
                 {

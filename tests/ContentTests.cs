@@ -197,6 +197,19 @@ public class ContentTests
         yield return Case("skills.json", r => r["speed"]![0]![1] = 0, "skills.json.speed[0]: should be [a proficiency, the speed of work there");
         yield return Case("skills.json", r => r["speed"] = new JsonArray(new JsonArray(0, 1)), "skills.json.speed: should be a list of at least two points");
         yield return Case("skills.json", r => r["standard"] = 120, "skills.json.standard: should be a number from 0 to 100");
+        // Learning (step 23b).
+        yield return Case("skills.json", r => r["challenge"]!["anvil"] = 5, "skills.json.challenge.anvil: no piece, recipe or \"boil\" called \"anvil\"");
+        yield return Case("skills.json", r => r["challenge"]!.AsObject().Remove("well"), "skills.json.challenge: no challenge for \"well\"");
+        yield return Case("skills.json", r => r["challenge"]!.AsObject().Remove("boil"), "skills.json.challenge: no challenge for \"boil\"");
+        yield return Case("skills.json", r => r["challenge"]!["wall"] = 101, "skills.json.challenge.wall: should be a number from 0 to 100");
+        yield return Case("skills.json", r => r["learning"]!["reach"] = 0, "skills.json.learning.reach: should be a number above 0");
+        yield return Case("skills.json", r => r["learning"]!["points_per_hour"] = -1, "skills.json.learning.points_per_hour: should be a number of 0 or more");
+        yield return Case("skills.json", r => r["learning"]!["aptitude"] = new JsonArray(1.5, 0.5), "skills.json.learning.aptitude: should be [from, to]");
+        yield return Case("skills.json", r => r["learning"]!["aptitude"] = new JsonArray(0, 1), "skills.json.learning.aptitude: should be [from, to]");
+        yield return Case("skills.json", r => r["learning"]!["slow"] = 1.3, "skills.json.learning.slow: should be below quick");
+        yield return Case("skills.json", r => r["learning"]!["kept_share"] = 1.5, "skills.json.learning.kept_share: should be a number from 0 to 1");
+        yield return Case("skills.json", r => r["learning"]!.AsObject().Remove("recovery"), "skills.json.learning: \"recovery\" is missing");
+        yield return Case("skills.json", r => r["learning"] = 3, "skills.json.learning: should be an object { ... }");
         yield return Case("founding.json", r => r["skills"]!["smithing"] = new JsonArray(1, 2), "founding.json.skills.smithing: no skill \"smithing\" in skills.json");
         yield return Case("founding.json", r => r["skills"]!.AsObject().Remove("food_preparation"), "founding.json.skills: no range for the skill \"food_preparation\"");
         yield return Case("founding.json", r => r["skills"]!["construction"] = new JsonArray(50, 120), "founding.json.skills.construction: should be at most 100");

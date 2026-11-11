@@ -77,7 +77,7 @@ public class InterruptedBuildingTests
         var (first, second) = (work.Workers.First(), work.Workers.Skip(1).First());
         foreach (var w in work.Workers.Skip(1))
             work.Stop(w.Id);
-        second.Skills["construction"] = 100;                   // a master: half again as fast
+        second.Skills["construction"].Proficiency = 100;                   // a master: half again as fast
         var (wall, _) = work.Plan("wall", 22, 14);
         Job? Build() => work.Jobs.FirstOrDefault(j => j.Kind == JobKind.Build && j.Site == wall!.Id);
         while (Build()?.Step != Step.Working)

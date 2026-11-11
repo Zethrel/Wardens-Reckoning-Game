@@ -68,11 +68,15 @@ public static class Inspect
         lines.Add(new Line("Schedule", w.Schedule + ", now " + work.BlockOf(w).ToString().ToLowerInvariant()));
         // Skills (step 23a): the rank and the pace it gives, in words; the number only in the developer's trace
         // (design library: the player reads ranks, not raw numbers).
+        // Aptitude (step 23b) only once seen in practice; the developer's trace has the numbers.
         var content = Rules(colony);
-        foreach (var (skill, proficiency) in w.Skills)
-            lines.Add(new Line(content.Skills[skill].Name, content.RankOf(proficiency) + ", works at "
-                               + Whole(content.SpeedAt(proficiency) * 100) + "% of the usual pace"
-                               + (trace ? " (" + proficiency.ToString("0.0", CultureInfo.InvariantCulture) + ")" : "")));
+        foreach (var (skill, state) in w.Skills)
+            lines.Add(new Line(content.Skills[skill].Name, content.RankOf(state.Proficiency) + ", works at "
+                               + Whole(content.SpeedAt(state.Proficiency) * 100) + "% of the usual pace"
+                               + (work.AptitudeSeen(state) is string seen ? "; " + seen : "")
+                               + (trace ? " (" + Number(state.Proficiency) + ", best " + Number(state.Peak) + ", aptitude "
+                                          + state.Aptitude.ToString("0.00", CultureInfo.InvariantCulture) + ", practised "
+                                          + Number(state.Practised / (double)Calendar.TicksPerHour) + " h)" : "")));
         lines.Add(new Line("Carrying", Goods(colony, colony.Stocks[w.Arms].Goods, trace)));
         if (w.Lacking != null)
             lines.Add(new Line("Lacking", w.Lacking));
@@ -280,5 +284,8 @@ public static class Inspect
     static Content Rules(Colony colony) => colony.Content ?? throw new InvalidOperationException("the colony has no content");
 
     static string Whole(double value) => Math.Round(value).ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>A number with one decimal (72.4), as the trace shows proficiency.</summary>
+    static string Number(double value) => value.ToString("0.0", CultureInfo.InvariantCulture);
     static string Capital(string text) => text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];
 }

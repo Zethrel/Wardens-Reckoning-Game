@@ -362,14 +362,22 @@ public class WorkTests
     }
 
     /// <summary>The real content and a second workshop, a mill, with a recipe of its own.</summary>
-    static Content WithMill() => With("recipes.json", r =>
+    static Content WithMill()
     {
+        var files = NoNeedsFiles();
+        var r = JsonNode.Parse(files["recipes.json"]!)!.AsObject();
         r["workshops"]!.AsArray().Add(new JsonObject { ["id"] = "mill", ["name"] = "Mill" });
         var mill = r["recipes"]![0]!.DeepClone().AsObject();
         mill["id"] = "mill_wheat";
         mill["workshop"] = "mill";
         r["recipes"]!.AsArray().Add(mill);
-    });
+        files["recipes.json"] = r.ToJsonString();
+        // Every recipe has its challenge (step 23b).
+        var skills = JsonNode.Parse(files["skills.json"]!)!.AsObject();
+        skills["challenge"]!["mill_wheat"] = 20;
+        files["skills.json"] = skills.ToJsonString();
+        return Content.Read(files);
+    }
 
     [Fact]
     public void Loading_and_unloading_take_their_minutes()
