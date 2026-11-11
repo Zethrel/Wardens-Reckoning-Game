@@ -66,6 +66,13 @@ public static class Inspect
             lines.Add(new Line(Capital(rule.Name), Whole(state.Level) + " of 100, " + Word(rule, state.Level)));
         }
         lines.Add(new Line("Schedule", w.Schedule + ", now " + work.BlockOf(w).ToString().ToLowerInvariant()));
+        // Skills (step 23a): the rank and the pace it gives, in words; the number only in the developer's trace
+        // (design library: the player reads ranks, not raw numbers).
+        var content = Rules(colony);
+        foreach (var (skill, proficiency) in w.Skills)
+            lines.Add(new Line(content.Skills[skill].Name, content.RankOf(proficiency) + ", works at "
+                               + Whole(content.SpeedAt(proficiency) * 100) + "% of the usual pace"
+                               + (trace ? " (" + proficiency.ToString("0.0", CultureInfo.InvariantCulture) + ")" : "")));
         lines.Add(new Line("Carrying", Goods(colony, colony.Stocks[w.Arms].Goods, trace)));
         if (w.Lacking != null)
             lines.Add(new Line("Lacking", w.Lacking));

@@ -182,6 +182,25 @@ public class ContentTests
         yield return Case("construction.json", r => House(r)["rows"] = new JsonArray("....", "...."), "construction.json.templates[0].rows: no pieces at all");
         yield return Case("construction.json", r => r["templates"]!.AsArray().Add(House(r).DeepClone()), "a second template with the id \"small_house\"");
         yield return Case("construction.json", r => r["pieces"]![1]!.AsObject().Remove("encloses"), "construction.json.pieces[1]: \"encloses\" is missing");
+        // Skills (step 23a).
+        JsonObject Skill(JsonObject r, int i) => r["skills"]![i]!.AsObject();
+        yield return Case("skills.json", r => Skill(r, 1)["id"] = "construction", "skills.json.skills[1]: a second skill with the id \"construction\"");
+        yield return Case("skills.json", r => Skill(r, 0)["used_for"] = new JsonArray("smithing"), "skills.json.skills[0].used_for[0]: no work \"smithing\"");
+        yield return Case("skills.json", r => Skill(r, 1)["used_for"] = new JsonArray("build"),
+                          "skills.json.skills[1].used_for[0]: \"build\" already uses the skill \"construction\" (one skill for each kind of work)");
+        yield return Case("skills.json", r => Skill(r, 0)["used_for"] = new JsonArray(), "skills.json.skills[0].used_for: should be a list of at least one kind of work");
+        yield return Case("skills.json", r => r["ranks"]![0]![0] = 5, "skills.json.ranks[0]: the first rank should start at 0");
+        yield return Case("skills.json", r => r["ranks"]![2]![0] = 10, "skills.json.ranks[2]: should start above the rank before it, and at 100 at most");
+        yield return Case("skills.json", r => r["ranks"]![1] = new JsonArray(10), "skills.json.ranks[1]: should be [the proficiency it starts at, its name]");
+        yield return Case("skills.json", r => r["speed"]![2]![0] = 90, "skills.json.speed[2]: the proficiencies should go up from 0 (the first) to 100 (the last)");
+        yield return Case("skills.json", r => r["speed"]![1]![0] = 0, "skills.json.speed[1]: the proficiencies should go up from 0 (the first) to 100 (the last)");
+        yield return Case("skills.json", r => r["speed"]![0]![1] = 0, "skills.json.speed[0]: should be [a proficiency, the speed of work there");
+        yield return Case("skills.json", r => r["speed"] = new JsonArray(new JsonArray(0, 1)), "skills.json.speed: should be a list of at least two points");
+        yield return Case("skills.json", r => r["standard"] = 120, "skills.json.standard: should be a number from 0 to 100");
+        yield return Case("founding.json", r => r["skills"]!["smithing"] = new JsonArray(1, 2), "founding.json.skills.smithing: no skill \"smithing\" in skills.json");
+        yield return Case("founding.json", r => r["skills"]!.AsObject().Remove("food_preparation"), "founding.json.skills: no range for the skill \"food_preparation\"");
+        yield return Case("founding.json", r => r["skills"]!["construction"] = new JsonArray(50, 120), "founding.json.skills.construction: should be at most 100");
+        yield return Case("founding.json", r => r["skills"]!["construction"] = new JsonArray(60, 20), "founding.json.skills.construction: the first should not be more than the second");
         yield return Case("founding.json", r => r["founders"] = 13, "founding.json.names: 12 names for 13 founders");
         yield return Case("founding.json", r => r["founders"] = 0, "founding.json.founders: should be a whole number of 1 or more");
         yield return Case("founding.json", r => r["names"]![1] = "Ada", "founding.json.names[1]: \"Ada\" is there twice");

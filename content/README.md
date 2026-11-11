@@ -77,8 +77,19 @@ what is wrong, before anything runs.
 
 - `founding.json`: who founds the colony: how many `founders`, the `names`
   they are drawn from (by the colony's dice; at least as many names as
-  founders), the `supplies` they bring (good id to whole units) and whether
-  each brings a bedroll (`bedroll_each`).
+  founders), the `supplies` they bring (good id to whole units), whether
+  each brings a bedroll (`bedroll_each`), and for every skill the range
+  `[from, to]` a founder's proficiency is drawn from (`skills`, step 23a).
+- `skills.json` (step 23a): the `skills`, each with an `id`, a `name` and the
+  work it is `used_for`: `build` (all building), `boil` (boiling water) or a
+  workshop's id (its recipes); each kind of work uses one skill at most, and
+  work that uses none (carrying, care) goes at the usual pace. `ranks`: the
+  word shown for a proficiency, each `[the proficiency it starts at, its
+  name]`, the first at 0. `speed`: how fast work goes, as points
+  `[proficiency, speed]` from 0 to 100 joined by straight lines (1 is the
+  usual pace: 0.5 takes twice as long, 1.5 two thirds of the time).
+  `standard`: the proficiency of a colonist added without one (the tests'),
+  where the speed should be 1.
 
 Every file has `"version": 1`: the shape of the file, raised when it changes.
 Unknown keys are refused, so a misspelt key is caught rather than ignored.

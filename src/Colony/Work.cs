@@ -30,8 +30,12 @@ public sealed class Worker(ColonistId id, string name, double x, double y, Inven
     public (double X, double Y, bool Near)? Heading { get; internal set; }
     /// <summary>An illness caught (step 19b): it may not have shown yet (Work.Ill says whether it has).</summary>
     public Illness? Illness { get; internal set; }
-    /// <summary>The work missed while ill and not yet taken off (Health.cs, Slowed).</summary>
-    public double Slow { get; internal set; }
+    /// <summary>Work done but not yet a whole second's worth (Health.cs, Effort): a skilled colonist's extra and
+    /// an ill or unskilled one's shortfall, carried over from one think to the next.</summary>
+    public double Carry { get; internal set; }
+
+    /// <summary>How good they are at each skill (step 23a): proficiency from 0 to 100, by skill id.</summary>
+    public SortedDictionary<string, double> Skills { get; } = new(StringComparer.Ordinal);
 
     double legs = 1;
     /// <summary>How well their legs carry them (step 15c), as a share of a healthy walk: 1 (100%) until body
@@ -234,6 +238,9 @@ public sealed partial class Work
         OnOpenGround(x, y);
         var arms = Stocks.Open(name + "'s arms", Holder.Carrier, x, y);
         var worker = new Worker(colony.Ids.Next<ColonistId>(), name, x, y, arms.Id) { Schedule = content.DefaultSchedule };
+        // The usual proficiency in every skill, until something says otherwise (founding draws its own, step 23a).
+        foreach (string skill in content.Skills.Keys)
+            worker.Skills[skill] = content.StandardProficiency;
         // Their rhythm (step 21c), on the colony's thinking dice: every so many seconds, and the first think within
         // that many, so that colonists who come together do not all think in the same second.
         worker.ThinkEvery = colony.DiceFor("thinking").Int(content.ThinkFrom, content.ThinkTo);
@@ -529,8 +536,9 @@ public sealed partial class Work
                 Finish(worker, job);
                 break;
             case Step.Working:
-                // An ill colonist works slower (step 19b): some of the seconds do not count.
-                if ((job.Left -= Effort(worker, seconds)) > 0)
+                // How much work the seconds are worth: by the colonist's skill at it (step 23a) and their health (step
+                // 19b).
+                if ((job.Left -= Effort(worker, job, seconds)) > 0)
                     break;
                 if (job.Kind == JobKind.Boil)
                 {

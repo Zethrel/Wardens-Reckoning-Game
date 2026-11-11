@@ -39,7 +39,7 @@ machine.
 | FP-07 | The same start, seed and commands give the same state at every checkpoint | 6 (6) | — |
 | FP-08 | Saved with jobs, claims and goods in hand; loaded, it goes on with the same identities and nothing done twice | 4 (4) | Saving and loading from the menus (18a, 9 Nov) |
 | FP-09 | A broken or unsupported save is refused with a reason, and the file is not harmed | 5 (10) | — |
-| FP-10 | Broken content (duplicate ids, missing references, bad numbers) is caught before play, with where it is | 3 (97) | — |
+| FP-10 | Broken content (duplicate ids, missing references, bad numbers) is caught before play, with where it is | 3 (113) | — |
 
 "Cases": a test given several inputs counts once for each.
 
@@ -131,9 +131,9 @@ Migration: none is supported. Saves of an older version are refused until 1.0
 
 ### FP-10: content validation
 
-- `ContentTests.FP10_broken_content_is_caught_and_named`: 95 broken
+- `ContentTests.FP10_broken_content_is_caught_and_named`: 111 broken
   variations of the real content, each refused with where it is (step 21c
-  added `think_seconds` and `drop_seconds`).
+  added `think_seconds` and `drop_seconds`; step 23a the skills).
 - `ContentTests.FP10_broken_JSON_and_a_missing_file_are_named`
 - `ContentTests.FP10_every_problem_is_reported_at_once`
 

@@ -105,6 +105,11 @@ public static class Founding
             names.Remove(name);
             var (fx, fy) = OpenNear(ground, x, y, used);
             var founder = work.AddWorker(name, fx + 0.5, fy + 0.5);
+            // How good they are at each skill (step 23a): drawn from the skill's range, on dice of their own, so
+            // that adding a skill changes nothing else that is drawn.
+            var skillDice = colony.DiceFor("skills");
+            foreach (var (skill, (from, to)) in content.Founding.Skills)
+                founder.Skills[skill] = skillDice.Int(from, to);
             if (content.Founding.BedrollEach)
             {
                 var (bx, by) = OpenNear(ground, x, y + 2, used);

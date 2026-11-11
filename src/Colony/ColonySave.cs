@@ -51,7 +51,9 @@ public static class ColonySave
     // where each colonist is heading.
     // 14: thinking (step 21c): each colonist's rhythm, next think and last think; a job's and a meal's time left
     // in seconds, no longer minutes.
-    public const int Version = 14;
+    // 15: skills (step 23a): each colonist's proficiency in each skill, and the work carried over between thinks
+    // ("carry", which replaces "slow": it holds a skilled colonist's extra as well as an ill one's shortfall).
+    public const int Version = 15;
 
     /// <summary>The colony as JSON.</summary>
     public static JsonObject Write(Colony colony) => new()
@@ -103,7 +105,8 @@ public static class ColonySave
                 ["schedule"] = w.Schedule, ["asleep"] = w.Asleep, ["on_bedroll"] = w.OnBedroll, ["collapsed"] = w.Collapsed,
                 ["lacking"] = w.Lacking,
                 ["illness"] = w.Illness is not Illness ill ? null : new JsonArray(ill.Name, ill.Shows, ill.Ends),
-                ["slow"] = w.Slow,
+                ["carry"] = w.Carry,
+                ["skills"] = new JsonObject(w.Skills.Select(s => KeyValuePair.Create(s.Key, (JsonNode?)s.Value))),
                 ["heading"] = w.Heading is not var (hx, hy, hnear) ? null : new JsonArray(hx, hy, hnear),
                 ["think"] = new JsonArray(w.ThinkEvery, w.NextThink, w.Thought),
                 ["forbidden"] = new JsonArray(w.Forbidden.Select(k => (JsonNode?)k).ToArray()),
@@ -526,10 +529,24 @@ public static class ColonySave
             }
             else if (o["illness"] is not null)
                 throw new ColonySaveException(at + ".illness is not [name, shows, ends]");
-            double slow = Real(o, "slow", at);
-            if (!(slow >= 0 && slow < 1))
-                throw new ColonySaveException(at + ".slow is " + slow + ", which should be from 0 to below 1");
-            worker.Slow = slow;
+            double carry = Real(o, "carry", at);
+            if (!(carry >= 0 && carry < 1))
+                throw new ColonySaveException(at + ".carry is " + carry + ", which should be from 0 to below 1");
+            worker.Carry = carry;
+            // Skills (step 23a): each one the content knows, from 0 to 100. One the content no longer has is refused;
+            // one the content has added since gets the usual proficiency.
+            if (o["skills"] is not JsonObject skills)
+                throw new ColonySaveException(at + ".skills is not a table of skill and proficiency");
+            foreach (var (skill, value) in skills)
+            {
+                if (!content.Skills.ContainsKey(skill))
+                    throw new ColonySaveException(at + ".skills." + skill + " is not a skill the content knows");
+                if (value is not JsonValue sv || !sv.TryGetValue(out double proficiency) || !(proficiency >= 0 && proficiency <= 100))
+                    throw new ColonySaveException(at + ".skills." + skill + " is not a proficiency from 0 to 100");
+                worker.Skills[skill] = proficiency;
+            }
+            foreach (string skill in content.Skills.Keys.Where(k => !worker.Skills.ContainsKey(k)))
+                worker.Skills[skill] = content.StandardProficiency;
             if (o["think"] is not JsonArray think || think.Count != 3
                 || !(think[0] is JsonValue t0 && t0.TryGetValue(out int every) && every >= 1)
                 || !(think[1] is JsonValue t1 && t1.TryGetValue(out long next) && next > colony.Now.Tick)

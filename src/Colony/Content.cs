@@ -115,7 +115,18 @@ public sealed record Patch(string Surface, int X, int Y, int Width, int Height);
 public sealed record Template(string Id, string Name, int Width, int Height, IReadOnlyList<(string Piece, int X, int Y)> Pieces);
 
 /// <summary>Who arrives to found the colony and what they bring (founding.json; library Review 33).</summary>
-public sealed record FoundingRules(int Founders, IReadOnlyList<string> Names, IReadOnlyDictionary<string, int> Supplies, bool BedrollEach);
+public sealed record FoundingRules(int Founders, IReadOnlyList<string> Names, IReadOnlyDictionary<string, int> Supplies, bool BedrollEach)
+{
+    /// <summary>For each skill, the range a founder's proficiency is drawn from (step 23a).</summary>
+    public IReadOnlyDictionary<string, (int From, int To)> Skills { get; init; } = new Dictionary<string, (int, int)>();
+}
+
+/// <summary>
+/// A skill (step 23a, design library: Skills, Traits and Knowledge Progression): how good a colonist is at a kind of
+/// work, from 0 to 100. `UsedFor` names the work it is used for: "build" (construction), "boil" (boiling water),
+/// or a workshop's id (working a recipe there).
+/// </summary>
+public sealed record Skill(string Id, string Name, IReadOnlyList<string> UsedFor);
 
 /// <summary>Something in the way on the ground (a rock, a tree), on one tile.</summary>
 public sealed record Obstacle(string Kind, int X, int Y);
@@ -156,6 +167,36 @@ public sealed class Content
     /// `ThinkFrom` to `ThinkTo` (colony.json think_seconds).</summary>
     public int ThinkFrom { get; private init; } = 1;
     public int ThinkTo { get; private init; } = 1;
+
+    /// <summary>The skills (step 23a, skills.json), by id.</summary>
+    public IReadOnlyDictionary<string, Skill> Skills { get; private init; } = new Dictionary<string, Skill>();
+    /// <summary>For a kind of work ("build", "boil", a workshop's id), the skill it uses; work not here uses none.</summary>
+    public IReadOnlyDictionary<string, string> SkillFor { get; private init; } = new Dictionary<string, string>();
+    /// <summary>The names shown for proficiency (step 23a): each from the proficiency it starts at, in order.</summary>
+    public IReadOnlyList<(int From, string Name)> Ranks { get; private init; } = new[] { (0, "Untrained") };
+    /// <summary>How fast work goes at a proficiency: points (proficiency, speed) from 0 to 100, straight lines
+    /// between them (step 23a).</summary>
+    public IReadOnlyList<(double Proficiency, double Speed)> SkillSpeed { get; private init; } = new[] { (0.0, 1.0), (100.0, 1.0) };
+    /// <summary>The proficiency a colonist has when nothing else gives one (one added by hand, as in the tests).</summary>
+    public double StandardProficiency { get; private init; }
+
+    /// <summary>The rank shown for a proficiency ("Journeyman").</summary>
+    public string RankOf(double proficiency) => Ranks.Last(r => r.From <= Math.Max(0, proficiency)).Name;
+
+    /// <summary>How fast work goes at a proficiency: on the straight line between the two points around it (1 is the
+    /// usual pace).</summary>
+    public double SpeedAt(double proficiency)
+    {
+        double p = Math.Clamp(proficiency, 0, 100);
+        for (int i = 1; i < SkillSpeed.Count; i++)
+        {
+            var (p0, s0) = SkillSpeed[i - 1];
+            var (p1, s1) = SkillSpeed[i];
+            if (p <= p1)
+                return s0 + (s1 - s0) * (p - p0) / (p1 - p0);
+        }
+        return SkillSpeed[^1].Speed;
+    }
 
     /// <summary>The needs: "hunger", "thirst", "fatigue", "hygiene".</summary>
     public IReadOnlyDictionary<string, NeedRule> Needs { get; private init; } = new Dictionary<string, NeedRule>();
@@ -231,7 +272,7 @@ public sealed class Content
 
     /// <summary>The content's files.</summary>
     public static readonly string[] Files = { "goods.json", "recipes.json", "colony.json", "needs.json", "schedules.json", "construction.json", "founding.json",
-                                              "sanitation.json", "health.json" };
+                                              "sanitation.json", "health.json", "skills.json" };
 
     /// <summary>Checks content given as file name to text (null: the file is missing).</summary>
     public static Content Read(IReadOnlyDictionary<string, string?> files)
@@ -664,9 +705,91 @@ public sealed class Content
                 problems.Add("construction.json.test_ground: should be an object { ... }");
         }
 
+        // Skills (step 23a): which work each is used for, the ranks shown for them, and how fast work goes.
+        var skills = new SortedDictionary<string, Skill>(StringComparer.Ordinal);
+        var skillFor = new SortedDictionary<string, string>(StringComparer.Ordinal);
+        var ranks = new List<(int From, string Name)>();
+        var paces = new List<(double Proficiency, double Speed)>();
+        double? standard = null;
+        if (Open("skills.json", "skills", "ranks", "speed", "standard") is JsonObject sk)
+        {
+            // The work a skill can be used for: building, boiling, or any workshop.
+            var work = new[] { Work.BuildWork, Work.BoilWork }.Concat(workshops.Keys).ToList();
+            foreach (var (item, at) in check.List(sk, "skills.json", "skills"))
+            {
+                check.Keys(item, at, "id", "name", "used_for");
+                string? id = check.Id(item, at, IdShape);
+                string? name = check.Text(item, at, "name");
+                var usedFor = new List<string>();
+                if (item["used_for"] is JsonArray uses && uses.Count > 0)
+                    for (int i = 0; i < uses.Count; i++)
+                    {
+                        string where = at + ".used_for[" + i + "]";
+                        if (uses[i] is not JsonValue uv || !uv.TryGetValue(out string? use))
+                            problems.Add(where + ": should be text");
+                        else if (!work.Contains(use))
+                            problems.Add(where + ": no work \"" + use + "\" (there is: " + string.Join(", ", work) + ")");
+                        else if (skillFor.TryGetValue(use, out string? other))
+                            problems.Add(where + ": \"" + use + "\" already uses the skill \"" + other + "\" (one skill for each kind of work)");
+                        else
+                        {
+                            usedFor.Add(use);
+                            if (id != null)
+                                skillFor[use] = id;
+                        }
+                    }
+                else if (item.ContainsKey("used_for"))
+                    problems.Add(at + ".used_for: should be a list of at least one kind of work");
+                if (id == null)
+                    continue;
+                if (skills.ContainsKey(id))
+                    problems.Add(at + ": a second skill with the id \"" + id + "\"");
+                else if (name != null && usedFor.Count > 0)
+                    skills[id] = new Skill(id, name, usedFor);
+            }
+            if (sk["ranks"] is JsonArray rl && rl.Count > 0)
+                for (int i = 0; i < rl.Count; i++)
+                {
+                    string at = "skills.json.ranks[" + i + "]";
+                    if (rl[i] is JsonArray pair && pair.Count == 2 && pair[0] is JsonValue fv && fv.TryGetValue(out int from)
+                        && pair[1] is JsonValue nv && nv.TryGetValue(out string? rank) && rank.Trim().Length > 0)
+                    {
+                        if (i == 0 && from != 0)
+                            problems.Add(at + ": the first rank should start at 0");
+                        else if (from < 0 || from > 100 || (ranks.Count > 0 && from <= ranks[^1].From))
+                            problems.Add(at + ": should start above the rank before it, and at 100 at most");
+                        else
+                            ranks.Add((from, rank));
+                    }
+                    else
+                        problems.Add(at + ": should be [the proficiency it starts at, its name], as [40, \"Journeyman\"]");
+                }
+            else if (sk.ContainsKey("ranks"))
+                problems.Add("skills.json.ranks: should be a list of at least one rank");
+            if (sk["speed"] is JsonArray sl && sl.Count >= 2)
+                for (int i = 0; i < sl.Count; i++)
+                {
+                    string at = "skills.json.speed[" + i + "]";
+                    if (sl[i] is JsonArray pair && pair.Count == 2 && pair[0] is JsonValue pv && pv.TryGetValue(out double at0)
+                        && pair[1] is JsonValue vv && vv.TryGetValue(out double fast) && fast > 0 && double.IsFinite(fast))
+                    {
+                        if ((i == 0 && at0 != 0) || (i == sl.Count - 1 && at0 != 100) || at0 < 0 || at0 > 100 || (i > 0 && paces.Count > 0 && at0 <= paces[^1].Proficiency))
+                            problems.Add(at + ": the proficiencies should go up from 0 (the first) to 100 (the last)");
+                        else
+                            paces.Add((at0, fast));
+                    }
+                    else
+                        problems.Add(at + ": should be [a proficiency, the speed of work there (above 0; 1 is the usual pace)], as [40, 1.0]");
+                }
+            else if (sk.ContainsKey("speed"))
+                problems.Add("skills.json.speed: should be a list of at least two points, from proficiency 0 to 100");
+            standard = sk["standard"] is JsonValue stv && stv.TryGetValue(out double sd) && sd >= 0 && sd <= 100 ? sd
+                : sk.ContainsKey("standard") ? Bad<double?>("skills.json.standard: should be a number from 0 to 100") : null;
+        }
+
         // Who founds the colony.
         FoundingRules? founding = null;
-        if (Open("founding.json", "founders", "names", "supplies", "bedroll_each") is JsonObject f)
+        if (Open("founding.json", "founders", "names", "supplies", "bedroll_each", "skills") is JsonObject f)
         {
             int? founders = check.Int(f, "founding.json", "founders", 1);
             var names = new List<string>();
@@ -686,8 +809,27 @@ public sealed class Content
                 problems.Add("founding.json.names: " + names.Count + " names for " + founders + " founders; there should be at least as many names");
             var supplies = check.Amounts(f, "founding.json", "supplies", goods);
             bool? each = check.Bool(f, "founding.json", "bedroll_each");
+            // A founder's proficiency in each skill is drawn from its range (step 23a); every skill has one.
+            var drawn = new SortedDictionary<string, (int, int)>(StringComparer.Ordinal);
+            if (f["skills"] is JsonObject fs)
+            {
+                foreach (var (skill, _) in fs)
+                    if (!skills.ContainsKey(skill))
+                        problems.Add("founding.json.skills." + skill + ": no skill \"" + skill + "\" in skills.json");
+                    else if (Ordered(check.Pair(fs, "founding.json.skills", skill, 0), "founding.json.skills." + skill) is var (lo, hi))
+                    {
+                        if (hi > 100)
+                            problems.Add("founding.json.skills." + skill + ": should be at most 100");
+                        else
+                            drawn[skill] = (lo, hi);
+                    }
+                foreach (string skill in skills.Keys.Where(k => !fs.ContainsKey(k)))
+                    problems.Add("founding.json.skills: no range for the skill \"" + skill + "\"");
+            }
+            else if (f.ContainsKey("skills"))
+                problems.Add("founding.json.skills: should be a table of skill and [from, to]");
             if (founders != null && supplies != null && each != null)
-                founding = new FoundingRules(founders.Value, names, supplies, each.Value);
+                founding = new FoundingRules(founders.Value, names, supplies, each.Value) { Skills = drawn };
         }
 
         // The ice hole named by the water rules is a piece that opens ice; the wash's good is the drink's.
@@ -795,6 +937,7 @@ public sealed class Content
             Schedules = schedules, DefaultSchedule = defaultSchedule!, Pieces = pieces, TestGround = testGround!,
             Templates = templates, Founding = founding!, Surfaces = surfaces,
             ThinkFrom = think!.Value.Item1, ThinkTo = think.Value.Item2,
+            Skills = skills, SkillFor = skillFor, Ranks = ranks, SkillSpeed = paces, StandardProficiency = standard!.Value,
             Fingerprint = FingerprintOf(files),
         };
     }

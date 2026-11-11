@@ -53,6 +53,8 @@ public sealed record Placement(bool Ok, string? Why = null, string? Warning = nu
 public sealed partial class Work
 {
     public const string BuildWork = "build";
+    /// <summary>Boiling water, as the skills name it (step 23a; as a kind of work allowed or forbidden it is carrying).</summary>
+    public const string BoilWork = "boil";
 
     readonly SortedDictionary<long, Project> projects = new();
 

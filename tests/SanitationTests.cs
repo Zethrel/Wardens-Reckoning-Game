@@ -27,6 +27,11 @@ public class SanitationTests
             .Replace("\"chance\": 0.3333", "\"chance\": " + illness.ToString(System.Globalization.CultureInfo.InvariantCulture))
             .Replace("\"onset_hours\": [6, 12]", "\"onset_hours\": [" + onset + ", " + onset + "]")
             .Replace("\"lasts_hours\": [24, 48]", "\"lasts_hours\": [" + ill + ", " + ill + "]");
+        // Founders all at the usual proficiency (step 23a), so that work takes its usual time here.
+        files["founding.json"] = files["founding.json"]!
+            .Replace("\"skills\": { \"construction\": [ 5, 65 ], \"food_preparation\": [ 5, 65 ] }",
+                     "\"skills\": { \"construction\": [ 40, 40 ], \"food_preparation\": [ 40, 40 ] }");
+        Assert.Contains("[ 40, 40 ]", files["founding.json"]);
         return Content.Read(files);
     }
 
@@ -482,12 +487,10 @@ public class SanitationTests
         Assert.True(Until(colony, () => colony.Now.Tick > illness.Shows, 7 * 60));
         Assert.True(work.Ill(ada));
         Assert.Single(work.Told, n => n.Tick == illness.Shows && n.Text == ada.Name + " is ill: upset stomach.");
-        ada.Slow = 0.5;                                          // work missed and not yet taken off: gone when well
         Assert.StartsWith("Upset stomach: working slower", Inspect.Worker(colony, ada.Id).Lines.Single(l => l.Label == "Unwell").Text);
         // It passes by itself.
         Assert.True(Until(colony, () => colony.Now.Tick > illness.Ends, 25 * 60));
         Assert.Null(ada.Illness);
-        Assert.Equal(0, ada.Slow);
         Assert.False(work.Ill(ada));
         Assert.Single(work.Told, n => n.Text == ada.Name + " is ill: upset stomach.");
         Assert.Contains(work.Told, n => n.Tick == illness.Ends && n.Text == ada.Name + " is well again.");
@@ -513,17 +516,18 @@ public class SanitationTests
         var (colony, _) = Founding.Found(7, On(1), Tweaked(illness: 1, onset: 6, ill: 24), Map(40, 30));
         var work = colony.Work!;
         var ada = work.Workers.First();
-        Assert.Equal(10, work.Effort(ada, 10));                  // well: nothing lost
+        Assert.Equal(10, Work.Effort(ada, 1, 10));               // at the usual pace: every second counts
         Assert.Equal(1, work.Faster(ada, colony.Content!.Thirst));
         work.Expose(ada);
         colony.RunMinutes(6 * 60);
         Assert.True(work.Ill(ada));
-        ada.Slow = 0;
-        Assert.Equal(7, work.Effort(ada, 10));                   // 3 seconds in 10 lost
-        Assert.Equal(70, Enumerable.Range(0, 100).Sum(_ => work.Effort(ada, 1)));   // the same, a second at a time
-        Assert.Equal(35, work.Effort(ada, 50));
-        Assert.Equal(0, work.Effort(ada, 0));
-        Assert.InRange(ada.Slow, 0, 1);
+        ada.Carry = 0;
+        double pace = colony.Content!.UpsetStomach.Work;         // ill, at the usual skill (step 23a): 0.7
+        Assert.Equal(7, Work.Effort(ada, pace, 10));             // 3 seconds in 10 lost
+        Assert.Equal(70, Enumerable.Range(0, 100).Sum(_ => Work.Effort(ada, pace, 1)));   // the same, a second at a time
+        Assert.Equal(35, Work.Effort(ada, pace, 50));
+        Assert.Equal(0, Work.Effort(ada, pace, 0));
+        Assert.InRange(ada.Carry, 0, 1);
         Assert.Equal(1.5, work.Faster(ada, colony.Content!.Thirst));
         Assert.Equal(1.5, work.Faster(ada, colony.Content.Fatigue));
         Assert.Equal(1, work.Faster(ada, colony.Content.Hunger));
@@ -596,10 +600,10 @@ public class SanitationTests
         work.SetMark(carts.Id, WaterMark.None);
         Assert.True(Until(colony, () => work.Jobs.Any(j => j.Kind == JobKind.Boil && j.Step == Step.Working), 120), "never began to boil");
         colony.Stocks.Arrive(colony.Ids.Next<OperationId>(), colony.Now.Tick, carts.Id, "foul_water", 3);
-        ada.Slow = 0.25;
+        ada.Carry = 0.25;
         string text = ColonySave.Text(colony);
         var loaded = ColonySave.Read(text, colony.Content!);
-        Assert.Equal(0.25, loaded.Work!.Workers.First().Slow);
+        Assert.Equal(0.25, loaded.Work!.Workers.First().Carry);
         Assert.Equal(text, ColonySave.Text(loaded));
         Assert.Equal(work.Told, loaded.Work!.Told);
         Assert.Equal(ada.Illness, loaded.Work.Workers.First().Illness);
@@ -630,8 +634,8 @@ public class SanitationTests
         yield return Case(s => First(s)["illness"]![0] = "Plague", "illness is not [name, shows, ends] of an illness the content knows");
         yield return Case(s => First(s)["illness"] = "ill", "illness is not [name, shows, ends]");
         yield return Case(s => First(s)["illness"]![2] = 0, "illness ends before it shows");
-        yield return Case(s => First(s)["slow"] = 1, "slow is 1, which should be from 0 to below 1");
-        yield return Case(s => First(s)["slow"] = -0.5, "slow is -0.5");
+        yield return Case(s => First(s)["carry"] = 1, "carry is 1, which should be from 0 to below 1");
+        yield return Case(s => First(s)["carry"] = -0.5, "carry is -0.5");
         yield return Case(s => s["inventories"]![0]!["mark"] = "Maybe", "mark is not a mark (None, BoilFirst, DoNotDrink)");
         yield return Case(s => s["inventories"]![0]!["mark"] = "7", "mark is not a mark");
         yield return Case(s => s["work"]!["news"] = new JsonArray(5), "work.news holds something that is not [tick, text]");
