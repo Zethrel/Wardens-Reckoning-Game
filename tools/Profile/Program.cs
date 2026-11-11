@@ -82,7 +82,7 @@ public static class Program
         report.AppendLine("Map: " + (site == null ? "the profiler's own (256 × 256, a brook, trees and rocks)" : Path.GetFileName(site) + " (" + map.Size + " × " + map.Size + ")") + ".");
         report.AppendLine();
         report.AppendLine("| Scenario | Ticks | Minute tick mean ms | Median | 95% | 99% | Slowest | Second tick mean ms | Slowest second | Ways asked | Worked out | Their ms | Most kept | Peak MB | GCs (0/1/2) |");
-        report.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
+        report.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
         string? saveLine = null;
         var notes = new List<string>();
         foreach (var name in names)

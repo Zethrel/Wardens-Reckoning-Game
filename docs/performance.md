@@ -26,10 +26,28 @@ seed is 20, the start 1 April of year 1 at 08:00):
 | interrupted | The hauling colony, with everyone carrying stopped every quarter hour and set going five minutes later, and a haul cancelled every hour | 2 |
 
 Tick times leave out the first in-game hour (the code is still being
-compiled then). These measurements were made on the minute tick (until step
-21a; step 21d measures the second tick). A tick was one in-game minute; the game ran 2 ticks a second
-at ×1 and 6 at ×3, so a tick has 500 ms at ×1 and about 167 ms at ×3, less
-the time for drawing.
+compiled then). The results up to step 20c were measured on the minute tick:
+a tick was one in-game minute, and the game ran 2 ticks a second at ×1 and 6
+at ×3. Since step 21a a tick is one in-game second (library Review 39), and
+since step 21b the game runs as many ticks a real second as its speed:
+
+| Speed | Ticks a real second | Time for one tick | A whole game minute takes |
+|---|---|---|---|
+| ×1 | 1 | 1,000 ms | 60 s |
+| ×3 | 3 | 333 ms | 20 s |
+| ×10 | 10 | 100 ms | 6 s |
+| ×30 | 30 | 33 ms | 2 s |
+| ×60 | 60 | 16.7 ms | 1 s |
+
+Less the time for drawing: at ×60 the screen gets one tick each frame (60
+frames a second), so a tick slower than about 10 ms makes a frame late, and
+one of a second or more freezes the screen for that long.
+
+On the second tick the profiler shows two kinds of tick: the **minute ticks**
+(every sixtieth: the colony's own work, needs, asking, supplying) and the
+**second ticks** between them (walking and the colonists who think that
+second; since step 21c, deciding is done there). "Slowest second" is the
+slowest of those.
 
 Measuring changes nothing in the colony (`MeasureTests`).
 
@@ -140,6 +158,70 @@ on the own map's arbitration:
 | 320 | 1,852 | 8.0 | 607 |
 | no ceiling | 1,852 | 8.6 | 607 |
 
+### On the second tick (step 21d), cloud, 11 November 2026
+
+The same machine as the cloud runs above (Ubuntu 24.04, 2 logical processors,
+.NET 8.0.33, Release build), commit 08ad82a (step 21c) with the profiler's
+"Slowest second" column. Tick times in milliseconds; a minute tick's figures
+are over the minute ticks only, "Second mean" and "Slowest second" over the
+ticks between them.
+
+**The profiler's own map:**
+
+| Scenario | Ticks | Minute mean | 99% | Slowest | Second mean | Slowest second | Ways asked | Worked out | Their ms | Peak MB |
+|---|---|---|---|---|---|---|---|---|---|---|
+| idle | 259,200 | 0.039 | 0.116 | 40 | 0.0050 | 38 | 47,624 | 4 | 141 | 133 |
+| hauling | 172,800 | 0.051 | 0.117 | 9 | 0.0159 | 14 | 85,553 | 8 | 229 | 135 |
+| arbitration | 172,800 | 2.68 | 6.76 | 1,465 | 0.381 | 1,658 | 1,632,441 | 4,061 | 43,650 | 504 |
+| interrupted | 172,800 | 0.047 | 0.140 | 9 | 0.0153 | 14 | 85,565 | 8 | 81 | 142 |
+
+**Site 01 of world 7:**
+
+| Scenario | Ticks | Minute mean | 99% | Slowest | Second mean | Slowest second | Ways asked | Worked out | Their ms | Peak MB |
+|---|---|---|---|---|---|---|---|---|---|---|
+| idle | 259,200 | 0.034 | 0.093 | 35 | 0.0048 | 35 | 47,139 | 4 | 124 | 134 |
+| hauling | 172,800 | 0.062 | 0.158 | 28 | 0.0146 | 31 | 89,221 | 7 | 177 | 133 |
+| arbitration | 172,800 | 2.11 | 7.07 | 37 | 0.106 | 91 | 56,409 | 696 | 6,856 | 608 |
+| interrupted | 172,800 | 0.046 | 0.125 | 9 | 0.0133 | 9 | 89,233 | 7 | 59 | 139 |
+
+Arbitration built 186 walls of the 300 in two days on the own map, and 196
+on site 01.
+
+**Saving** (the arbitration colony after a day; mean of 19 / slowest of 20):
+450 KB, text 21 / 67 ms, written 58 / 158 ms, loaded 35 / 81 ms on the own
+map; 443 KB, 22 / 55, 59 / 107 and 38 / 57 ms on site 01.
+
+**Garbage collections** (generation 0/1/2): 2/0/0 in idle, 9 to 10/0/0 in
+hauling and interrupted; 56/28/28 in arbitration on the own map, 12/1/0 on
+site 01. Peak working set of a whole run: about 890 MB.
+
+**What a game minute costs now:** the minute tick plus 59 second ticks. At
+rest about 0.3 ms (idle), hauling about 1 ms, arbitration on site 01 about 8
+ms and on the own map about 25 ms on average. At ×60 a game minute passes in a
+real second, so on average even arbitration uses a few percent of the
+machine.
+
+**What changed against the minute tick (step 20c):**
+
+- The **slow ticks** are where they were: arbitration on the own map has
+  minute ticks of 1.5 s and, new, ticks between the minutes of 1.7 s, once
+  walls close colonists in on the second day (each project then checks that
+  someone can still reach it, and each colonist thinking ranks the open jobs
+  by their ways). Before step 21c that work was all on the minute (1.2 s
+  slowest after 20c). On site 01 the slowest tick is 91 ms.
+- **Ways asked** went up (hauling 85,553 against 5,448; arbitration on the
+  own map 1.6 million against 329,226): colonists now decide every 2 to 7
+  seconds instead of once a minute. Almost all are answered from the ways
+  kept (hauling works out 8 ways in two days, as before).
+- Which walls go up first now depends on the seconds, so arbitration on the
+  own map went another way: 4,061 ways worked out against 1,852, because more
+  of its colonists got walled in. Over a day of play this one scenario swings
+  between about 100,000 and 1.6 million ways asked depending on the order the
+  walls go up (measured while working on step 21c, with loading set to 4 and
+  to 6 seconds).
+- Everything else (idle, hauling, interrupted, saving) is as fast or faster:
+  the minute ticks do less, because deciding moved off them.
+
 ## Assessment
 
 **Everyday play is far within its time.** A colony at rest or hauling takes a
@@ -169,7 +251,7 @@ Even with nothing planned, a minute that has to work out a way can take
 the number of pieces; to be looked into with the fix.
 
 **Not measured yet:** colonies larger than twelve; maps larger than 256; the
-screen's own drawing time (Godot); the maintainer's PC.
+screen's own drawing time (Godot).
 
 Decided (the maintainer, 10 November): step 20c makes the search faster with
 the same results and sets a ceiling (512) on the ways kept; step 20d measures
@@ -184,4 +266,14 @@ in-between tick as well ("Slowest second"). In arbitration, once walls close
 colonists in on the second day, single ticks between the minutes take 1.4 to
 1.9 s, in step 21c's code as first pushed and after its follow-ups alike
 (over a million ways asked in the two days instead of about 100,000, depending
-on which walls go up first). To be measured in step 21d and taken on in step 22.
+on which walls go up first). Measured in step 21d (above); step 22 takes it on.
+
+**On the second tick (step 21d):** everyday play still costs next to nothing:
+a game minute at rest or hauling takes 0.3 to 1 ms, so even ×60 (a game
+minute each real second) leaves the machine nearly idle. What blocks the
+intended experience is unchanged and is still path-finding with many pieces
+planned: a tick of 1.5 to 1.7 s freezes the screen at every speed, and at ×60
+already a tick of 35 to 40 ms (idle's slowest, when a way is worked out) makes
+two frames late. The budget per tick shrinks with speed (1,000 ms at ×1,
+16.7 ms at ×60), so step 22 (fewer ways asked and worked out) is measured
+against ×60. Still to measure: the maintainer's PC on the second tick.

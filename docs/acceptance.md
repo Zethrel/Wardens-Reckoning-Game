@@ -39,7 +39,7 @@ machine.
 | FP-07 | The same start, seed and commands give the same state at every checkpoint | 6 (6) | — |
 | FP-08 | Saved with jobs, claims and goods in hand; loaded, it goes on with the same identities and nothing done twice | 4 (4) | Saving and loading from the menus (18a, 9 Nov) |
 | FP-09 | A broken or unsupported save is refused with a reason, and the file is not harmed | 5 (10) | — |
-| FP-10 | Broken content (duplicate ids, missing references, bad numbers) is caught before play, with where it is | 3 (93) | — |
+| FP-10 | Broken content (duplicate ids, missing references, bad numbers) is caught before play, with where it is | 3 (97) | — |
 
 "Cases": a test given several inputs counts once for each.
 
@@ -109,10 +109,13 @@ the tile.
   someone's arms; every copy ends exactly as the colony never saved.
 - `ColonySaveTests.FP08_identities_go_on_from_where_they_were`
 - `ColonySaveTests.FP08_a_save_made_after_pieces_are_finished_or_cancelled_loads`
-- `AcceptanceTests.FP08_a_colony_on_a_local_map_saved_at_any_of_its_hours_goes_on_exactly_as_if_never_saved`:
-  (step 20a) the same on a local map with everything since: four days, saved
-  every two hours (48 saves), with water in someone's arms, the brook fouled,
-  a store marked, a boiling under way and someone ill along the way.
+- `AcceptanceTests.FP08_a_colony_on_a_local_map_saved_at_any_second_goes_on_exactly_as_if_never_saved`:
+  (step 20a; step 21d) the same on a local map with everything since: four
+  days, saved 48 times, each at another second of its minute (every 7,193
+  seconds), with water in someone's arms, the brook fouled, a store marked, a
+  boiling under way and someone ill along the way.
+- `TickTests.A_save_between_two_minutes_goes_on_as_if_never_saved`
+  (step 21a): two hours, saved every few seconds, people mid-stride.
 
 ### FP-09: save failure handling
 
@@ -128,8 +131,9 @@ Migration: none is supported. Saves of an older version are refused until 1.0
 
 ### FP-10: content validation
 
-- `ContentTests.FP10_broken_content_is_caught_and_named`: 91 broken
-  variations of the real content, each refused with where it is.
+- `ContentTests.FP10_broken_content_is_caught_and_named`: 95 broken
+  variations of the real content, each refused with where it is (step 21c
+  added `think_seconds` and `drop_seconds`).
 - `ContentTests.FP10_broken_JSON_and_a_missing_file_are_named`
 - `ContentTests.FP10_every_problem_is_reported_at_once`
 
@@ -139,9 +143,20 @@ Migration: none is supported. Saves of an older version are refused until 1.0
 |---|---|---|---|
 | 10 Nov 2026 | Cloud (Linux, .NET 8) | step 20a | 144 cases passed, 0 failed (49 tests) |
 | 10 Nov 2026 | The maintainer's PC (Windows) | step 20a | 144 cases passed |
+| 11 Nov 2026 | Cloud (Linux, .NET 8) | step 21d (second tick, Review 39) | 148 cases passed, 0 failed (49 tests) |
 
 Every FP case passed in the cloud run: FP-01 3, FP-02 1, FP-03 2, FP-04 12,
 FP-05 7, FP-06 6, FP-07 6, FP-08 4, FP-09 10, FP-10 93.
+
+**On the second tick (step 21d):** library Review 39 made a tick one game
+second, and steps 21a to 21c moved walking and deciding onto it. Every
+scenario test was run again on the second tick, many with their timings
+changed to match (work and loading counted in seconds, decisions at each
+colonist's think; listed in the commits of steps 21a and 21c). FP-08 on the
+local map now saves at a different second of the minute each time, since a
+player can save mid-stride. The cloud run: FP-01 3, FP-02 1, FP-03 2, FP-04
+12, FP-05 7, FP-06 6, FP-07 6, FP-08 4, FP-09 10, FP-10 97 (four more content
+cases: `think_seconds` and `drop_seconds`).
 
 ## FP-11: accessible core interactions
 
@@ -190,7 +205,8 @@ Measured, not passed or failed: `docs/performance.md`.
 
 ## Still to come
 
-- **FP-12**: the path-finding bottleneck (steps 20c and 20d,
-  `docs/performance.md`).
+- **FP-12**: the path-finding bottleneck (step 22, `docs/performance.md`),
+  measured on the second tick in step 21d.
+- The maintainer's PC run on the second tick (step 21d).
 - Then a library review recording the results, adopted only on the
   maintainer's word.

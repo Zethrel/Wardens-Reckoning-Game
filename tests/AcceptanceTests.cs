@@ -60,15 +60,19 @@ public class AcceptanceTests
     }
 
     [Fact]
-    public void FP08_a_colony_on_a_local_map_saved_at_any_of_its_hours_goes_on_exactly_as_if_never_saved()
+    public void FP08_a_colony_on_a_local_map_saved_at_any_second_goes_on_exactly_as_if_never_saved()
     {
         var colony = Founded(7);
         long end = Start.Tick + 4 * Calendar.TicksPerDay;
         var copies = new List<Colony.Colony>();
+        var seconds = new HashSet<int>();
         bool fouled = false, carrying = false, boiling = false, ill = false, marked = false;
         string folder = Path.Combine(Scratch.Root, "fp08-local");
         Directory.CreateDirectory(folder);
-        // Second by second (a load of water is carried in a few seconds now: step 21c), saved on the minutes.
+        // Second by second (a load of water is carried in a few seconds now: step 21c). Saved every 7,193 seconds,
+        // just under two hours: 7,193 is 53 more than a whole number of minutes, so each save falls on another
+        // second of its minute (step 21d: on the second tick a player can save at any second, mid-stride,
+        // mid-load, mid-think).
         colony.Run(end - Start.Tick, c =>
         {
             Command(c);
@@ -78,17 +82,19 @@ public class AcceptanceTests
             boiling |= work.Jobs.Any(j => j.Kind == JobKind.Boil && j.Step == Step.Working);
             ill |= work.Workers.Any(w => w.Illness != null);
             marked |= c.Stocks.Inventories.Any(i => i.Mark != WaterMark.None);
-            if (!c.Now.OnTheMinute || c.Now.MinuteOfDay % 120 != 90)   // every two hours, on the half hour
+            if ((c.Now.Tick - Start.Tick) % 7193 != 0)
                 return;
             string path = Path.Combine(folder, "at-" + c.Now.Tick + ".json");
             ColonySave.Save(path, c);
             var copy = ColonySave.Load(path, c.Content!);
             Assert.Equal(File.ReadAllText(path), ColonySave.Text(copy));
             copies.Add(copy);
+            seconds.Add(c.Now.Second);
         });
         Assert.True(fouled && carrying && boiling && ill && marked,
                     $"fouled {fouled}, carrying water {carrying}, boiling {boiling}, ill {ill}, marked {marked}");
         Assert.True(copies.Count >= 48, copies.Count + " saves");
+        Assert.True(seconds.Count >= 40, "saved on only " + seconds.Count + " different seconds of the minute");
         string fingerprint = ColonySave.Fingerprint(colony);
         foreach (var copy in copies)
         {
