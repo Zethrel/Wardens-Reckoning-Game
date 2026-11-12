@@ -431,6 +431,23 @@ code into its faster form after it has run a few dozen times). The binding
 check is the maintainer's PC, where step 24 measured about twice the cloud's
 speed: run there next. The test suite takes 2 minutes 56 seconds.
 
+**The maintainer's PC, 12 November 2026** (Windows 10.0.26200, 16 logical
+processors, .NET 8.0.33, Release build; own map): **every threshold met.**
+
+| Scenario | Kind | Mean tick ms | Slowest tick ms | Sustained speed | Simulation's share of a core | Slowest frame ms |
+|---|---|---|---|---|---|---|
+| idle | everyday | 0.0031 | 16.9 | 100.0% | 0.04% | 16.9 |
+| hauling | everyday | 0.0068 | 20.5 | 100.0% | 0.08% | 20.5 |
+| arbitration | stress | 0.0557 | 19.5 | 100.0% | 0.67% | 19.5 |
+| interrupted | stress | 0.0043 | 8.351 | 100.0% | 0.05% | 8.355 |
+
+| Save scenario | Size KB | Text ms (mean / slowest) | Written ms | Loaded ms |
+|---|---|---|---|---|
+| after a day of arbitration | 582 | 14.3 / 37.1 | 40.4 / 68.3 | 25.4 / 61.9 |
+
+The same ways asked and worked out in every scenario as in the cloud, and the
+same 69 walls: the same colony on Windows and Linux.
+
 ## Assessment
 
 **Everyday play is far within its time.** A colony at rest or hauling takes a
