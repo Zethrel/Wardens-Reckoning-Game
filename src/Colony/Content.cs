@@ -170,13 +170,16 @@ public sealed class Content
     public IReadOnlyDictionary<string, Recipe> Recipes { get; }
     /// <summary>What one person carries by hand, in kg.</summary>
     public double CarryKg { get; }
-    /// <summary>Walking speed, in metres a minute (a tick).</summary>
-    public double WalkMetresPerMinute { get; }
-    /// <summary>Time to load a haul, and to unload it, in seconds (step 21c).</summary>
-    public int PickupSeconds { get; }
-    public int DropSeconds { get; }
-    /// <summary>How often a colonist thinks (step 21c): every so many seconds, drawn once for each colonist from
-    /// `ThinkFrom` to `ThinkTo` (colony.json think_seconds).</summary>
+    /// <summary>Walking speed on a road, in metres a tick (step 24: colony.json walk_m_per_real_second, divided by
+    /// `Calendar.TicksPerRealSecond` and not rounded: 1.2 m a real second are 0.05 m a tick).</summary>
+    public double WalkMetresPerTick { get; }
+    /// <summary>Time to load a haul, and to unload it, in ticks (step 24: colony.json pickup_real_seconds and
+    /// drop_real_seconds, through `Calendar.TicksOf`: 5 real seconds are 120 ticks).</summary>
+    public int PickupTicks { get; }
+    public int DropTicks { get; }
+    /// <summary>How often a colonist decides (step 21c): every so many ticks, drawn once for each colonist from
+    /// `ThinkFrom` to `ThinkTo` (step 24: colony.json think_real_seconds, each end through `Calendar.TicksOf`: 2 to
+    /// 7 real seconds are 48 to 168 ticks).</summary>
     public int ThinkFrom { get; private init; } = 1;
     public int ThinkTo { get; private init; } = 1;
 
@@ -261,7 +264,7 @@ public sealed class Content
         Goods = new SortedDictionary<string, Good>(goods, StringComparer.Ordinal);
         Workshops = new SortedDictionary<string, Workshop>(workshops, StringComparer.Ordinal);
         Recipes = new SortedDictionary<string, Recipe>(recipes, StringComparer.Ordinal);
-        (CarryKg, WalkMetresPerMinute, PickupSeconds, DropSeconds) = (carryKg, walk, pickup, drop);
+        (CarryKg, WalkMetresPerTick, PickupTicks, DropTicks) = (carryKg, walk, pickup, drop);
     }
 
     /// <summary>Reads and checks the content in `folder` (every file of `Files`).</summary>
@@ -387,13 +390,18 @@ public sealed class Content
         double carry = 0, walk = 0;
         int pickup = 0, drop = 0;
         (int, int)? think = null;
-        if (Open("colony.json", "carry_kg", "walk_m_per_minute", "pickup_seconds", "drop_seconds", "think_seconds") is JsonObject c)
+        // The physical values (step 24, library Review 41) are written in real seconds at ×1, for a pace that is
+        // pleasant to watch, and turned into ticks here, once: durations by `Calendar.TicksOf`, the walking speed (a
+        // rate) divided by the ticks of a real second.
+        if (Open("colony.json", "carry_kg", "walk_m_per_real_second", "pickup_real_seconds", "drop_real_seconds", "think_real_seconds") is JsonObject c)
         {
-            think = Ordered(check.Pair(c, "colony.json", "think_seconds", 1), "colony.json.think_seconds");
+            if (check.Range(c, "colony.json", "think_real_seconds") is var (from, to))
+                think = from > to ? Bad<(int, int)?>("colony.json.think_real_seconds: the first should not be more than the second")
+                                  : (Calendar.TicksOf(from), Calendar.TicksOf(to));
             carry = check.Positive(c, "colony.json", "carry_kg") ?? 0;
-            walk = check.Positive(c, "colony.json", "walk_m_per_minute") ?? 0;
-            pickup = check.Int(c, "colony.json", "pickup_seconds", 0) ?? 0;
-            drop = check.Int(c, "colony.json", "drop_seconds", 0) ?? 0;
+            walk = (check.Positive(c, "colony.json", "walk_m_per_real_second") ?? 0) / Calendar.TicksPerRealSecond;
+            pickup = Calendar.TicksOf(check.NotNegative(c, "colony.json", "pickup_real_seconds") ?? 0);
+            drop = Calendar.TicksOf(check.NotNegative(c, "colony.json", "drop_real_seconds") ?? 0);
         }
 
         // Needs, eating, drinking, sleeping, the spring.
@@ -1124,6 +1132,18 @@ public sealed class Content
                 return d;
             problems.Add(at + "." + key + ": should be a number " + (zeroAllowed ? "from 0 (cannot be walked on)" : "above 0")
                          + " and at most 1 (1 is a road's speed)");
+            return null;
+        }
+
+        /// <summary>Two numbers [a, b], each above 0 (a range of real seconds, step 24).</summary>
+        public (double, double)? Range(JsonObject item, string at, string key)
+        {
+            if (!item.ContainsKey(key))
+                return null;
+            if (item[key] is JsonArray a && a.Count == 2 && a[0] is JsonValue v0 && v0.TryGetValue(out double x) && a[1] is JsonValue v1
+                && v1.TryGetValue(out double y) && x > 0 && y > 0 && double.IsFinite(x) && double.IsFinite(y))
+                return (x, y);
+            problems.Add(at + "." + key + ": should be two numbers [a, b] above 0");
             return null;
         }
 

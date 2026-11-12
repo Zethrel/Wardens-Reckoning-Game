@@ -45,7 +45,10 @@ public class ContentTests
         var day = content.Schedules[content.DefaultSchedule].Hours;
         Assert.Equal((Block.Sleep, Block.Meals, Block.Work, Block.Recreation, Block.Flexible, Block.Sleep),
                      (day[6], day[7], day[8], day[17], day[20], day[23]));
-        Assert.Equal(70, content.WalkMetresPerMinute);
+        // The physical values (step 24, library Review 41), written in real seconds at ×1 and turned into ticks.
+        Assert.Equal(1.2 / 24, content.WalkMetresPerTick);
+        Assert.Equal((120, 120), (content.PickupTicks, content.DropTicks));
+        Assert.Equal((48, 168), (content.ThinkFrom, content.ThinkTo));
         Assert.Equal(new[] { "door", "floor", "ice_hole", "road", "wall", "wash_basin", "water_barrel", "well" }, content.Pieces.Keys);
         Assert.Equal((1.0, 0.8, 0.55), (content.Surfaces["road"].Speed, content.Surfaces["grass"].Speed, content.Surfaces["rough"].Speed));
         var well = content.Pieces["well"];
@@ -92,11 +95,12 @@ public class ContentTests
         yield return Case("goods.json", r => Good(r, 0)["mass_kg"] = 0, "goods.json.goods[0].mass_kg: should be a number above 0");
         yield return Case("goods.json", r => Good(r, 0)["volume_l"] = -1, "goods.json.goods[0].volume_l: should be a number above 0");
         yield return Case("colony.json", r => r["carry_kg"] = "a lot", "colony.json.carry_kg: should be a number above 0");
-        yield return Case("colony.json", r => r["pickup_seconds"] = -1, "colony.json.pickup_seconds: should be a whole number of 0 or more");
-        yield return Case("colony.json", r => r["drop_seconds"] = 2.5, "colony.json.drop_seconds: should be a whole number of 0 or more");
-        yield return Case("colony.json", r => r["think_seconds"] = new JsonArray(0, 3), "colony.json.think_seconds: should be two whole numbers [a, b] of 1 or more");
-        yield return Case("colony.json", r => r["think_seconds"] = new JsonArray(7, 2), "colony.json.think_seconds: the first should not be more than the second");
-        yield return Case("colony.json", r => r.Remove("think_seconds"), "colony.json: \"think_seconds\" is missing");
+        yield return Case("colony.json", r => r["pickup_real_seconds"] = -1, "colony.json.pickup_real_seconds: should be a number of 0 or more");
+        yield return Case("colony.json", r => r["drop_real_seconds"] = "soon", "colony.json.drop_real_seconds: should be a number of 0 or more");
+        yield return Case("colony.json", r => r["walk_m_per_real_second"] = 0, "colony.json.walk_m_per_real_second: should be a number above 0");
+        yield return Case("colony.json", r => r["think_real_seconds"] = new JsonArray(0, 3), "colony.json.think_real_seconds: should be two numbers [a, b] above 0");
+        yield return Case("colony.json", r => r["think_real_seconds"] = new JsonArray(7, 2), "colony.json.think_real_seconds: the first should not be more than the second");
+        yield return Case("colony.json", r => r.Remove("think_real_seconds"), "colony.json: \"think_real_seconds\" is missing");
         // Missing, misspelt and badly formed.
         yield return Case("goods.json", r => Good(r, 0).Remove("name"), "goods.json.goods[0]: \"name\" is missing");
         yield return Case("goods.json", r => Good(r, 0)["mass_kgs"] = 1, "goods.json.goods[0]: unknown key \"mass_kgs\"");

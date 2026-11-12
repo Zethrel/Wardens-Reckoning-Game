@@ -223,7 +223,7 @@ public class StockTests
     public void A_save_keeps_the_goods_claims_and_ledger_exactly()
     {
         var s = Busy();
-        var content = Content.Load(Path.Combine(AppContext.BaseDirectory, "content"));
+        var content = TestContent.Real;
         var loaded = ColonySave.Read(ColonySave.Text(s.Colony), content);
         Assert.Equal(ColonySave.Text(s.Colony), ColonySave.Text(loaded));
         Assert.Equal(41.25, loaded.Stocks[s.Quern.Id].X);
@@ -274,7 +274,7 @@ public class StockTests
     [MemberData(nameof(BrokenStocks))]
     public void A_save_with_broken_goods_is_refused(string text, string reason)
     {
-        var content = Content.Load(Path.Combine(AppContext.BaseDirectory, "content"));
+        var content = TestContent.Real;
         Assert.Contains(reason, Assert.Throws<ColonySaveException>(() => ColonySave.Read(text, content)).Message);
     }
 

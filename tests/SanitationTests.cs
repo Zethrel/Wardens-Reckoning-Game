@@ -11,14 +11,14 @@ namespace WardensReckoning.Tests;
 /// </summary>
 public class SanitationTests
 {
-    static readonly Content Real = Content.Load(Path.Combine(AppContext.BaseDirectory, "content"));
+    static readonly Content Real = TestContent.Real;
 
     /// <summary>The real content with some numbers changed, so a test need not wait for the dice: `foulEvery`
     /// days between foulings (1: every morning), a fouling lasting `lasts` days, a sign in `signs` of them, and
     /// `illness` the chance of an upset stomach (shown after `onset` hours, lasting `ill` hours).</summary>
     internal static Content Tweaked(double foulEvery = 1, int lasts = 3, double signs = 1, double illness = 1, int onset = 6, int ill = 24)
     {
-        var files = Content.Files.ToDictionary(f => f, f => (string?)File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", f)));
+        var files = TestContent.Files();                          // at the old pace (step 24: see TestContent)
         files["sanitation.json"] = files["sanitation.json"]!
             .Replace("\"days_between\": 60", "\"days_between\": " + foulEvery.ToString(System.Globalization.CultureInfo.InvariantCulture))
             .Replace("\"lasts_days\": [3, 10]", "\"lasts_days\": [" + lasts + ", " + lasts + "]")

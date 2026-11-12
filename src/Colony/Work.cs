@@ -49,17 +49,22 @@ public sealed class Worker(ColonistId id, string name, double x, double y, Inven
     public TaskId? Job { get; internal set; }
     /// <summary>Stopped by the player (interrupted): they do nothing until resumed.</summary>
     public bool Stopped { get; internal set; }
-    /// <summary>Every how many seconds they think (step 21c): drawn once, when they come, from colony.json
-    /// think_seconds (2 to 7). Some are quick, some slow.</summary>
+    /// <summary>Every how many ticks they decide (step 21c): drawn once, when they come, from colony.json
+    /// think_real_seconds (2 to 7 real seconds: 48 to 168 ticks). Some are quick, some slow.</summary>
     public int ThinkEvery { get; internal set; } = 1;
-    /// <summary>The tick of their next think: when they next decide what to do. Something urgent (an order) brings
-    /// it to the next second.</summary>
+    /// <summary>Their decision deadline: the tick of their next think, when they next decide what to do. Something
+    /// urgent (an order, a need turning critical) brings it to the next tick.</summary>
     public long NextThink { get; internal set; }
-    /// <summary>The tick of their last think: the time since is what their work and their eating have gone on
-    /// for.</summary>
+    /// <summary>Their action deadline (step 24, library Review 41): the tick their timed step ends (loading,
+    /// unloading, working, eating) at their present pace, or the tick after they arrive somewhere; null while
+    /// nothing is due (walking, standing, asleep). It wakes them to get on with their work, never to choose new
+    /// work.</summary>
+    public long? ActionDue { get; internal set; }
+    /// <summary>The tick they were last processed (a think or a wake-up): the time since is what their work and their
+    /// eating have gone on for.</summary>
     public long Thought { get; internal set; }
     /// <summary>Where they are walking to (step 21a), or null: standing. `Near`: far enough once on a
-    /// tile beside it. Set on the whole minutes by whatever they are doing; walked every second.</summary>
+    /// tile beside it. Set when they are processed by whatever they are doing; walked every tick.</summary>
     public (double X, double Y, bool Near)? Heading { get; internal set; }
     /// <summary>An illness caught (step 19b): it may not have shown yet (Work.Ill says whether it has).</summary>
     public Illness? Illness { get; internal set; }
@@ -131,7 +136,7 @@ public sealed class Personal
     public OperationId Operation { get; init; }
     /// <summary>For sleeping: whether they are going to their bedroll.</summary>
     public bool Bedroll { get; init; }
-    /// <summary>Minutes left eating or drinking; null while still walking.</summary>
+    /// <summary>Ticks left eating, drinking or washing; null while still walking.</summary>
     public int? Left { get; internal set; }
 }
 
@@ -217,7 +222,8 @@ public sealed class Job
     public InventoryId? Boiling { get; init; }
     public ColonistId? Worker { get; internal set; }
     public Step Step { get; internal set; }
-    /// <summary>Minutes left in the step (loading, unloading, working).</summary>
+    /// <summary>Work left in the step (loading, unloading, working), in standard seconds: what the usual pace does in a
+    /// tick.</summary>
     public int Left { get; internal set; }
     /// <summary>What it is for, in words.</summary>
     public string Purpose { get; init; } = "";
@@ -225,10 +231,10 @@ public sealed class Job
 
 /// <summary>
 /// The colony's work (the design library's jobs and tasks, hauling and workshop replenishment; step 13b), one tick
-/// (minute) at a time, always in the same order, so the same colony always works out the same:
+/// (a game second) at a time, always in the same order, so the same colony always works out the same:
 ///
-/// 1. **Workers act**, in the order of their numbers: walk 70 m a minute towards where their job is; load (a
-///    minute), carry, unload (a minute); or work a recipe (the quern: 180 minutes). Picking up moves the claimed
+/// 1. **Workers act**, in the order of their numbers: walk towards where their job is (1.2 m a real second at ×1);
+///    load (5 real seconds), carry, unload; or work a recipe (the quern: 180 minutes). Picking up moves the claimed
 ///    goods into the worker's arms; putting down moves them on. Each is one numbered operation of the ledger.
 /// 2. **Workshops ask** (the library's "demand-driven replenishment"): a workshop with an order and not enough at
 ///    hand for its next batch asks for the rest, counting what is already on its way; the goods are claimed in the
@@ -359,12 +365,18 @@ public sealed partial class Work
             job.To = NearestStore(job.Good, worker.X, worker.Y, except: job.To)?.Id
                      ?? NearestStore(job.Good, worker.X, worker.Y)!.Id;
             job.Step = Step.Carrying;
+            worker.ActionDue = null;                        // an unloading cut short: its deadline goes with it
+            Urge(worker);                                   // they set off for the new store at once
             return;
         }
         foreach (var claim in job.Claims)
             Stocks.Release(claim);
         if (job.Worker is ColonistId w)
+        {
             workers[w.Value].Job = null;
+            workers[w.Value].ActionDue = null;            // the deadline went with the job (Review 41)
+            Urge(workers[w.Value]);                         // and they think again at once
+        }
         jobs.Remove(id.Value);
     }
 
@@ -379,6 +391,7 @@ public sealed partial class Work
     void Reopen(Job job, Worker worker)
     {
         worker.Job = null;
+        worker.ActionDue = null;                          // the step's deadline goes with it (Review 41)
         job.Worker = null;
         job.Step = Step.Open;
         if (job.Kind == JobKind.Haul)
@@ -388,50 +401,128 @@ public sealed partial class Work
     // ---- One second, one minute ----------------------------------------------------------------------
 
     /// <summary>
-    /// One tick, a second (library Review 39). Everyone walking takes a second's steps towards where they are
-    /// heading. On the whole minutes the colony's own work is done (`Minute`): needs grow, water, building,
-    /// fouling and the rest, which were built on a tick of a minute and still run once a minute (their declared
-    /// interval). Then the colonists whose time to think has come think (step 21c): each on their own rhythm, every
-    /// 2 to 7 seconds.
+    /// One tick, a game second (library Reviews 39 and 41). Everyone walking takes a tick's steps towards where they
+    /// are heading; whoever arrives is woken on the next tick. On the whole minutes the colony's own work is done
+    /// (`Minute`): needs grow, water, building, fouling and the rest, which still run once a minute (their declared
+    /// interval).
+    ///
+    /// Then the colonists due are **processed**, in the order of their numbers, each once (step 24, Review 41):
+    /// those whose decision deadline has come (`NextThink`: their think, every 2 to 7 real seconds) and those whose
+    /// action deadline has come (`ActionDue`: a timed step ending, or an arrival). Both kinds get on with what they
+    /// are doing; only a think also decides: sees to needs, and, if free, takes a job. Last, each processed colonist's
+    /// action deadline is worked out again from what they are doing now (`Schedule`).
     /// </summary>
     public void Tick()
     {
         stirred.Clear();
+        long now = colony.Now.Tick;
         foreach (var worker in workers.Values)
             if (worker.Heading != null)
                 Stride(worker);
         if (colony.Now.OnTheMinute)
             Minute();
-        long now = colony.Now.Tick;
-        var thinking = workers.Values.Where(w => w.NextThink <= now).ToList();
-        if (thinking.Count == 0)
-            return;
-        foreach (var worker in thinking)
-            Think(worker);
-        // A job finished (goods brought, a piece built): the workplaces it took from or brought to ask for what comes
-        // next at once, so the one who finished need not wait for the whole minute.
-        if (stirred.Count > 0)
-            AsksAfterFinishing();
-        // Those of them free for work take jobs, and set off at once.
-        foreach (var worker in Assign(thinking))
-            Act(worker, jobs[worker.Job!.Value.Value], 0);
-        foreach (var worker in thinking)
-            worker.NextThink = now + worker.ThinkEvery;
+        // (`ActionDue <= now` is false while it is null: C# compares a missing number with nothing.)
+        var due = workers.Values.Where(w => w.NextThink <= now || w.ActionDue <= now).ToList();
+        if (due.Count > 0)
+        {
+            foreach (var worker in due)
+                Process(worker, decides: worker.NextThink <= now);
+            // A job finished (goods brought, a piece built): the workplaces it took from or brought to ask for what
+            // comes next at once, so the one who finished need not wait for the whole minute.
+            if (stirred.Count > 0)
+                AsksAfterFinishing();
+            // Those thinking who are free for work take jobs, and set off at once. A colonist only woken to get on
+            // with their work never chooses new work: that waits for their think (Review 41).
+            var deciding = due.Where(w => w.NextThink <= now).ToList();
+            foreach (var worker in Assign(deciding))
+                Act(worker, jobs[worker.Job!.Value.Value], 0);
+            foreach (var worker in deciding)
+                worker.NextThink = now + worker.ThinkEvery;
+            foreach (var worker in due)
+                Schedule(worker);
+        }
+        // Illnesses over this tick are forgotten only now, after the work done while ill was counted at the ill
+        // pace (Health.cs, `Sicken`).
+        if (ended.Count > 0)
+        {
+            foreach (var worker in ended)
+                worker.Illness = null;
+            ended.Clear();
+        }
     }
 
     /// <summary>
-    /// A colonist thinks (step 21c): what they were doing has gone on since their last think (their work, their
-    /// eating); they see to their needs, or go on with their job. Nobody walks on unless what they do now says so
-    /// (`Walk`).
+    /// A colonist is processed (step 24, library Review 41): what they were doing has gone on since they were last
+    /// processed (their work, their eating), and goes on to its next step if it is done. With `decides` (their
+    /// think) they then also see to their needs (`Live`), which may put their job down; without, they were only woken
+    /// to get on with it, and decide nothing. Nobody walks on unless what they do now says so (`Walk`).
     /// </summary>
-    void Think(Worker worker)
+    void Process(Worker worker, bool decides)
     {
         long now = colony.Now.Tick;
         int elapsed = (int)Math.Min(now - worker.Thought, int.MaxValue);
         worker.Thought = now;
+        worker.ActionDue = null;
         worker.Heading = null;
-        if (Live(worker, elapsed) && !worker.Stopped && worker.Job is TaskId t)
-            Act(worker, jobs[t.Value], elapsed);
+        // First the time that has passed: what they were doing goes on, and on to its next step if it is done. So a
+        // think that puts the job down (a need) keeps the work done up to now (Review 41).
+        if (worker.Collapsed == null && !worker.Asleep)
+        {
+            if (worker.Personal != null)
+                Continue(worker, elapsed);
+            else if (!worker.Stopped && worker.Job is TaskId t)
+                Act(worker, jobs[t.Value], elapsed);
+        }
+        // Then, at a think, what to do now: their needs first; a job they keep goes on from where it is.
+        if (decides && Live(worker) && !worker.Stopped && worker.Job is TaskId kept)
+            Act(worker, jobs[kept.Value], 0);
+    }
+
+    /// <summary>
+    /// A colonist's action deadline, worked out again after they are processed (step 24, Review 41): the tick their
+    /// timed step ends from the work left (loading and unloading, eating, drinking and washing take their ticks;
+    /// working goes at their pace, `TicksToFinish`). Walking has none: arriving wakes them (`Stride`). Collapsed,
+    /// asleep or stopped: none either; their think sees to that.
+    /// </summary>
+    void Schedule(Worker w)
+    {
+        long now = colony.Now.Tick;
+        w.ActionDue = null;
+        if (w.Collapsed != null || w.Asleep || w.Heading != null)
+            return;
+        if (w.Personal is Personal p)
+        {
+            if (p.Left is int left)
+                w.ActionDue = now + Math.Max(1, left);
+            return;
+        }
+        if (w.Stopped || w.Job is not TaskId t || !jobs.TryGetValue(t.Value, out var job))
+            return;
+        w.ActionDue = job.Step switch
+        {
+            Step.Loading or Step.Unloading => now + Math.Max(1, job.Left),
+            Step.Working => now + TicksToFinish(w, job),
+            _ => null,
+        };
+    }
+
+    /// <summary>
+    /// How many ticks a colonist needs to finish the work left on a job at their present pace (step 24): the fewest
+    /// ticks whose work (`Effort`, with what they carry over) reaches it. Worked out with the same sum `Effort` does,
+    /// so that on the tick it says, the work is done: not a tick sooner, nor later.
+    /// </summary>
+    long TicksToFinish(Worker w, Job job)
+    {
+        double pace = Pace(w, job);
+        if (pace == 1 && w.Carry == 0 || job.Left <= 0)
+            return Math.Max(1, job.Left);
+        long ticks = Math.Max(1, (long)Math.Ceiling((job.Left - w.Carry) / pace));
+        // The division may be a hair off either way; the same sum as `Effort` decides.
+        while (Math.Floor(w.Carry + ticks * pace + 1e-9) < job.Left)
+            ticks++;
+        while (ticks > 1 && Math.Floor(w.Carry + (ticks - 1) * pace + 1e-9) >= job.Left)
+            ticks--;
+        return ticks;
     }
 
     // The inventories that jobs finished during this tick took from or brought to (Finish); read and cleared in the
@@ -503,9 +594,10 @@ public sealed partial class Work
     }
 
     /// <summary>
-    /// A colonist's job goes on: `seconds` have passed since they last thought (0: they go straight on from the step
-    /// before, in the same think). Loading, unloading and working take their minutes (content) counted in seconds,
-    /// from the second they began.
+    /// A colonist's job goes on: `seconds` have passed since they were last processed (0: they go straight on from
+    /// the step before, in the same processing). Loading, unloading and working take their ticks, from the tick they
+    /// began. Each step moves on to the next in one place, guarded by the step it is in (`switch (job.Step)`), so
+    /// each happens once, whatever woke the colonist (step 24, Review 41).
     /// </summary>
     void Act(Worker worker, Job job, int seconds)
     {
@@ -527,7 +619,7 @@ public sealed partial class Work
                     job.Step = job.Kind is JobKind.Haul or JobKind.Boil ? Step.Loading : Step.Working;
                     job.Left = job.Kind switch
                     {
-                        JobKind.Haul or JobKind.Boil => content.PickupSeconds,
+                        JobKind.Haul or JobKind.Boil => content.PickupTicks,
                         _ when job.Left > 0 => job.Left,
                         JobKind.Craft => content.Recipes[job.Recipe!].WorkMinutes * Calendar.TicksPerMinute,
                         _ => Minutes(projects[job.Site!.Value.Value]) * Calendar.TicksPerMinute,
@@ -543,6 +635,7 @@ public sealed partial class Work
                 Stocks.Move(job.First, now, job.Claims[0], worker.Arms);
                 job.Claims.RemoveAt(0);
                 job.Step = job.Kind == JobKind.Boil ? Step.Fetching : Step.Carrying;
+                Act(worker, job, 0);                      // and they set off with it at once (step 24)
                 break;
             case Step.Fetching:
                 var (bx, by) = Place(job.Boiling!.Value);
@@ -558,7 +651,7 @@ public sealed partial class Work
                 if (Walk(worker, tx, ty))
                 {
                     job.Step = Step.Unloading;
-                    job.Left = content.DropSeconds;
+                    job.Left = content.DropTicks;
                     Act(worker, job, 0);
                 }
                 break;
@@ -609,8 +702,8 @@ public sealed partial class Work
     }
 
     /// <summary>
-    /// Walking towards (x, y), asked on the whole minutes by whatever a colonist is doing: true if they are there
-    /// (and may get on with it); if not, they head there, and walk for the minute to come, second by second
+    /// Walking towards (x, y), asked whenever a colonist is processed by whatever they are doing: true if they are
+    /// there (and may get on with it); if not, they head there, and walk tick by tick
     /// (`Stride`). `near`: there as soon as they stand on a tile beside the spot's tile (or on it), as a builder
     /// does.
     /// </summary>
@@ -626,23 +719,23 @@ public sealed partial class Work
     }
 
     /// <summary>
-    /// A second of walking towards where they are heading (step 21a). Without a ground (as in the tests of steps
+    /// A tick of walking towards where they are heading (step 21a). Without a ground (as in the tests of steps
     /// 13 and 14) a colonist walks straight. On a ground they walk from tile to tile on the way the ground finds,
     /// through the middle of each tile, and in the last tile straight to the spot.
     ///
-    /// The second is spent stretch by stretch (step 15c): each stretch goes at the walking speed (colony.json, on
-    /// a road) times the speed of the tile it leads onto (grass 0.8) times how well the colonist's legs carry them.
-    /// Once there they stand (and get on with what they came for on the next whole minute).
+    /// The tick is spent stretch by stretch (step 15c): each stretch goes at the walking speed (colony.json, on
+    /// a road, step 24: 0.05 m a tick) times the speed of the tile it leads onto (grass 0.8) times how well the colonist's legs carry them.
+    /// Once there they stand, and get on with what they came for on the next tick (`Arrive`).
     /// </summary>
     void Stride(Worker worker)
     {
         var (x, y, near) = worker.Heading!.Value;
-        double minutes = 1.0 / Calendar.SecondsPerMinute;
+        double left = 1;                                  // of the tick, still to walk
         while (true)
         {
             if (near && Arrived(worker, x, y, near))
             {
-                worker.Heading = null;
+                Arrive(worker);
                 break;
             }
             double px = x, py = y, speed = 1;
@@ -663,27 +756,37 @@ public sealed partial class Work
                 else
                     speed = ground.Speed(gx, gy);
             }
-            double metresPerMinute = content.WalkMetresPerMinute * speed * worker.Legs;
+            double metresPerTick = content.WalkMetresPerTick * speed * worker.Legs;
             double dx = px - worker.X, dy = py - worker.Y, far = Math.Sqrt(dx * dx + dy * dy);
-            double takes = far / metresPerMinute;
-            // (A stretch that ends within a billionth of a minute after the second is walked whole: sixty sixtieths
-            // do not add up to exactly one, and a walk of exactly two minutes should take two.)
-            if (takes > minutes + 1e-9)
+            double takes = far / metresPerTick;
+            // (A stretch that ends within a billionth of a tick after it is walked whole: shares of a tick do not
+            // always add up to exactly one, and a walk of exactly two ticks should take two.)
+            if (takes > left + 1e-9)
             {
-                double share = minutes * metresPerMinute / far;
+                double share = left * metresPerTick / far;
                 (worker.X, worker.Y) = (worker.X + dx * share, worker.Y + dy * share);
                 break;
             }
             (worker.X, worker.Y) = (px, py);
-            minutes = Math.Max(0, minutes - takes);
+            left = Math.Max(0, left - takes);
             if (px == x && py == y)
             {
-                worker.Heading = null;
+                Arrive(worker);
                 break;
             }
         }
         Stocks[worker.Arms].X = worker.X;
         Stocks[worker.Arms].Y = worker.Y;
+    }
+
+    /// <summary>They are there: they stop, and are woken on the next tick to get on with what they came for (step 24,
+    /// Review 41), whenever their think is. An earlier wake-up stays.</summary>
+    void Arrive(Worker worker)
+    {
+        worker.Heading = null;
+        long next = colony.Now.Tick + 1;
+        if (worker.ActionDue is not long early || early > next)
+            worker.ActionDue = next;
     }
 
     /// <summary>Whether a worker is at (x, y); with `near` on a ground, on its tile or a tile beside it.</summary>

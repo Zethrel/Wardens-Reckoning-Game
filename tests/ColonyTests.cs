@@ -92,33 +92,33 @@ public class ColonyTests
     // ---- Speed: real time into ticks -----------------------------------------------------------------------
 
     [Fact]
-    public void At_1x_a_game_second_lasts_a_real_second_and_a_day_24_real_hours()
+    public void At_1x_a_real_second_runs_24_ticks_and_a_day_lasts_an_hour()
     {
+        // Library Review 41, the hybrid clock.
         var pacer = new Pacer();
         Assert.Equal(Speed.X1, pacer.Speed);
-        Assert.Equal(1, pacer.TicksFor(1.0));
-        long ticks = 1;
-        for (int second = 1; second < 24 * 3600; second++)
+        Assert.Equal(24, pacer.TicksFor(1.0));
+        long ticks = 24;
+        for (int second = 1; second < 3600; second++)
             ticks += pacer.TicksFor(1.0);
         Assert.Equal(Calendar.TicksPerDay, ticks);
-        pacer.Speed = Speed.X60;
+        pacer.Speed = Speed.X5;
         ticks = 0;
-        for (int second = 0; second < 24 * 60; second++)              // 24 real minutes at 60x
+        for (int second = 0; second < 12 * 60; second++)              // 12 real minutes at 5x
             ticks += pacer.TicksFor(1.0);
         Assert.Equal(Calendar.TicksPerDay, ticks);
     }
 
     [Fact]
     public void The_speeds_are_the_libraries_in_order() =>
-        Assert.Equal(new[] { 1, 3, 10, 30, 60 }, Pacer.Speeds.Select(s => (int)s));
+        Assert.Equal(new[] { 1, 2, 3, 5 }, Pacer.Speeds.Select(s => (int)s));
 
     [Theory]
     [InlineData(Speed.Paused, 0)]
-    [InlineData(Speed.X1, 1)]
-    [InlineData(Speed.X3, 3)]
-    [InlineData(Speed.X10, 10)]
-    [InlineData(Speed.X30, 30)]
-    [InlineData(Speed.X60, 60)]
+    [InlineData(Speed.X1, 24)]
+    [InlineData(Speed.X2, 48)]
+    [InlineData(Speed.X3, 72)]
+    [InlineData(Speed.X5, 120)]
     public void Each_speed_runs_its_ticks_a_second(Speed speed, int perSecond)
     {
         var pacer = new Pacer { Speed = speed };
@@ -128,31 +128,33 @@ public class ColonyTests
     [Fact]
     public void The_frame_rate_does_not_change_how_many_ticks_run()
     {
-        // 10 real seconds at 30x drawn at 60, 144 or 7 frames a second: the same 300 ticks.
+        // 10 real seconds at 3x drawn at 60, 144 or 7 frames a second: the same 720 ticks.
         foreach (int fps in new[] { 60, 144, 7 })
         {
-            var pacer = new Pacer { Speed = Speed.X30 };
+            var pacer = new Pacer { Speed = Speed.X3 };
             int ticks = Enumerable.Range(0, fps * 10).Sum(_ => pacer.TicksFor(1.0 / fps));
-            Assert.Equal(300, ticks);
+            Assert.Equal(720, ticks);
         }
     }
 
     [Fact]
-    public void A_stalled_frame_runs_at_most_ten_seconds_at_60x_and_drops_the_rest()
+    public void A_stalled_frame_runs_at_most_a_second_at_5x_and_drops_the_rest()
     {
-        var pacer = new Pacer { Speed = Speed.X60 };
-        Assert.Equal(600, Pacer.MostTicksAFrame);
-        Assert.Equal(Pacer.MostTicksAFrame, pacer.TicksFor(60.0));   // 3,600 owed
-        Assert.Equal(60, pacer.TicksFor(1.0));                        // the rest was not saved up
+        // Review 41: catch-up is bounded; the game slows down instead.
+        var pacer = new Pacer { Speed = Speed.X5 };
+        Assert.Equal(120, Pacer.MostTicksAFrame);
+        Assert.Equal(Pacer.MostTicksAFrame, pacer.TicksFor(60.0));   // 7,200 owed
+        Assert.Equal(120, pacer.TicksFor(1.0));                       // the rest was not saved up
     }
 
     [Fact]
     public void Due_says_how_far_the_next_tick_is()
     {
+        // At 1x a tick is a 24th of a real second.
         var pacer = new Pacer();
-        Assert.Equal(0, pacer.TicksFor(0.25));
+        Assert.Equal(0, pacer.TicksFor(0.25 / 24));
         Assert.Equal(0.25, pacer.Due, 9);
-        Assert.Equal(1, pacer.TicksFor(1.0));
+        Assert.Equal(1, pacer.TicksFor(1.0 / 24));
         Assert.Equal(0.25, pacer.Due, 9);
         pacer.Speed = Speed.Paused;
         Assert.Equal(0, pacer.TicksFor(5.0));

@@ -118,7 +118,7 @@ public partial class ColonyScreen : Node
         row.AddThemeConstantOverride("v_separation", 4);
         bar.AddChild(row);
         pause = Bar(row, "Pause", "Pause or play (Space)", TogglePause);
-        // The speeds (library Review 39): 1x is real time, a game second a real second.
+        // The speeds (library Review 41): at 1x a day lasts an hour.
         for (int i = 0; i < Pacer.Speeds.Length; i++)
         {
             var speed = Pacer.Speeds[i];
@@ -197,13 +197,14 @@ public partial class ColonyScreen : Node
 
     Speed lastSpeed = Speed.X1;
 
-    /// <summary>What a speed means, in words: "1x: a game second a real second (a day in 24 hours)".</summary>
+    /// <summary>What a speed means, in words: "1x: 24 game seconds a real second (a day in 60 minutes)" (library
+    /// Review 41: at 1x a real second runs `Calendar.TicksPerRealSecond` ticks).</summary>
     static string SpeedText(Speed speed)
     {
-        double dayMinutes = Calendar.TicksPerDay / (double)(int)speed / 60;
+        int perSecond = Calendar.TicksPerRealSecond * (int)speed;
+        double dayMinutes = Calendar.TicksPerDay / (double)perSecond / 60;
         string day = dayMinutes >= 120 ? (dayMinutes / 60).ToString("0.#") + " hours" : dayMinutes.ToString("0.#") + " minutes";
-        string pace = speed == Speed.X1 ? "a game second a real second" : (int)speed + " game seconds a real second";
-        return (int)speed + "x: " + pace + " (a day in " + day + ")";
+        return (int)speed + "x: " + perSecond + " game seconds a real second (a day in " + day + ")";
     }
 
     /// <summary>Sets the speed (Paused or one of `Pacer.Speeds`), and shows it on the bar.</summary>
@@ -400,7 +401,7 @@ public partial class ColonyScreen : Node
             case Key.Space:
                 TogglePause();
                 break;
-            case >= Key.Key1 and <= Key.Key5:
+            case >= Key.Key1 and <= Key.Key4:
                 SetSpeed(Pacer.Speeds[(int)(key.Keycode - Key.Key1)]);
                 break;
             case Key.Tab:

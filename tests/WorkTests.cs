@@ -139,9 +139,9 @@ public class WorkTests
         var camp = new Camp();
         var ada = camp.Workers[0];
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
+        // Loaded, she sets off in the same tick (step 24): heading for the quern, not yet a step taken.
         while (camp.JobOf(ada)?.Step != Step.Carrying)
             camp.Colony.Run(1);
-        camp.Colony.Run(1);                                             // her next think: she sets off
         Assert.Equal((0.0, 0.0), (ada.X, ada.Y));
         Assert.Equal((140.0, 0.0, false), ada.Heading);
         camp.Colony.Run(30);                                            // half a minute: second by second
@@ -157,8 +157,8 @@ public class WorkTests
     {
         var files = NoNeedsFiles();
         var colony = JsonNode.Parse(files["colony.json"]!)!.AsObject();
-        colony["pickup_seconds"] = 0;
-        colony["drop_seconds"] = 0;
+        colony["pickup_real_seconds"] = 0;
+        colony["drop_real_seconds"] = 0;
         files["colony.json"] = colony.ToJsonString();
         var camp = new Camp(content: Content.Read(files));
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 1);
@@ -385,7 +385,7 @@ public class WorkTests
         // Loading 3 minutes and unloading 2: the haul is taken in the first second; loading to minute 3; walking two
         // minutes; unloading two, done a few seconds into minute 7; the quern asks at once and turns to a few seconds
         // into minute 187, seen on the whole minute after, 188. Then the flour waits at the quern while it is loaded.
-        var camp = new Camp(content: With("colony.json", c => { c["pickup_seconds"] = 180; c["drop_seconds"] = 120; }));
+        var camp = new Camp(content: With("colony.json", c => { c["pickup_real_seconds"] = 180 / 24.0; c["drop_real_seconds"] = 120 / 24.0; }));
         camp.Work.Order(camp.Quern.Id, "grind_wheat", 2);
         Assert.Equal(3 + 2 + 2 + 1 + 180, camp.RunUntil(() => camp.Stocks.Total("flour") == 4));
         camp.RunUntil(() => camp.Granary.Count("flour") == 8 && camp.Work.Jobs.Count == 0);

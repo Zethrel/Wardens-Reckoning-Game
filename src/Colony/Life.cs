@@ -76,9 +76,10 @@ public sealed partial class Work
 
     /// <summary>
     /// A colonist's think for themselves (step 21c): collapse, sleep, eating and drinking (their needs grow on the
-    /// whole minutes, `Grow`). `seconds` since they last thought. True if they are free to go on with their job.
+    /// whole minutes, `Grow`). The time since they were last processed has already been spent (`Work.Process`, step
+    /// 24). True if they are free to go on with their job.
     /// </summary>
-    bool Live(Worker w, int seconds)
+    bool Live(Worker w)
     {
         // A need at its limit fells them at once, before they think of anything else.
         if (w.Collapsed == null && Fells(w) is string felled)
@@ -92,14 +93,25 @@ public sealed partial class Work
             return Wake(w);
         if (w.Personal != null)
         {
-            Continue(w, seconds);
+            Continue(w, 0);                                // (heading on, if still on the way)
             return false;
         }
         if (w.Stopped)
             return true;                                   // a stopped colonist does nothing for themselves either
         var (wish, level) = Wish(w);
         if (wish == null)
+        {
+            // Out of their Work hours, work in hand is put down at their think (with its work kept), unless it is a
+            // delivery: that is finished first (library §5.3; FP-01: work only in Work hours). Until step 24 this
+            // happened by luck of timing, when a need came up at the hour; the clock's longer thinks showed it.
+            if (BlockOf(w) != Block.Work && w.Job is TaskId held && jobs[held.Value] is var work
+                && !(work.Kind is JobKind.Haul or JobKind.Boil && InHand(work)))
+            {
+                Reopen(work, w);
+                return false;
+            }
             return true;
+        }
         // A job they hold: a critical need drops it now; an urgent need or the hour finishes a delivery in hand.
         if (w.Job is TaskId t && jobs[t.Value] is var job)
         {
@@ -119,9 +131,14 @@ public sealed partial class Work
         foreach (var rule in content.Needs.Values)
         {
             var need = w.Needs[rule.Name];
+            int before = LevelOf(rule, need.Level);
             double perHour = (w.Asleep ? rule.AsleepPerHour : rule.PerHour) * Faster(w, rule);
             need.Level = Math.Clamp(need.Level + perHour / Calendar.MinutesPerHour, 0, 100);
             need.MinutesAtLimit = need.Level >= 100 ? need.MinutesAtLimit + 1 : 0;
+            // A need turning critical is urgent (step 24, Review 41): they think about it on the next tick, not at
+            // their usual think.
+            if (before < 4 && LevelOf(rule, need.Level) == 4)
+                Urge(w);
         }
         if (w.Asleep)
         {
@@ -139,6 +156,8 @@ public sealed partial class Work
     void Collapse(Worker w, string need)
     {
         w.Collapsed = need;
+        w.Heading = null;                                  // they fall where they are
+        w.ActionDue = null;
         if (w.Personal is { Claim: ReservationId claim })
             Stocks.Release(claim);
         w.Personal = null;

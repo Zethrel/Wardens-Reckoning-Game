@@ -13,7 +13,7 @@ namespace WardensReckoning.Tests;
 /// </summary>
 public class LocalMapTests(ITestOutputHelper output)
 {
-    static readonly Content Real = Content.Load(Path.Combine(AppContext.BaseDirectory, "content"));
+    static readonly Content Real = TestContent.Real;
     static readonly Moment Arrival = new(Calendar.TickOf(1, 1, 1, 8, 0));
 
     /// <summary>A local map's JSON as the generator writes it (its docs/export-format.md, "The local maps"), with

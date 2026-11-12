@@ -49,7 +49,7 @@ public class MeasureTests
     {
         // The content's test ground (its rough patches and what is in the way) with a wall and a road added:
         // every tile's metres to one goal, kept or worked out again after being forgotten, the same.
-        var content = Content.Load(Path.Combine(AppContext.BaseDirectory, "content"));
+        var content = TestContent.Real;
         Ground Made(int most)
         {
             var g = Ground.Test(content);

@@ -12,7 +12,7 @@ namespace WardensReckoning.Tests;
 /// </summary>
 public class FoundingTests(ITestOutputHelper output)
 {
-    static readonly Content Real = Content.Load(Path.Combine(AppContext.BaseDirectory, "content"));
+    static readonly Content Real = TestContent.Real;
     static readonly Moment Arrival = new(Calendar.TickOf(1, 1, 1, 8, 0));
 
     // ---- The founders ------------------------------------------------------------------------------------------

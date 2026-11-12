@@ -13,7 +13,7 @@ namespace WardensReckoning.Tests;
 /// </summary>
 public class ColonySaveTests
 {
-    static readonly Content Real = Content.Load(Path.Combine(AppContext.BaseDirectory, "content"));
+    static readonly Content Real = TestContent.Real;
     static readonly Moment Arrival = new(Calendar.TickOf(1, 1, 1, 8, 0));
 
     /// <summary>A folder of its own for one test.</summary>
@@ -181,15 +181,15 @@ public class ColonySaveTests
         string text = ColonySave.Text(colony);
         Assert.Empty(ColonySave.Opening(text, Real).Warnings);
         // The same content with walking a little quicker.
-        var files = Content.Files.ToDictionary(f => f, f => (string?)File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", f)));
-        files["colony.json"] = files["colony.json"]!.Replace("\"walk_m_per_minute\": 70", "\"walk_m_per_minute\": 75");
+        var files = TestContent.Files();
+        files["colony.json"] = files["colony.json"]!.Replace("\"walk_m_per_real_second\":28", "\"walk_m_per_real_second\":30");
         var tweaked = Content.Read(files);
         Assert.NotEqual(Real.Fingerprint, tweaked.Fingerprint);
         var opened = ColonySave.Opening(text, tweaked);
         Assert.Contains("has changed since this save was made", Assert.Single(opened.Warnings));
-        Assert.Equal(75, opened.Colony.Content!.WalkMetresPerMinute);
+        Assert.Equal(30.0 / 24, opened.Colony.Content!.WalkMetresPerTick);
         // Windows line endings in the content files do not change the fingerprint.
-        var crlf = Content.Files.ToDictionary(f => f, f => (string?)File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", f)).Replace("\n", "\r\n"));
+        var crlf = TestContent.Files().ToDictionary(f => f.Key, f => f.Value!.Replace("\n", "\r\n"));
         Assert.Equal(Real.Fingerprint, Content.Read(crlf).Fingerprint);
     }
 
@@ -279,13 +279,13 @@ public class ColonySaveTests
         var session = new Session(FirstDay(), Folder());
         int before = 0;
         session.BeforeTick += () => before++;
-        Assert.Equal(1, session.Frame(1.0));                                    // ×1: a game second a real second
-        session.Speed = Speed.X60;
-        Assert.Equal(60, session.Frame(1.0));
-        Assert.Equal(61, before);                                               // told before each tick
+        Assert.Equal(24, session.Frame(1.0));                                   // ×1: 24 game seconds a real second
+        session.Speed = Speed.X5;
+        Assert.Equal(120, session.Frame(1.0));
+        Assert.Equal(144, before);                                              // told before each tick
         session.Speed = Speed.Paused;
         Assert.Equal(0, session.Frame(5.0));
-        Assert.Equal(Arrival.Tick + 61, session.Colony.Now.Tick);
+        Assert.Equal(Arrival.Tick + 144, session.Colony.Now.Tick);
     }
 
     [Fact]
@@ -293,9 +293,10 @@ public class ColonySaveTests
     {
         string folder = Folder();
         var session = new Session(FirstDay(), Path.Combine(folder, "autosaves"));
-        session.Speed = Speed.X60;
+        session.Speed = Speed.X5;
         var days = new Dictionary<int, long>();
-        // Four mornings, a frame at a time (10 real seconds a frame at ×60 is 600 ticks, the most a frame runs).
+        // Four mornings, a frame at a time (10 real seconds a frame at ×5 would be 1,200 ticks: 120 run, the most a
+        // frame runs).
         while (session.Colony.Now.Tick < Arrival.Tick + 4 * Calendar.TicksPerDay)
         {
             var before = session.Colony.Now;
@@ -326,7 +327,7 @@ public class ColonySaveTests
         string blocked = Path.Combine(folder, "autosaves");
         File.WriteAllText(blocked, "a file where the folder should be");
         var session = new Session(FirstDay(), blocked);
-        session.Speed = Speed.X60;
+        session.Speed = Speed.X5;
         while (session.Colony.Now.Tick < Arrival.Tick + Calendar.TicksPerDay)
             session.Frame(10);
         Assert.Contains("The morning autosave failed", Assert.Single(session.Reports));

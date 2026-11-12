@@ -11,7 +11,7 @@ namespace WardensReckoning.Tests;
 /// </summary>
 public class WaterTests
 {
-    static readonly Content Real = Content.Load(Path.Combine(AppContext.BaseDirectory, "content"));
+    static readonly Content Real = TestContent.Real;
 
     static Moment On(int month, int hour = 8) => new(Calendar.TickOf(1, month, 1, hour, 0));
 

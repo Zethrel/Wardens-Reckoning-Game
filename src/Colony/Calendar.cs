@@ -9,7 +9,8 @@ namespace WardensReckoning.Colony;
 /// to 3, summer 4 to 6, autumn 7 to 9, winter 10 to 12.
 ///
 /// Time itself is one whole number: the tick. One tick is one in-game second (library Review 39; until step 21 it
-/// was a minute, Review 29), counted from midnight at the start of Year 1, Day 1. Every date is worked out from it here, in one place, so no system ever
+/// was a minute, Review 29), counted from midnight at the start of Year 1, Day 1. At ×1 a real second runs 24 of
+/// them (Review 41: `TicksPerRealSecond`), so a day lasts an hour. Every date is worked out from it here, in one place, so no system ever
 /// counts months or seasons by itself.
 /// </summary>
 public static class Calendar
@@ -28,6 +29,25 @@ public static class Calendar
     public const int DaysPerWeek = 7;
     public const int DaysPerMonth = 28;
     public const int MonthsPerYear = 12;
+
+    /// <summary>
+    /// Ticks a real second at ×1 (library Review 41, the hybrid clock): 24, so a day of 86,400 ticks lasts 3,600 real
+    /// seconds, an hour. The one constant for both things that need it: the pacer (how many ticks to run) and the
+    /// content's physical values (walking, loading, deciding), written in real seconds at ×1 and turned into ticks
+    /// once, when the content is read (`TicksOf`, and rates divided by it).
+    /// </summary>
+    public const int TicksPerRealSecond = 24;
+
+    /// <summary>
+    /// A duration written in real seconds at ×1, in ticks (library Review 41): `seconds × 24`, rounded to the nearest
+    /// whole tick with halves away from zero, and at least 1 tick when it is above 0 (0 stays 0). So 5 seconds are
+    /// 120 ticks, 0.5 are 12, and 0.01 is 1 rather than nothing.
+    /// </summary>
+    public static int TicksOf(double realSeconds)
+    {
+        double ticks = Math.Round(realSeconds * TicksPerRealSecond, MidpointRounding.AwayFromZero);
+        return realSeconds > 0 ? Math.Max(1, (int)ticks) : 0;
+    }
     public const int MonthsPerSeason = 3;
     /// <summary>336.</summary>
     public const int DaysPerYear = DaysPerMonth * MonthsPerYear;

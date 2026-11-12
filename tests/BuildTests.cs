@@ -479,8 +479,10 @@ public class BuildTests
         camp.Colony.Run(1);                                                // her next think
         Assert.Null(ada.Personal);
         Assert.Equal(0, camp.Stocks.Reserved(pantry.Id, "ration"));        // the ration is let go
-        Assert.Equal("cannot reach the store", ada.Lacking);
-        camp.Colony.Run(1);                                                // and the one after: still nothing to be had
+        // She gave up on the way, then looked again in the same think (step 24: the time first, then deciding): there
+        // is nothing else to be had, and she says why.
+        Assert.Equal("no travel ration free in any store they can reach (it is walled off)", ada.Lacking);
+        camp.Colony.Run(1);                                                // and the one after: still nothing
         Assert.Null(ada.Personal);
         Assert.Equal("no travel ration free in any store they can reach (it is walled off)", ada.Lacking);
     }

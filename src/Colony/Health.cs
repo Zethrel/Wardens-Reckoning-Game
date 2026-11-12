@@ -31,21 +31,36 @@ public sealed partial class Work
     }
 
     /// <summary>Whether a colonist's illness has shown and not yet ended.</summary>
-    public bool Ill(Worker w) => w.Illness is Illness i && colony.Now.Tick >= i.Shows && colony.Now.Tick < i.Ends;
+    public bool Ill(Worker w) => IllAt(w, colony.Now.Tick);
 
-    // Each minute: an illness shows, or is over (and the player is told).
+    /// <summary>Whether a colonist's illness had shown and not yet ended at tick `tick`.</summary>
+    static bool IllAt(Worker w, long tick) => w.Illness is Illness i && tick >= i.Shows && tick < i.Ends;
+
+    // Illnesses over this tick, forgotten at its end (Work.Tick), once the work done while ill has been counted.
+    readonly List<Worker> ended = new();
+
+    /// <summary>
+    /// Each minute: an illness shows, or is over (and the player is told). Either changes how fast the colonist
+    /// works, so it wakes them (step 24, Review 41): the work since they were last processed is counted at the pace
+    /// it was done at, and their deadline is worked out again at the new one.
+    /// </summary>
     void Sicken()
     {
+        long now = colony.Now.Tick;
         foreach (var w in workers.Values)
         {
             if (w.Illness is not Illness i)
                 continue;
-            if (colony.Now.Tick == i.Shows)
-                Tell(w.Name + " is ill: " + i.Name.ToLowerInvariant() + ".");
-            if (colony.Now.Tick >= i.Ends)
+            if (now == i.Shows)
             {
-                w.Illness = null;
+                Tell(w.Name + " is ill: " + i.Name.ToLowerInvariant() + ".");
+                w.ActionDue = now;
+            }
+            if (now >= i.Ends && !ended.Contains(w))
+            {
+                ended.Add(w);
                 Tell(w.Name + " is well again.");
+                w.ActionDue = now;
             }
         }
     }
@@ -55,12 +70,15 @@ public sealed partial class Work
     /// the work they miss (0.3 a second at 70%), and a second is lost each time it reaches one. No dice: the same
     /// seconds are lost every time. A colonist who is well: all of them.
     /// </summary>
-    internal int Effort(Worker w, Job job, int seconds) => Effort(w, Pace(w, job), seconds);
+    /// <remarks>The `seconds` are the ticks just past, so they are worked at the pace of their first tick (step 24): a
+    /// change of pace wakes the colonist (`Sicken`), so the pace did not change during them.</remarks>
+    internal int Effort(Worker w, Job job, int seconds) => Effort(w, Pace(w, job, colony.Now.Tick - seconds), seconds);
 
-    /// <summary>How fast a colonist works at a job now: their skill at it (step 23a: 1 at the usual proficiency) times
-    /// their health (an ill colonist at 70%).</summary>
-    internal double Pace(Worker w, Job job) =>
-        (SkillOf(job) is string skill && w.Skills.TryGetValue(skill, out var state) ? content.SpeedAt(state.Proficiency) : 1) * (Ill(w) ? content.UpsetStomach.Work : 1);
+    /// <summary>How fast a colonist works at a job (now, or at tick `at`): their skill at it (step 23a: 1 at the usual
+    /// proficiency) times their health (an ill colonist at 70%).</summary>
+    internal double Pace(Worker w, Job job, long? at = null) =>
+        (SkillOf(job) is string skill && w.Skills.TryGetValue(skill, out var state) ? content.SpeedAt(state.Proficiency) : 1)
+        * (IllAt(w, at ?? colony.Now.Tick) ? content.UpsetStomach.Work : 1);
 
     /// <summary>The skill a job uses (step 23a): building, boiling or a workshop's recipe, as skills.json says; null
     /// for work that uses none (carrying).</summary>

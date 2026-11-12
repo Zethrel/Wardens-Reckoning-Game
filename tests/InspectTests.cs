@@ -10,7 +10,7 @@ namespace WardensReckoning.Tests;
 /// </summary>
 public class InspectTests
 {
-    static readonly Content Real = Content.Load(Path.Combine(AppContext.BaseDirectory, "content"));
+    static readonly Content Real = TestContent.Real;
     static readonly Moment Arrival = new(Calendar.TickOf(1, 1, 1, 8, 0));
 
     static (Colony.Colony Colony, Inventory Carts) Founded() => Founding.Found(7, Arrival, Real, 24, 20);

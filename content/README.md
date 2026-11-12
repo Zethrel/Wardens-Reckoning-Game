@@ -12,10 +12,15 @@ what is wrong, before anything runs.
   `workshop` that works it, `inputs` and `outputs` (good id to whole units),
   and `work_minutes`. A good may not be made, directly or through other
   recipes, from itself.
-- `colony.json`: `carry_kg` (what one person carries by hand),
-  `walk_m_per_minute` (walking speed), `pickup_seconds` and `drop_seconds`
-  (time to load and unload), `think_seconds` (how often a colonist decides what
-  to do next: every so many seconds, drawn once for each colonist between the two).
+- `colony.json`: `carry_kg` (what one person carries by hand). The physical
+  values are in **real seconds at ×1** (library Review 41, the hybrid clock),
+  for a pace that is pleasant to watch, and turned into ticks when the content
+  is read (24 ticks a real second; a duration rounded to the nearest whole tick,
+  halves away from zero, at least 1 tick if above 0): `walk_m_per_real_second`
+  (walking speed on a road; divided by 24 for a tick, not rounded),
+  `pickup_real_seconds` and `drop_real_seconds` (time to load and unload; 0 for
+  none), `think_real_seconds` (how often a colonist decides what to do next:
+  drawn once for each colonist between the two, in whole ticks).
 - `needs.json`: how the needs grow (`hunger`, `thirst`, `fatigue`, `hygiene`): points an
   hour awake (`per_hour`) and asleep (`asleep_per_hour`), from 0 (none) to 100
   (the limit); the levels at which a colonist eats or drinks at mealtimes

@@ -25,7 +25,7 @@ public sealed class Session
     public string Autosaves { get; }
     public Pacer Pacer { get; } = new();
 
-    /// <summary>The speed the player chose (paused, or 1, 3, 10, 30 or 60 times real time).</summary>
+    /// <summary>The speed the player chose (paused, ×1, ×2, ×3 or ×5: library Review 41).</summary>
     public Speed Speed
     {
         get => Pacer.Speed;

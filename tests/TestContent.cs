@@ -5,8 +5,17 @@ using WardensReckoning.Colony;
 namespace WardensReckoning.Tests;
 
 /// <summary>
-/// The content's files as the tests change them. `EverySecond`: the real content with every colonist thinking every
-/// second (colony.json think_seconds [1, 1]), for the tests of one mechanic at a time (walking, loading, building,
+/// The content's files as the tests change them.
+///
+/// **The old pace (step 24).** The hybrid clock (library Review 41) made walking, loading and deciding slower in game
+/// time: 1.2 m a real second at ×1 is 0.05 m a tick. The tests were written for the pace before it, and test the
+/// mechanics, not the balance, so `Files()` (and `Real`) put the physical values back to what they were in ticks:
+/// walking 70 m a game minute (28 m a real second), loading and unloading 5 ticks, deciding every 2 to 7 ticks. The
+/// content as shipped is `RealFiles()`; `SpeedTests` and the conversion tests use it. (Step 24b rebalances the
+/// content, and then moves the scenario tests to it.)
+///
+/// `EverySecond`: the real content with every colonist thinking every
+/// tick (colony.json think_real_seconds a tick each), for the tests of one mechanic at a time (walking, loading, building,
 /// meals): a colonist decides the second something happens, so their minutes are the mechanic's own. The thinking
 /// rhythm itself (2 to 7 seconds) is tested in TickTests, and runs in every scenario test (FP, founding, water).
 /// `EverySecond` also learns nothing (step 23b: skills.json points_per_hour 0), so that a colonist's pace stays the
@@ -14,14 +23,39 @@ namespace WardensReckoning.Tests;
 /// </summary>
 internal static class TestContent
 {
-    public static Dictionary<string, string?> Files() =>
-        Content.Files.ToDictionary(f => f, f => (string?)File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", f)));
+    /// <summary>The content's folder, as shipped.</summary>
+    public static readonly string Folder = Path.Combine(AppContext.BaseDirectory, "content");
 
-    /// <summary>`files` with colony.json's think_seconds set to [1, 1].</summary>
+    /// <summary>The content's files as shipped.</summary>
+    public static Dictionary<string, string?> RealFiles() =>
+        Content.Files.ToDictionary(f => f, f => (string?)File.ReadAllText(Path.Combine(Folder, f)));
+
+    /// <summary>The content's files at the old pace (see above).</summary>
+    public static Dictionary<string, string?> Files() => OldPace(RealFiles());
+
+    /// <summary>The content at the old pace: what the tests of whole colonies use.</summary>
+    public static readonly Content Real = Content.Read(Files());
+
+    /// <summary>`files` with the physical values of colony.json at the pace before step 24, in real seconds at ×1:
+    /// a tick is 1/24 of a real second (`Calendar.TicksPerRealSecond`).</summary>
+    public static Dictionary<string, string?> OldPace(Dictionary<string, string?> files)
+    {
+        const double tick = 1.0 / Calendar.TicksPerRealSecond;
+        var colony = JsonNode.Parse(files["colony.json"]!)!.AsObject();
+        colony["walk_m_per_real_second"] = 70.0 / Calendar.SecondsPerMinute * Calendar.TicksPerRealSecond;   // 28
+        colony["pickup_real_seconds"] = 5 * tick;
+        colony["drop_real_seconds"] = 5 * tick;
+        colony["think_real_seconds"] = new JsonArray(2 * tick, 7 * tick);
+        files["colony.json"] = colony.ToJsonString();
+        return files;
+    }
+
+    /// <summary>`files` with colony.json's think_real_seconds set to a tick each: every colonist decides every tick.</summary>
     public static Dictionary<string, string?> ThinkingEverySecond(Dictionary<string, string?> files)
     {
+        const double tick = 1.0 / Calendar.TicksPerRealSecond;
         var colony = JsonNode.Parse(files["colony.json"]!)!.AsObject();
-        colony["think_seconds"] = new JsonArray(1, 1);
+        colony["think_real_seconds"] = new JsonArray(tick, tick);
         files["colony.json"] = colony.ToJsonString();
         return files;
     }

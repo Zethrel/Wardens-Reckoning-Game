@@ -2,22 +2,22 @@
 namespace WardensReckoning.Colony;
 
 /// <summary>
-/// The speeds the player can choose (library Review 39): paused, or 1, 3, 10, 30 or 60 times real time. The
-/// number of each is how many game seconds pass in a real second.
+/// The speeds the player can choose (library Review 41): paused, or 1, 2, 3 or 5 times the normal speed. The
+/// number of each is what it multiplies: at ×1 a real second runs 24 ticks (`Calendar.TicksPerRealSecond`), at ×5
+/// 120.
 /// </summary>
 public enum Speed
 {
     Paused = 0,
     X1 = 1,
+    X2 = 2,
     X3 = 3,
-    X10 = 10,
-    X30 = 30,
-    X60 = 60,
+    X5 = 5,
 }
 
 /// <summary>
-/// Turns real time into ticks. A tick is a game second, and at ×1 a game second lasts a real second (library Review
-/// 39): a day takes 24 real hours at ×1, and 24 real minutes at ×60.
+/// Turns real time into ticks. A tick is a game second, and at ×1 a real second runs 24 of them (library Review 41,
+/// the hybrid clock): a day takes an hour at ×1, and 12 minutes at ×5.
 ///
 /// This is the only place real time touches the colony, and it only says how many ticks to run. The simulation
 /// itself never sees real seconds or frames, so the same ticks always give the same colony, however fast or slow
@@ -27,15 +27,13 @@ public enum Speed
 /// </summary>
 public sealed class Pacer
 {
-    /// <summary>The speeds in order, for the screen's buttons and keys 1 to 5.</summary>
-    public static readonly Speed[] Speeds = { Speed.X1, Speed.X3, Speed.X10, Speed.X30, Speed.X60 };
+    /// <summary>The speeds in order, for the screen's buttons and keys 1 to 4.</summary>
+    public static readonly Speed[] Speeds = { Speed.X1, Speed.X2, Speed.X3, Speed.X5 };
 
-    /// <summary>Ticks a real second at ×1: one.</summary>
-    public const double TicksPerSecond = 1;
-
-    /// <summary>The most ticks one frame may ask for: ten real seconds at ×60. If the computer stalls, the game
-    /// slows down instead of trying to catch up all at once.</summary>
-    public const int MostTicksAFrame = 600;
+    /// <summary>The most ticks one frame may ask for: a real second at ×5 (Review 41: catch-up is bounded). If the
+    /// computer stalls, or cannot keep up, the game slows down instead of trying to catch up all at once: no tick is
+    /// skipped, there are only fewer of them.</summary>
+    public const int MostTicksAFrame = 120;
 
     double owed;
     public Speed Speed { get; set; } = Speed.X1;
@@ -48,7 +46,7 @@ public sealed class Pacer
     {
         if (Speed == Speed.Paused || seconds <= 0)
             return 0;
-        owed += seconds * TicksPerSecond * (int)Speed;
+        owed += seconds * Calendar.TicksPerRealSecond * (int)Speed;
         // Frame times add up with tiny rounding errors (144 frames of 1/144 second come to 0.99999...), so a tick
         // within a billionth of being due counts as due.
         int whole = (int)Math.Min(Math.Floor(owed + 1e-9), MostTicksAFrame);
