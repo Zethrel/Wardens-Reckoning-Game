@@ -381,8 +381,13 @@ under 60 ms.
 Worth knowing, not over any threshold: the everyday scenarios' slowest
 ticks (26 ms) are single ticks in which a colonist works out a long way; at
 ×5 one such tick makes one frame late (26 ms against 16.7). The arbitration
-colony keeps up to 305 ways (about 150 MB of its 397 MB). The maintainer
-approves or revises the thresholds next; then they are binding.
+colony keeps up to 305 ways (about 150 MB of its 397 MB).
+
+**Approved (the maintainer, 12 November 2026):** Review 41's thresholds as
+they stand, now binding: at ×5, 99% of the speed sustained; at most 25% of a
+core for the simulation; no tick slower than 33 ms in everyday play or 100 ms
+in a stress scenario; saving and loading each under 1 s. A step that goes over
+one is investigated and the result written here.
 
 ## Assessment
 
