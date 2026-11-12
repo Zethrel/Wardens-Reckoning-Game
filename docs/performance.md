@@ -27,27 +27,35 @@ seed is 20, the start 1 April of year 1 at 08:00):
 
 Tick times leave out the first in-game hour (the code is still being
 compiled then). The results up to step 20c were measured on the minute tick:
-a tick was one in-game minute, and the game ran 2 ticks a second at ×1 and 6
-at ×3. Since step 21a a tick is one in-game second (library Review 39), and
-since step 21b the game runs as many ticks a real second as its speed:
+a tick was one in-game minute. Since step 21a a tick is one in-game second
+(library Review 39). Since step 24a (Review 41, the hybrid clock) a real
+second at ×1 runs 24 of them:
 
-| Speed | Ticks a real second | Time for one tick | A whole game minute takes |
+| Speed | Ticks a real second | Time for one tick | A day takes |
 |---|---|---|---|
-| ×1 | 1 | 1,000 ms | 60 s |
-| ×3 | 3 | 333 ms | 20 s |
-| ×10 | 10 | 100 ms | 6 s |
-| ×30 | 30 | 33 ms | 2 s |
-| ×60 | 60 | 16.7 ms | 1 s |
+| ×1 | 24 | 41.7 ms | 60 min |
+| ×2 | 48 | 20.8 ms | 30 min |
+| ×3 | 72 | 13.9 ms | 20 min |
+| ×5 | 120 | 8.3 ms | 12 min |
 
-Less the time for drawing: at ×60 the screen gets one tick each frame (60
-frames a second), so a tick slower than about 10 ms makes a frame late, and
-one of a second or more freezes the screen for that long.
+At 60 frames a second, ×5 asks for two ticks a frame. Results before step 24
+were measured at the old speeds (×1 to ×60, one tick a real second at ×1) and
+on the old pace: they are kept for comparison below, but the ×5 table of step
+24b is the one Review 41's thresholds are about.
 
 On the second tick the profiler shows two kinds of tick: the **minute ticks**
 (every sixtieth: the colony's own work, needs, asking, supplying) and the
-**second ticks** between them (walking and the colonists who think that
-second; since step 21c, deciding is done there). "Slowest second" is the
-slowest of those.
+**second ticks** between them (walking and the colonists who are processed
+that tick). "Slowest second" is the slowest of those.
+
+Since step 24b a second table replays each scenario's tick times through the
+game's own pacer at ×5, frame by frame at 60 frames a second (a frame lasts
+1/60 s, or as long as its ticks take): the **sustained speed** (ticks run
+over ticks asked for), the **simulation's share of a core** (its time over the
+real time) and the **slowest frame**, beside Review 41's provisional
+thresholds. Drawing is not counted (the screen does not run in the profiler).
+Which scenarios count as everyday and which as stress: idle and hauling are
+everyday; arbitration (300 walls) and interrupted are stress.
 
 Measuring changes nothing in the colony (`MeasureTests`).
 
@@ -297,6 +305,55 @@ The two ideas measured against each other in the plan (jobs ranked by
 straight-line distance first; one search outward from each colonist
 choosing) would make those fewer or smaller; not built, as the areas took
 away what blocked play (the maintainer's choice, 11 November).
+
+### Step 24b: the hybrid clock, cloud, 12 November 2026
+
+The content as shipped: walking 1.2 m a real second at ×1 (0.05 m a tick),
+loading and unloading 120 ticks, deciding every 48 to 168 ticks, building at
+two thirds of its former minutes (lesson 24b). The same scenarios and days,
+so less gets done in them than before (walking costs game time now).
+
+Measured 12 Nov 2026 09:16 on Ubuntu 24.04.5 LTS, 2 logical processors, .NET 8.0.33, Release build. Own map.
+
+| Scenario | Ticks | Minute tick mean ms | Median | 95% | 99% | Slowest | Second tick mean ms | Slowest second | Ways asked | Worked out | Their ms | Most kept | Peak MB | GCs (0/1/2) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| idle | 259200 | 0.033 | 0.023 | 0.041 | 0.069 | 9.724 | 0.0024 | 26.0 | 17996 | 4 | 100.4 | 5 | 133 | 0/0/0 |
+| hauling | 172800 | 0.031 | 0.026 | 0.047 | 0.062 | 3.394 | 0.0027 | 26.3 | 138352 | 8 | 205.6 | 9 | 138 | 1/0/0 |
+| arbitration | 172800 | 5.486 | 5.594 | 11.6 | 13.5 | 20.4 | 0.0190 | 34.0 | 496446 | 198 | 1862.6 | 305 | 397 | 8/0/0 |
+| interrupted | 172800 | 0.023 | 0.021 | 0.032 | 0.044 | 0.141 | 0.0014 | 8.461 | 152408 | 8 | 66.1 | 9 | 144 | 1/0/0 |
+
+At ×5:
+
+| Scenario | Kind | Mean tick ms | Slowest tick ms | Sustained speed | Simulation's share of a core | Slowest frame ms |
+|---|---|---|---|---|---|---|
+| idle | everyday | 0.0029 | 26.0 | 100.0% | 0.04% | 26.0 |
+| hauling | everyday | 0.0031 | 26.3 | 100.0% | 0.04% | 26.3 |
+| arbitration | stress | 0.1101 | 34.0 | 100.0% | 1.3% | 41.0 |
+| interrupted | stress | 0.0018 | 8.461 | 100.0% | 0.02% | 8.464 |
+
+| Save scenario | Size KB | Text ms (mean / slowest) | Written ms | Loaded ms |
+|---|---|---|---|---|
+| after a day of arbitration | 552 | 22.4 / 65.9 | 58.5 / 117.0 | 40.1 / 81.4 |
+
+Arbitration: 69 of the 300 walls built in its two days (186 on the old pace
+with 45-minute walls; 26 in the hybrid-clock trial before the rebalance).
+
+**Against Review 41's provisional thresholds (cloud):**
+
+| Threshold | Measured | Within |
+|---|---|---|
+| Sustained speed 99% at ×5 | 100.0% in every scenario | yes |
+| At most 25% of a core | 1.3% at most (arbitration) | yes |
+| Slowest tick 33 ms, everyday | 26.3 ms (hauling) | yes |
+| Slowest tick 100 ms, stress | 34.0 ms (arbitration) | yes |
+| Saving under 1 s | 22 ms to text, 59 ms written (117 slowest) | yes |
+| Loading under 1 s | 40 ms (81 slowest) | yes |
+
+Worth knowing, not over any threshold: the everyday scenarios' slowest
+ticks (26 ms) are single ticks in which a colonist works out a long way; at
+×5 one such tick makes one frame late (26 ms against 16.7). The arbitration
+colony keeps up to 305 ways (about 150 MB of its 397 MB). The maintainer's PC
+run comes next; then the maintainer approves or revises the thresholds.
 
 ## Assessment
 

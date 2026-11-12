@@ -191,7 +191,7 @@ public class MovementTests
                 Assert.Equal((24, 26), Ground.TileOf(ada.X, ada.Y));
             }
         });
-        Assert.True(working > 200);
+        Assert.True(working > Real.Pieces["well"].WorkMinutes * 5 / 6);   // (most of its minutes, seen working)
         Assert.Equal("well", colony.Ground!.PieceAt(24, 24));
     }
 

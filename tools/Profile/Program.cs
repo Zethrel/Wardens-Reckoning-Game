@@ -24,7 +24,8 @@ namespace WardensReckoning.Profile;
 ///   five minutes later, and a haul cancelled every hour, two days.
 ///
 /// A tick is a game second (step 21a): on most of them only the walking is done, and on the whole minutes
-/// everything else. For each scenario it reports the time of the whole-minute ticks as mean, median, 95th and 99th percentile and
+/// everything else. A second table (step 24b, library Review 41) shows each scenario at ×5: how much of the speed is
+/// sustained, the simulation's share of a core and its slowest frame, beside the provisional thresholds. For each scenario it reports the time of the whole-minute ticks as mean, median, 95th and 99th percentile and
 /// the slowest, and the mean of the ticks in between; the path-finding (ways asked for, worked out, their time, the most kept at once); the managed
 /// memory at its highest (measured every in-game hour, after clearing away what earlier scenarios left) and the
 /// garbage collections. The first in-game hour of a
@@ -83,6 +84,7 @@ public static class Program
         report.AppendLine();
         report.AppendLine("| Scenario | Ticks | Minute tick mean ms | Median | 95% | 99% | Slowest | Second tick mean ms | Slowest second | Ways asked | Worked out | Their ms | Most kept | Peak MB | GCs (0/1/2) |");
         report.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
+        var paced = new List<string>();
         string? saveLine = null;
         var notes = new List<string>();
         foreach (var name in names)
@@ -94,9 +96,25 @@ public static class Program
                 continue;
             }
             var (colony, command, days) = Setup(name, content, map);
-            report.AppendLine(Measure(name, colony, command, days));
+            var (row, pace) = Measure(name, colony, command, days);
+            report.AppendLine(row);
+            paced.Add(pace);
             if (name == "arbitration")
                 notes.Add("Arbitration: " + colony.Ground!.Pieces.Count(p => p.Piece == "wall") + " of the 300 walls built in its two days.");
+        }
+        if (paced.Count > 0)
+        {
+            // Review 41's provisional thresholds, for comparison (not passed or failed here: the maintainer approves them).
+            report.AppendLine();
+            report.AppendLine("At ×5 (120 ticks a real second), frames of 1/60 s, the ticks timed above (after the first hour):");
+            report.AppendLine();
+            report.AppendLine("| Scenario | Kind | Mean tick ms | Slowest tick ms | Sustained speed | Simulation's share of a core | Slowest frame ms |");
+            report.AppendLine("|---|---|---|---|---|---|---|");
+            foreach (var line in paced)
+                report.AppendLine(line);
+            report.AppendLine();
+            report.AppendLine("Provisional thresholds (Review 41): sustained speed 99% at ×5; at most 25% of a core; slowest tick 33 ms "
+                              + "(everyday) and 100 ms (stress); saving and loading each under 1 s.");
         }
         if (saveLine != null)
         {
@@ -187,8 +205,37 @@ public static class Program
         return (colony, Interrupt, 2);
     }
 
-    // Runs a scenario second by second, timing each tick, and gives its row of the table.
-    static string Measure(string name, Colony.Colony colony, Action<Colony.Colony>? command, int days)
+    // Which scenarios are a colony's everyday, and which a stress test (Review 41's two thresholds for the slowest tick).
+    static string KindOf(string name) => name is "idle" or "hauling" ? "everyday" : "stress";
+
+    /// <summary>
+    /// How the timed ticks would keep up at `speed` (step 24b, library Review 41): the pacer asks for ticks frame by
+    /// frame, a frame lasting 1/60 s or as long as its ticks take, whichever is longer. The sustained speed is the ticks
+    /// run over the ticks asked for in that real time; the simulation's share of a core, its time over the real time;
+    /// the slowest frame, the longest a frame's ticks took. The drawing itself is not counted (the screen is not run).
+    /// </summary>
+    static (double Sustained, double Share, double SlowestFrame) Paced(IReadOnlyList<double> times, Speed speed)
+    {
+        const double frame = 1.0 / 60;
+        var pacer = new Pacer { Speed = speed };
+        double real = 0, busy = 0, slowest = 0, last = frame;
+        int t = 0;
+        while (t < times.Count)
+        {
+            int ticks = pacer.TicksFor(last);
+            double took = 0;
+            for (int i = 0; i < ticks && t < times.Count; i++)
+                took += times[t++] / 1000;
+            busy += took;
+            slowest = Math.Max(slowest, took);
+            last = Math.Max(frame, took);
+            real += last;
+        }
+        return (times.Count / (real * Calendar.TicksPerRealSecond * (int)speed), busy / real, slowest * 1000);
+    }
+
+    // Runs a scenario tick by tick, timing each, and gives its row of the table and its row at ×5.
+    static (string Row, string Paced) Measure(string name, Colony.Colony colony, Action<Colony.Colony>? command, int days)
     {
         var ground = colony.Ground!;
         long ticks = (long)days * Calendar.TicksPerDay;
@@ -217,11 +264,16 @@ public static class Program
         double slowestBetween = times.Where((_, t) => t >= WarmUp && (t + 1) % Calendar.TicksPerMinute != 0).Max();
         double Pct(double p) => measured[Math.Min(measured.Length - 1, (int)Math.Ceiling(p * measured.Length) - 1)];
         string F(double v) => v.ToString(v < 10 ? "0.000" : "0.0", CultureInfo.InvariantCulture);
-        return "| " + name + " | " + ticks + " | " + F(measured.Average()) + " | " + F(Pct(0.5)) + " | " + F(Pct(0.95)) + " | " + F(Pct(0.99))
+        var all = times.Skip(WarmUp).ToArray();
+        var (sustained, share, slowestFrame) = Paced(all, Speed.X5);
+        string P(double v) => (v * 100).ToString(v < 0.01 ? "0.00" : "0.0", CultureInfo.InvariantCulture) + "%";
+        string pace = "| " + name + " | " + KindOf(name) + " | " + all.Average().ToString("0.0000", CultureInfo.InvariantCulture) + " | " + F(all.Max())
+                      + " | " + P(sustained) + " | " + P(share) + " | " + F(slowestFrame) + " |";
+        return ("| " + name + " | " + ticks + " | " + F(measured.Average()) + " | " + F(Pct(0.5)) + " | " + F(Pct(0.95)) + " | " + F(Pct(0.99))
                + " | " + F(measured[^1]) + " | " + between.ToString("0.0000", CultureInfo.InvariantCulture) + " | " + F(slowestBetween) + " | " + (ground.WaysAsked - asked) + " | " + (ground.WaysWorked - worked)
                + " | " + F((ground.WayTime - wayTime) * 1000.0 / Stopwatch.Frequency) + " | " + mostKept
                + " | " + (peakBytes / 1048576.0).ToString("0", CultureInfo.InvariantCulture)
-               + " | " + (GC.CollectionCount(0) - gcBefore[0]) + "/" + (GC.CollectionCount(1) - gcBefore[1]) + "/" + (GC.CollectionCount(2) - gcBefore[2]) + " |";
+               + " | " + (GC.CollectionCount(0) - gcBefore[0]) + "/" + (GC.CollectionCount(1) - gcBefore[1]) + "/" + (GC.CollectionCount(2) - gcBefore[2]) + " |", pace);
     }
 
     // The arbitration colony after a day: its save made into text, written to a file and loaded, twenty times.

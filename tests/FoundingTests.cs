@@ -226,7 +226,8 @@ public class FoundingTests(ITestOutputHelper output)
         // They arrive at 08:00 on the first day and the player plans the small house (6 by 6, 19 walls and a door)
         // next to the carts, with a stockpile inside. Once its room is closed, the player lays the bedrolls inside
         // and empties the carts into the stockpile.
-        var (colony, carts) = Founding.Found(7, Arrival, Real, 24, 24);
+        // On the content as shipped, at the 60-minute day's pace (step 24b: the balance is the point here).
+        var (colony, carts) = Founding.Found(7, Arrival, TestContent.Shipped, 24, 24);
         var work = colony.Work!;
         var ground = colony.Ground!;
         var (house, placement) = work.PlanTemplate("small_house", 27, 20);

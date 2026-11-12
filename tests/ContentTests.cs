@@ -58,7 +58,7 @@ public class ContentTests
         Assert.Null(content.Pieces["wall"].Speed);
         Assert.Equal("grass", content.TestGround.Surface);
         var wall = content.Pieces["wall"];
-        Assert.Equal((2, 45, true), (wall.Materials["timber"], wall.WorkMinutes, wall.Blocks));
+        Assert.Equal((2, 30, true), (wall.Materials["timber"], wall.WorkMinutes, wall.Blocks));   // 45 until step 24b
         Assert.False(content.Pieces["door"].Blocks);
         Assert.Equal((48, 48), (content.TestGround.Width, content.TestGround.Height));
         Assert.Contains(new Obstacle("rock", 30, 8), content.TestGround.Obstacles);

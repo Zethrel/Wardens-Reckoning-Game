@@ -361,7 +361,7 @@ public class LocalMapTests(ITestOutputHelper output)
         // As on the test ground (FoundingTests): the small house beside the carts, on a 256 by 256 map with a brook,
         // rough ground and trees. It also shows how long the game takes to work out a day on a ground this big.
         var watch = Stopwatch.StartNew();
-        var (colony, carts) = Founding.Found(7, Arrival, Real, Taiga());
+        var (colony, carts) = Founding.Found(7, Arrival, TestContent.Shipped, Taiga());     // as shipped (step 24b)
         var work = colony.Work!;
         var ground = colony.Ground!;
         var (house, placement) = work.PlanTemplate("small_house", 131, 124);

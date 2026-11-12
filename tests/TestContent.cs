@@ -11,8 +11,8 @@ namespace WardensReckoning.Tests;
 /// time: 1.2 m a real second at ×1 is 0.05 m a tick. The tests were written for the pace before it, and test the
 /// mechanics, not the balance, so `Files()` (and `Real`) put the physical values back to what they were in ticks:
 /// walking 70 m a game minute (28 m a real second), loading and unloading 5 ticks, deciding every 2 to 7 ticks. The
-/// content as shipped is `RealFiles()`; `SpeedTests` and the conversion tests use it. (Step 24b rebalances the
-/// content, and then moves the scenario tests to it.)
+/// content as shipped is `RealFiles()` (`Shipped`); `SpeedTests`, the conversion tests and the first-day scenarios
+/// (step 24b: the balance for the 60-minute day is checked on it) use it.
 ///
 /// `EverySecond`: the real content with every colonist thinking every
 /// tick (colony.json think_real_seconds a tick each), for the tests of one mechanic at a time (walking, loading, building,
@@ -33,8 +33,11 @@ internal static class TestContent
     /// <summary>The content's files at the old pace (see above).</summary>
     public static Dictionary<string, string?> Files() => OldPace(RealFiles());
 
-    /// <summary>The content at the old pace: what the tests of whole colonies use.</summary>
+    /// <summary>The content at the old pace: what most tests of whole colonies use.</summary>
     public static readonly Content Real = Content.Read(Files());
+
+    /// <summary>The content as shipped, at the hybrid clock's pace: what the first-day scenarios use (step 24b).</summary>
+    public static readonly Content Shipped = Content.Read(RealFiles());
 
     /// <summary>`files` with the physical values of colony.json at the pace before step 24, in real seconds at ×1:
     /// a tick is 1/24 of a real second (`Calendar.TicksPerRealSecond`).</summary>

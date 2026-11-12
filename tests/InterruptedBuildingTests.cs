@@ -33,9 +33,9 @@ public class InterruptedBuildingTests
             colony.Run(1);
         var job = Build()!;
         Assert.Equal(first.Id, job.Worker);
-        // Twenty of its 45 minutes of work done.
+        // A third of its work done (10 of its 30 minutes).
         int whole = colony.Content!.Pieces["wall"].WorkMinutes * 60;
-        while (job.Left > whole - 20 * 60)
+        while (job.Left > whole - whole / 3)
             colony.Run(1);
         int left = job.Left;
         // The builder leaves it.
@@ -65,7 +65,7 @@ public class InterruptedBuildingTests
             seconds++;
         }
         Assert.Equal("wall", colony.Ground!.PieceAt(22, 14));
-        Assert.InRange(rest, 24 * 60, 25 * 60 + 7);              // about 25 of the 45 minutes left
+        Assert.InRange(rest, whole - whole / 3 - 60, whole - whole / 3 + 7);   // about two thirds left
         Assert.InRange(seconds, rest - 1, rest + 7);            // at the usual pace: just those
     }
 
@@ -83,7 +83,8 @@ public class InterruptedBuildingTests
         while (Build()?.Step != Step.Working)
             colony.Run(1);
         var job = Build()!;
-        while (job.Left > 30 * 60)                              // 15 minutes done, 30 left
+        int whole = colony.Content!.Pieces["wall"].WorkMinutes * 60;
+        while (job.Left > whole * 2 / 3)                        // a third done, two thirds left
             colony.Run(1);
         work.Stop(first.Id);
         work.Resume(second.Id);

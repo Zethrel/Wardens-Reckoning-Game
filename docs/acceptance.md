@@ -146,6 +146,7 @@ Migration: none is supported. Saves of an older version are refused until 1.0
 | 10 Nov 2026 | The maintainer's PC (Windows) | step 20a | 144 cases passed |
 | 11 Nov 2026 | Cloud (Linux, .NET 8) | step 21d (second tick, Review 39) | 148 cases passed, 0 failed (49 tests) |
 | 11 Nov 2026 | The maintainer's PC (Windows) | step 21d | 148 cases passed |
+| 12 Nov 2026 | Cloud (Linux, .NET 8) | step 24b (the hybrid clock, Review 41) | 177 cases passed, 0 failed |
 
 Every FP case passed in the cloud run: FP-01 3, FP-02 1, FP-03 2, FP-04 12,
 FP-05 7, FP-06 6, FP-07 6, FP-08 4, FP-09 10, FP-10 93.
@@ -160,6 +161,17 @@ player can save mid-stride. The cloud run: FP-01 3, FP-02 1, FP-03 2, FP-04
 12, FP-05 7, FP-06 6, FP-07 6, FP-08 4, FP-09 10, FP-10 97 (four more content
 cases: `think_seconds` and `drop_seconds`). The same on the maintainer's PC,
 case for case.
+
+**On the hybrid clock (step 24b):** library Review 41 made a real second at
+×1 run 24 ticks, with walking, loading and deciding tuned in real seconds, and
+step 24a woke colonists apart from their thinks. Every scenario test was run
+again. The tests of one mechanic keep the old pace (`TestContent`, lesson 24a);
+the first-day scenarios run on the content as shipped, where the house now
+stands at 14:06 and the carts are emptied the same day (lesson 24b). The cloud
+run: FP-01 3, FP-02 1, FP-03 2, FP-04 12, FP-05 7, FP-06 6, FP-07 6, FP-08 4,
+FP-09 10, FP-10 126 (the physical values' new keys and their checks). FP-11's
+speed bar was checked again by the maintainer on 24a (12 November: the buttons
+show which speed is on, and each tooltip is right). FP-12: `docs/performance.md`.
 
 ## FP-11: accessible core interactions
 
