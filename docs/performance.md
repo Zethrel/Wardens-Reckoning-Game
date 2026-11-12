@@ -349,11 +349,40 @@ with 45-minute walls; 26 in the hybrid-clock trial before the rebalance).
 | Saving under 1 s | 22 ms to text, 59 ms written (117 slowest) | yes |
 | Loading under 1 s | 40 ms (81 slowest) | yes |
 
+**The maintainer's PC, 12 November 2026** (Windows 10.0.26200, 16 logical
+processors, .NET 8.0.33, Release build; own map):
+
+| Scenario | Ticks | Minute tick mean ms | Median | 95% | 99% | Slowest | Second tick mean ms | Slowest second | Ways asked | Worked out | Their ms | Most kept | Peak MB | GCs (0/1/2) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| idle | 259200 | 0.010 | 0.009 | 0.016 | 0.027 | 0.606 | 0.0010 | 18.0 | 17996 | 4 | 61.0 | 5 | 56 | 2/0/0 |
+| hauling | 172800 | 0.044 | 0.040 | 0.068 | 0.100 | 0.381 | 0.0034 | 14.5 | 138352 | 8 | 116.6 | 9 | 57 | 3/0/0 |
+| arbitration | 172800 | 2.201 | 2.340 | 4.693 | 5.686 | 8.157 | 0.0087 | 18.2 | 496446 | 198 | 927.2 | 305 | 324 | 22/0/0 |
+| interrupted | 172800 | 0.010 | 0.009 | 0.013 | 0.023 | 0.185 | 0.0007 | 5.381 | 152408 | 8 | 39.3 | 9 | 65 | 3/0/0 |
+
+| Scenario | Kind | Mean tick ms | Slowest tick ms | Sustained speed | Simulation's share of a core | Slowest frame ms |
+|---|---|---|---|---|---|---|
+| idle | everyday | 0.0011 | 18.0 | 100.0% | 0.01% | 18.0 |
+| hauling | everyday | 0.0041 | 14.5 | 100.0% | 0.05% | 14.5 |
+| arbitration | stress | 0.0453 | 18.2 | 100.0% | 0.54% | 19.9 |
+| interrupted | stress | 0.0009 | 5.381 | 100.0% | 0.01% | 5.383 |
+
+| Save scenario | Size KB | Text ms (mean / slowest) | Written ms | Loaded ms |
+|---|---|---|---|---|
+| after a day of arbitration | 576 | 10.4 / 26.5 | 36.4 / 57.6 | 21.1 / 44.4 |
+
+Arbitration: 69 of the 300 walls built, as in the cloud; every scenario asked
+for and worked out exactly as many ways as in the cloud: the same colony on
+Windows and Linux. (The save file is 576 KB against 552 KB in the cloud,
+probably the line endings Windows writes; not checked.) Every provisional
+threshold is met on the PC too, with more room than in the cloud: the
+slowest tick 18.2 ms, the share of a core 0.54% at most, saving and loading
+under 60 ms.
+
 Worth knowing, not over any threshold: the everyday scenarios' slowest
 ticks (26 ms) are single ticks in which a colonist works out a long way; at
 ×5 one such tick makes one frame late (26 ms against 16.7). The arbitration
-colony keeps up to 305 ways (about 150 MB of its 397 MB). The maintainer's PC
-run comes next; then the maintainer approves or revises the thresholds.
+colony keeps up to 305 ways (about 150 MB of its 397 MB). The maintainer
+approves or revises the thresholds next; then they are binding.
 
 ## Assessment
 
