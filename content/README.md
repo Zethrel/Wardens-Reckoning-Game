@@ -84,7 +84,10 @@ what is wrong, before anything runs.
   they are drawn from (by the colony's dice; at least as many names as
   founders), the `supplies` they bring (good id to whole units), whether
   each brings a bedroll (`bedroll_each`), and for every skill the range
-  `[from, to]` a founder's proficiency is drawn from (`skills`, step 23a).
+  `[from, to]` a founder's proficiency is drawn from (`skills`, step 23a);
+  `interests` (step 23c): the chance, for each founder and each skill, that
+  they `enjoys` that work and that they `dislikes` it (each 0 to 1, together
+  at most 1); otherwise neither.
 - `skills.json` (step 23a): the `skills`, each with an `id`, a `name` and the
   work it is `used_for`: `build` (all building), `boil` (boiling water) or a
   workshop's id (its recipes); each kind of work uses one skill at most, and

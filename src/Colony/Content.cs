@@ -119,6 +119,9 @@ public sealed record FoundingRules(int Founders, IReadOnlyList<string> Names, IR
 {
     /// <summary>For each skill, the range a founder's proficiency is drawn from (step 23a).</summary>
     public IReadOnlyDictionary<string, (int From, int To)> Skills { get; init; } = new Dictionary<string, (int, int)>();
+    /// <summary>The chance, for each founder and each skill, that they enjoy that work, and that they dislike it
+    /// (step 23c; founding.json "interests"). Otherwise neither. The two together are at most 1.</summary>
+    public (double Enjoys, double Dislikes) Interests { get; init; }
 }
 
 /// <summary>
@@ -865,7 +868,7 @@ public sealed class Content
 
         // Who founds the colony.
         FoundingRules? founding = null;
-        if (Open("founding.json", "founders", "names", "supplies", "bedroll_each", "skills") is JsonObject f)
+        if (Open("founding.json", "founders", "names", "supplies", "bedroll_each", "skills", "interests") is JsonObject f)
         {
             int? founders = check.Int(f, "founding.json", "founders", 1);
             var names = new List<string>();
@@ -904,8 +907,29 @@ public sealed class Content
             }
             else if (f.ContainsKey("skills"))
                 problems.Add("founding.json.skills: should be a table of skill and [from, to]");
+            // How likely a founder is to enjoy, or to dislike, each kind of work (step 23c): two chances from 0 to 1,
+            // together at most 1.
+            (double, double) interests = (0, 0);
+            if (f["interests"] is JsonObject fi)
+            {
+                check.Keys(fi, "founding.json.interests", "enjoys", "dislikes");
+                double Chance(string key)
+                {
+                    if (fi[key] is JsonValue v && v.TryGetValue(out double d) && d >= 0 && d <= 1)
+                        return d;
+                    if (fi.ContainsKey(key))
+                        problems.Add("founding.json.interests." + key + ": should be a chance from 0 to 1");
+                    return 0;
+                }
+                double enjoys = Chance("enjoys"), dislikes = Chance("dislikes");
+                if (enjoys + dislikes > 1)
+                    problems.Add("founding.json.interests: enjoys and dislikes together should be at most 1");
+                interests = (enjoys, dislikes);
+            }
+            else if (f.ContainsKey("interests"))
+                problems.Add("founding.json.interests: should be a table with \"enjoys\" and \"dislikes\"");
             if (founders != null && supplies != null && each != null)
-                founding = new FoundingRules(founders.Value, names, supplies, each.Value) { Skills = drawn };
+                founding = new FoundingRules(founders.Value, names, supplies, each.Value) { Skills = drawn, Interests = interests };
         }
 
         // The ice hole named by the water rules is a piece that opens ice; the wash's good is the drink's.

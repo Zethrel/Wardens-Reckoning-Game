@@ -74,6 +74,14 @@ public static class Inspect
             lines.Add(new Line(content.Skills[skill].Name, content.RankOf(state.Proficiency) + ", works at "
                                + Whole(content.SpeedAt(state.Proficiency) * 100) + "% of the usual pace"
                                + (work.AptitudeSeen(state) is string seen ? "; " + seen : "")
+                               // Interest (step 23c), shown openly: how they feel about the work, apart from how good
+                               // they are at it.
+                               + (w.Interests.GetValueOrDefault(skill) switch
+                               {
+                                   Interest.Enjoys => "; enjoys it",
+                                   Interest.Dislikes => "; dislikes it",
+                                   _ => "",
+                               })
                                + (trace ? " (" + Number(state.Proficiency) + ", best " + Number(state.Peak) + ", aptitude "
                                           + state.Aptitude.ToString("0.00", CultureInfo.InvariantCulture) + ", practised "
                                           + Number(state.Practised / (double)Calendar.TicksPerHour) + " h)" : "")));

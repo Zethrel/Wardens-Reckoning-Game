@@ -110,10 +110,22 @@ public static class Founding
             var skillDice = colony.DiceFor("skills");
             // And how fast they learn each (step 23b): on dice of their own again.
             var aptitudeDice = colony.DiceFor("aptitude");
+            // And whether they enjoy or dislike each kind of work (step 23c): on dice of their own once more. One roll
+            // from 0 to 1 a skill: below the chance to enjoy it, they do; above that, but below both chances
+            // together, they dislike it; otherwise neither.
+            var interestDice = colony.DiceFor("interests");
+            var (enjoys, dislikes) = content.Founding.Interests;
             foreach (var (skill, (from, to)) in content.Founding.Skills)
+            {
                 founder.Skills[skill] = new SkillState(skillDice.Int(from, to),
                                                        aptitudeDice.Uniform(content.Learning.AptitudeFrom, content.Learning.AptitudeTo),
                                                        colony.Now.Tick);
+                double roll = interestDice.Uniform(0, 1);
+                if (roll < enjoys)
+                    founder.Interests[skill] = Interest.Enjoys;
+                else if (roll < enjoys + dislikes)
+                    founder.Interests[skill] = Interest.Dislikes;
+            }
             if (content.Founding.BedrollEach)
             {
                 var (bx, by) = OpenNear(ground, x, y + 2, used);

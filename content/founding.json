@@ -4,5 +4,6 @@
   "names": [ "Ada", "Bram", "Cael", "Dagny", "Eirik", "Freya", "Gunnar", "Hild", "Ivar", "Jorunn", "Kari", "Leif" ],
   "supplies": { "timber": 60, "ration": 30, "wheat": 50, "water": 60 },
   "bedroll_each": true,
-  "skills": { "construction": [ 5, 65 ], "food_preparation": [ 5, 65 ] }
+  "skills": { "construction": [ 5, 65 ], "food_preparation": [ 5, 65 ] },
+  "interests": { "enjoys": 0.3, "dislikes": 0.15 }
 }

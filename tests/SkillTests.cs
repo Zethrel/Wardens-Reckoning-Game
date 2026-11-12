@@ -141,6 +141,7 @@ public class SkillTests
         ada.Skills["construction"].Proficiency = 72.4;
         ada.Skills["construction"].Aptitude = 1;                 // the founders' are drawn (step 23b)
         ada.Skills["food_preparation"].Proficiency = 3;
+        ada.Interests.Clear();                                   // and their interests (step 23c: InterestTests)
         var lines = Inspect.Worker(colony, ada.Id).Lines;
         Assert.Equal("Adept, works at 127% of the usual pace", lines.Single(l => l.Label == "Construction").Text);
         Assert.Equal("Untrained, works at 54% of the usual pace", lines.Single(l => l.Label == "Food preparation").Text);

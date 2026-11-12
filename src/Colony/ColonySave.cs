@@ -54,9 +54,10 @@ public static class ColonySave
     // 15: skills (step 23a): each colonist's proficiency in each skill, and the work carried over between thinks
     // ("carry", which replaces "slow": it holds a skilled colonist's extra as well as an ill one's shortfall).
     // 16: learning (step 23b): for each skill [proficiency, best reached, aptitude, seconds practised, last practised].
+    // 18: interests (step 23c): each colonist's "interests", a table of skill and "enjoys" or "dislikes".
     // 17: the hybrid clock (step 24, library Review 41): each colonist's action deadline, the fourth of "think" (null
     // when nothing is due); 24 ticks are now a real second at ×1, so the same ticks mean slower walking.
-    public const int Version = 17;
+    public const int Version = 18;
 
     /// <summary>The colony as JSON.</summary>
     public static JsonObject Write(Colony colony) => new()
@@ -111,6 +112,8 @@ public static class ColonySave
                 ["carry"] = w.Carry,
                 ["skills"] = new JsonObject(w.Skills.Select(s => KeyValuePair.Create(s.Key,
                     (JsonNode?)new JsonArray(s.Value.Proficiency, s.Value.Peak, s.Value.Aptitude, s.Value.Practised, s.Value.LastPractised)))),
+                ["interests"] = new JsonObject(w.Interests.Select(i => KeyValuePair.Create(i.Key,
+                    (JsonNode?)(i.Value == Interest.Enjoys ? "enjoys" : "dislikes")))),
                 ["heading"] = w.Heading is not var (hx, hy, hnear) ? null : new JsonArray(hx, hy, hnear),
                 ["think"] = new JsonArray(w.ThinkEvery, w.NextThink, w.Thought, w.ActionDue),
                 ["forbidden"] = new JsonArray(w.Forbidden.Select(k => (JsonNode?)k).ToArray()),
@@ -557,6 +560,20 @@ public static class ColonySave
             }
             foreach (string skill in content.Skills.Keys.Where(k => !worker.Skills.ContainsKey(k)))
                 worker.Skills[skill] = new SkillState(content.StandardProficiency, 1, colony.Now.Tick);
+            // Interests (step 23c): only of skills the content knows; a skill not listed is neither.
+            if (o["interests"] is not JsonObject interests)
+                throw new ColonySaveException(at + ".interests is not a table of skill and \"enjoys\" or \"dislikes\"");
+            foreach (var (skill, value) in interests)
+            {
+                if (!content.Skills.ContainsKey(skill))
+                    throw new ColonySaveException(at + ".interests." + skill + " is not a skill the content knows");
+                worker.Interests[skill] = (value as JsonValue)?.TryGetValue(out string? word) == true ? word switch
+                {
+                    "enjoys" => Interest.Enjoys,
+                    "dislikes" => Interest.Dislikes,
+                    _ => throw new ColonySaveException(at + ".interests." + skill + " is \"" + word + "\", which should be \"enjoys\" or \"dislikes\""),
+                } : throw new ColonySaveException(at + ".interests." + skill + " should be \"enjoys\" or \"dislikes\"");
+            }
             long dueTick = 0;
             if (o["think"] is not JsonArray think || think.Count != 4
                 || !(think[0] is JsonValue t0 && t0.TryGetValue(out int every) && every >= 1)

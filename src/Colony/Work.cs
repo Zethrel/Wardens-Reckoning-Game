@@ -2,6 +2,17 @@
 namespace WardensReckoning.Colony;
 
 /// <summary>
+/// How a colonist feels about a kind of work (step 23c; library Skills §6.2 to §6.3): independent of how good they
+/// are at it and how fast they learn it. It only changes which work they take first (`Work.Assign`).
+/// </summary>
+public enum Interest
+{
+    Dislikes = -1,
+    None = 0,
+    Enjoys = 1,
+}
+
+/// <summary>
 /// A person who works (step 13b: no needs yet; those come in step 14). They stand somewhere, carry goods in their
 /// arms (an inventory of their own, so whatever they carry always has a keeper: them), and do one job at a time.
 /// </summary>
@@ -74,6 +85,11 @@ public sealed class Worker(ColonistId id, string name, double x, double y, Inven
 
     /// <summary>How good they are at each skill (step 23a) and how they learn it (step 23b), by skill id.</summary>
     public SortedDictionary<string, SkillState> Skills { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>What they like doing and what not (step 23c), by skill id; a skill not here is neither. Kept apart
+    /// from the skill itself (library Skills §6: interest is not competence): it changes which work they take first,
+    /// never how well or fast they do it, and never makes them refuse.</summary>
+    public SortedDictionary<string, Interest> Interests { get; } = new(StringComparer.Ordinal);
 
     double legs = 1;
     /// <summary>How well their legs carry them (step 15c), as a share of a healthy walk: 1 (100%) until body
@@ -984,25 +1000,35 @@ public sealed partial class Work
         var free = thinking.Where(Available).ToList();
         if (free.Count == 0)
             return took;
-        foreach (var job in jobs.Values.Where(j => j.Step == Step.Open))
-        {
-            // A paused project's building waits.
-            if (job.Kind == JobKind.Build && projects[job.Site!.Value.Value].Paused)
-                continue;
-            var (x, y) = Spot(job);
-            // The nearest by walking of those free, allowed, and able to get there.
-            var worker = free.Where(w => Available(w) && !w.Forbidden.Contains(KindOf(job)))
-                                .Select(w => (Worker: w, Far: Far(w.X, w.Y, x, y))).Where(p => !double.IsPositiveInfinity(p.Far))
-                                .OrderBy(p => p.Far).ThenBy(p => p.Worker.Id.Value).Select(p => p.Worker).FirstOrDefault();
-            if (worker == null)
-                continue;
-            worker.Job = job.Id;
-            job.Worker = worker.Id;
-            job.Step = Step.Going;
-            took.Add(worker);
-        }
+        // Interest (step 23c): the work a colonist enjoys is offered to them first, then the work they neither enjoy
+        // nor dislike, and last the work they dislike. Within each round, as before: the open jobs oldest first, each
+        // to the nearest by walking. With no interests at all, every pair falls in the middle round: as before.
+        foreach (var round in new[] { Interest.Enjoys, Interest.None, Interest.Dislikes })
+            foreach (var job in jobs.Values.Where(j => j.Step == Step.Open).ToList())
+            {
+                // A paused project's building waits.
+                if (job.Kind == JobKind.Build && projects[job.Site!.Value.Value].Paused)
+                    continue;
+                var (x, y) = Spot(job);
+                string? skill = SkillOf(job);
+                // The nearest by walking of those free, allowed, able to get there, and in this round for this job.
+                var worker = free.Where(w => Available(w) && !w.Forbidden.Contains(KindOf(job)) && InterestIn(w, skill) == round)
+                                 .Select(w => (Worker: w, Far: Far(w.X, w.Y, x, y))).Where(p => !double.IsPositiveInfinity(p.Far))
+                                 .OrderBy(p => p.Far).ThenBy(p => p.Worker.Id.Value).Select(p => p.Worker).FirstOrDefault();
+                if (worker == null)
+                    continue;
+                worker.Job = job.Id;
+                job.Worker = worker.Id;
+                job.Step = Step.Going;
+                took.Add(worker);
+            }
         return took;
     }
+
+    /// <summary>A colonist's interest in the skill a job uses (step 23c); none for work that uses no skill
+    /// (carrying).</summary>
+    static Interest InterestIn(Worker w, string? skill) =>
+        skill != null && w.Interests.TryGetValue(skill, out var interest) ? interest : Interest.None;
 
     // ---- For loading a save ------------------------------------------------------------------------------
 

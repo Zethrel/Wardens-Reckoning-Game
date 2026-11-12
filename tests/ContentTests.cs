@@ -95,6 +95,11 @@ public class ContentTests
         yield return Case("goods.json", r => Good(r, 0)["mass_kg"] = 0, "goods.json.goods[0].mass_kg: should be a number above 0");
         yield return Case("goods.json", r => Good(r, 0)["volume_l"] = -1, "goods.json.goods[0].volume_l: should be a number above 0");
         yield return Case("colony.json", r => r["carry_kg"] = "a lot", "colony.json.carry_kg: should be a number above 0");
+        yield return Case("founding.json", r => r["interests"]!["enjoys"] = 1.5, "founding.json.interests.enjoys: should be a chance from 0 to 1");
+        yield return Case("founding.json", r => r["interests"] = new JsonObject { ["enjoys"] = 0.7, ["dislikes"] = 0.4 },
+                          "founding.json.interests: enjoys and dislikes together should be at most 1");
+        yield return Case("founding.json", r => r["interests"]!["loves"] = 0.1,
+                          "founding.json.interests: unknown key \"loves\" (allowed: enjoys, dislikes)");
         yield return Case("colony.json", r => r["pickup_real_seconds"] = -1, "colony.json.pickup_real_seconds: should be a number of 0 or more");
         yield return Case("colony.json", r => r["drop_real_seconds"] = "soon", "colony.json.drop_real_seconds: should be a number of 0 or more");
         yield return Case("colony.json", r => r["walk_m_per_real_second"] = 0, "colony.json.walk_m_per_real_second: should be a number above 0");
