@@ -34,8 +34,25 @@ public sealed partial class Work
     /// <summary>`seconds` of work at `job` teach the colonist the skill it uses (step 23b).</summary>
     internal void Practise(Worker w, Job job, int seconds)
     {
-        if (seconds <= 0 || SkillOf(job) is not string skill || ChallengeOf(job) is not double challenge
-            || !w.Skills.TryGetValue(skill, out var state))
+        if (SkillOf(job) is string skill && ChallengeOf(job) is double challenge)
+            Learn(w, skill, challenge, seconds);
+    }
+
+    /// <summary>Practice in free time at a workplace (step 25a): `seconds` (already the share of the time spent that
+    /// practice teaches) of its skill, at the challenge of its hardest recipe.</summary>
+    internal void PractiseAt(Worker w, Site site, int seconds)
+    {
+        if (content.SkillFor.GetValueOrDefault(site.Workshop) is not string skill)
+            return;
+        double challenge = content.Recipes.Values.Where(r => r.Workshop == site.Workshop)
+                                  .Select(r => content.Challenge.GetValueOrDefault(r.Id)).DefaultIfEmpty(0).Max();
+        Learn(w, skill, challenge, seconds);
+    }
+
+    /// <summary>`seconds` of practice at a challenge teach the colonist a skill (step 23b).</summary>
+    void Learn(Worker w, string skill, double challenge, int seconds)
+    {
+        if (seconds <= 0 || !w.Skills.TryGetValue(skill, out var state))
             return;
         var rules = content.Learning;
         double gain = rules.PointsPerHour * seconds / Calendar.TicksPerHour * Teaches(challenge, state.Proficiency) * state.Aptitude;

@@ -65,6 +65,20 @@ public static class Inspect
             var rule = Rules(colony).Needs[need];
             lines.Add(new Line(Capital(rule.Name), Whole(state.Level) + " of 100, " + Word(rule, state.Level)));
         }
+        // The free-time needs (step 25a): their level, and the content's words once they want easing.
+        var leisure = Rules(colony).Leisure;
+        foreach (var (need, level) in w.FreeNeeds)
+        {
+            var rule = leisure.Needs[need];
+            lines.Add(new Line(rule.Name, Whole(level) + " of 100, " + (level >= rule.Wants ? rule.Words : "fine")));
+        }
+        // Broad interests (step 25a), openly, as skill interests are on the skill lines.
+        string Broad(Interest interest) => string.Join(", ", leisure.Interests.Keys.Where(k => w.Interests.GetValueOrDefault(k) == interest)
+                                                                       .Select(k => leisure.Interests[k]));
+        string enjoys = Broad(Interest.Enjoys), dislikes = Broad(Interest.Dislikes);
+        if (enjoys.Length > 0 || dislikes.Length > 0)
+            lines.Add(new Line("Interests", string.Join("; ", new[] { enjoys.Length > 0 ? "enjoys " + enjoys : "", dislikes.Length > 0 ? "dislikes " + dislikes : "" }
+                                                                  .Where(x => x.Length > 0))));
         lines.Add(new Line("Schedule", w.Schedule + ", now " + work.BlockOf(w).ToString().ToLowerInvariant()));
         // Skills (step 23a): the rank and the pace it gives, in words; the number only in the developer's trace
         // (design library: the player reads ranks, not raw numbers).

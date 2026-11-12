@@ -389,6 +389,48 @@ core for the simulation; no tick slower than 33 ms in everyday play or 100 ms
 in a stress scenario; saving and loading each under 1 s. A step that goes over
 one is investigated and the result written here.
 
+### Step 25a: free time, cloud, 12 November 2026
+
+Free time (library Review 42) makes colonists walk to new spots every evening.
+First measured: the idle scenario's slowest tick rose to 52 ms (over the
+everyday threshold of 33 ms), and the test suite went from 2.5 to 15 minutes.
+Three causes, each measured and fixed:
+
+- Choosing looked at every tile within 60 m once per activity, with
+  allocations: now one look at each tile sorts it into every kind of place,
+  clipped to the ground.
+- With nothing to do (in the dark, sky gazing waiting after an
+  interruption), a colonist looked at every think: 1,845 looks in one game
+  hour on the acceptance test's map. Now they look again after
+  `look_again_minutes` (10).
+- Each free-time walk worked a way out over the whole ground. Now a short
+  way is worked out only so far (1.5 × `within_m` from its goal; 2 ×
+  `stroll_m` for the next stop of a walk). Within that it is exactly the
+  whole way's answer (`AreaTests`: every metre and every step compared);
+  beyond it the whole way is worked out after all.
+
+Measured 12 Nov 2026 on Ubuntu 24.04.5 LTS, 2 logical processors, .NET 8.0.33, Release build. Own map.
+
+| Scenario | Kind | Mean tick ms | Slowest tick ms | Sustained speed | Simulation's share of a core | Slowest frame ms |
+|---|---|---|---|---|---|---|
+| idle | everyday | 0.0052 | 34.8 | 100.0% | 0.06% | 34.8 |
+| hauling | everyday | 0.0082 | 14.3 | 100.0% | 0.10% | 14.3 |
+| arbitration | stress | 0.1338 | 33.2 | 100.0% | 1.6% | 60.2 |
+| interrupted | stress | 0.0072 | 13.1 | 100.0% | 0.09% | 13.1 |
+
+| Save scenario | Size KB | Text ms (mean / slowest) | Written ms | Loaded ms |
+|---|---|---|---|---|
+| after a day of arbitration | 558 | 20.7 / 73.1 | 61.6 / 120.3 | 41.3 / 83.0 |
+
+Ways worked out in idle: 103 (4 before free time), in 332 ms all told (1,310
+ms before the short ways). **Over a threshold, in the cloud:** idle's slowest
+tick, 34.8 ms against 33 ms; two more runs of idle alone gave 29.8 and 30.3
+ms. The slowest ticks fall on the first evening, when the way-finding code
+has run only a few times before (a likely cause, not verified: .NET compiles
+code into its faster form after it has run a few dozen times). The binding
+check is the maintainer's PC, where step 24 measured about twice the cloud's
+speed: run there next. The test suite takes 2 minutes 56 seconds.
+
 ## Assessment
 
 **Everyday play is far within its time.** A colony at rest or hauling takes a

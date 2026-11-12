@@ -90,6 +90,19 @@ public sealed class Worker(ColonistId id, string name, double x, double y, Inven
     /// from the skill itself (library Skills §6: interest is not competence): it changes which work they take first,
     /// never how well or fast they do it, and never makes them refuse.</summary>
     public SortedDictionary<string, Interest> Interests { get; } = new(StringComparer.Ordinal);
+    /// <summary>The free-time needs (step 25a, leisure.json): Recreation and Social, each 0 (none) to 100. They rise
+    /// slowly, are eased only by free-time activities, and never interrupt anything (library Daily Life §11.1).</summary>
+    public SortedDictionary<string, double> FreeNeeds { get; } = new(StringComparer.Ordinal);
+    /// <summary>What they are doing in their free time (step 25a), or null.</summary>
+    public Outing? Outing { get; internal set; }
+    /// <summary>Activities they will not start again before a tick (step 25a): after an interruption, or after
+    /// finding it unavailable, so nobody turns back and forth (Review 42, R42-C02).</summary>
+    public SortedDictionary<string, long> NotBefore { get; } = new(StringComparer.Ordinal);
+    /// <summary>The activity they did last (step 25a): not chosen again straight away when there is another.</summary>
+    public string? LastActivity { get; internal set; }
+    /// <summary>The tick before which they do not look for free time again, after looking and finding nothing (step
+    /// 25a): so a colonist with nothing to do does not search the ground at every think.</summary>
+    public long LookAgain { get; internal set; }
 
     double legs = 1;
     /// <summary>How well their legs carry them (step 15c), as a share of a healthy walk: 1 (100%) until body
@@ -154,6 +167,22 @@ public sealed class Personal
     public bool Bedroll { get; init; }
     /// <summary>Ticks left eating, drinking or washing; null while still walking.</summary>
     public int? Left { get; internal set; }
+}
+
+/// <summary>
+/// A free-time activity under way (step 25a): which; the spot they are going to or are at (`X`, `Y`, the middle of a
+/// tile they hold, so nobody else picks it); how many stops are left after this one; and the ticks left at this stop
+/// (null while walking to it). Its benefit counts only the time at a stop, never the walk (Review 42, R42-C02).
+/// </summary>
+public sealed class Outing
+{
+    public string Activity { get; init; } = "";
+    public double X { get; internal set; }
+    public double Y { get; internal set; }
+    public int StopsLeft { get; internal set; }
+    public int? Left { get; internal set; }
+    /// <summary>The workplace they practise at, for practice.</summary>
+    public BuildingId? Site { get; init; }
 }
 
 /// <summary>A bedroll laid out at a place: a sleeping place, and whose it is.</summary>
@@ -296,6 +325,8 @@ public sealed partial class Work
         // The usual proficiency in every skill, until something says otherwise (founding draws its own, step 23a).
         foreach (string skill in content.Skills.Keys)
             worker.Skills[skill] = new SkillState(content.StandardProficiency, 1, colony.Now.Tick);
+        foreach (string need in content.Leisure.Needs.Keys)
+            worker.FreeNeeds[need] = 0;
         // Their rhythm (step 21c), on the colony's thinking dice: every so many seconds, and the first think within
         // that many, so that colonists who come together do not all think in the same second.
         worker.ThinkEvery = colony.DiceFor("thinking").Int(content.ThinkFrom, content.ThinkTo);
@@ -486,6 +517,8 @@ public sealed partial class Work
         {
             if (worker.Personal != null)
                 Continue(worker, elapsed);
+            else if (worker.Outing != null && !worker.Stopped)
+                Spend(worker, elapsed);                 // free time (step 25a)
             else if (!worker.Stopped && worker.Job is TaskId t)
                 Act(worker, jobs[t.Value], elapsed);
         }
@@ -510,6 +543,12 @@ public sealed partial class Work
         {
             if (p.Left is int left)
                 w.ActionDue = now + Math.Max(1, left);
+            return;
+        }
+        if (w.Outing is Outing o)
+        {
+            if (o.Left is int stay)
+                w.ActionDue = now + Math.Max(1, stay);  // the stay at a stop ends on its tick (step 25a)
             return;
         }
         if (w.Stopped || w.Job is not TaskId t || !jobs.TryGetValue(t.Value, out var job))
@@ -593,7 +632,10 @@ public sealed partial class Work
     void Minute()
     {
         foreach (var worker in workers.Values)
+        {
             Grow(worker);
+            GrowFree(worker);
+        }
         if (colony.Now.MinuteOfDay == Autosave.MorningMinute)
         {
             Foul();
@@ -830,7 +872,7 @@ public sealed partial class Work
     /// <summary>How far it is to walk from (ax, ay) to (bx, by), in metres: straight without a ground; on a
     /// ground, the way between their tiles counted in metres of road (so the quickest way wins), or infinity if
     /// there is none.</summary>
-    double Far(double ax, double ay, double bx, double by)
+    double Far(double ax, double ay, double bx, double by, double limit = double.PositiveInfinity)
     {
         if (Ground is not Ground ground)
             return Distance(ax, ay, bx, by);
@@ -839,7 +881,8 @@ public sealed partial class Work
         // No way at all (walled in, across water): known from the areas, without working out a way (step 22).
         if (!ground.CanReach(tx, ty, gx, gy))
             return double.PositiveInfinity;
-        return ground.Metres(tx, ty, gx, gy);
+        // A limit (step 25a: free time's short walks) only saves work: the answer is the same.
+        return ground.Metres(tx, ty, gx, gy, limit);
     }
 
     /// <summary>The nearest of `places` by walking from (x, y) that can be reached (the lower number on a tie).</summary>

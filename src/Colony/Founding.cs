@@ -126,6 +126,16 @@ public static class Founding
                 else if (roll < enjoys + dislikes)
                     founder.Interests[skill] = Interest.Dislikes;
             }
+            // The broad interests (step 25a, leisure.json: nature, the sky, company) the same way, after the skills,
+            // so the skills' draws stay as they were.
+            foreach (string broad in content.Leisure.Interests.Keys)
+            {
+                double roll = interestDice.Uniform(0, 1);
+                if (roll < enjoys)
+                    founder.Interests[broad] = Interest.Enjoys;
+                else if (roll < enjoys + dislikes)
+                    founder.Interests[broad] = Interest.Dislikes;
+            }
             if (content.Founding.BedrollEach)
             {
                 var (bx, by) = OpenNear(ground, x, y + 2, used);

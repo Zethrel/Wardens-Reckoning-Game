@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "needs": {
+    "recreation": { "name": "Recreation", "per_hour": 4, "wants": 50, "words": "wants a break" },
+    "social": { "name": "Social", "per_hour": 3, "wants": 50, "words": "lonely" }
+  },
+  "times": { "day": [6, 18], "dusk": [18, 21], "dark": [21, 6] },
+  "interests": { "nature": "nature", "sky": "the sky", "company": "company" },
+  "within_m": 60,
+  "stroll_m": 12,
+  "retry_minutes": 60,
+  "look_again_minutes": 10,
+  "activities": [
+    { "id": "nature_walk", "name": "Nature walk", "doing": "on a nature walk", "place": "trees", "when": ["day", "dusk"],
+      "stops": 3, "minutes_each": 10, "eases_per_hour": { "recreation": 40 }, "drawn_by": ["nature"], "teaches": 0 },
+    { "id": "sky_gazing", "name": "Sky gazing", "doing": "gazing at the sky", "place": "open", "when": ["dusk", "dark"],
+      "stops": 1, "minutes_each": 40, "eases_per_hour": { "recreation": 45 }, "drawn_by": ["sky"], "teaches": 0 },
+    { "id": "by_the_water", "name": "Sitting by the water", "doing": "sitting by the water", "place": "water", "when": ["day", "dusk"],
+      "stops": 1, "minutes_each": 30, "eases_per_hour": { "recreation": 40 }, "drawn_by": ["nature"], "teaches": 0 },
+    { "id": "in_the_sun", "name": "Resting in the sun", "doing": "resting in the sun", "place": "open", "when": ["day"],
+      "stops": 1, "minutes_each": 25, "eases_per_hour": { "recreation": 35 }, "drawn_by": [], "teaches": 0 },
+    { "id": "practice", "name": "Practising", "doing": "practising", "place": "workplace", "when": ["day", "dusk", "dark"],
+      "stops": 1, "minutes_each": 40, "eases_per_hour": { "recreation": 30 }, "drawn_by": ["enjoyed_skill"], "teaches": 0.5 },
+    { "id": "wander", "name": "Wandering", "doing": "wandering about the camp", "place": "camp", "when": ["day", "dusk"],
+      "stops": 3, "minutes_each": 5, "eases_per_hour": { "recreation": 25, "social": 10 }, "drawn_by": ["company"], "teaches": 0 }
+  ]
+}

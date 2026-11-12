@@ -54,10 +54,12 @@ public static class ColonySave
     // 15: skills (step 23a): each colonist's proficiency in each skill, and the work carried over between thinks
     // ("carry", which replaces "slow": it holds a skilled colonist's extra as well as an ill one's shortfall).
     // 16: learning (step 23b): for each skill [proficiency, best reached, aptitude, seconds practised, last practised].
+    // 19: free time (step 25a): each colonist's "free": their free-time needs, their outing (or null), the
+    // activities waiting until a tick, and the last activity; "interests" also holds broad interests (leisure.json).
     // 18: interests (step 23c): each colonist's "interests", a table of skill and "enjoys" or "dislikes".
     // 17: the hybrid clock (step 24, library Review 41): each colonist's action deadline, the fourth of "think" (null
     // when nothing is due); 24 ticks are now a real second at ×1, so the same ticks mean slower walking.
-    public const int Version = 18;
+    public const int Version = 19;
 
     /// <summary>The colony as JSON.</summary>
     public static JsonObject Write(Colony colony) => new()
@@ -114,6 +116,18 @@ public static class ColonySave
                     (JsonNode?)new JsonArray(s.Value.Proficiency, s.Value.Peak, s.Value.Aptitude, s.Value.Practised, s.Value.LastPractised)))),
                 ["interests"] = new JsonObject(w.Interests.Select(i => KeyValuePair.Create(i.Key,
                     (JsonNode?)(i.Value == Interest.Enjoys ? "enjoys" : "dislikes")))),
+                ["free"] = new JsonObject
+                {
+                    ["needs"] = new JsonObject(w.FreeNeeds.Select(n => KeyValuePair.Create(n.Key, (JsonNode?)n.Value))),
+                    ["outing"] = w.Outing is not Outing o ? null : new JsonObject
+                    {
+                        ["activity"] = o.Activity, ["x"] = o.X, ["y"] = o.Y, ["stops_left"] = o.StopsLeft, ["left"] = o.Left,
+                        ["site"] = o.Site?.Value,
+                    },
+                    ["not_before"] = new JsonObject(w.NotBefore.Select(n => KeyValuePair.Create(n.Key, (JsonNode?)n.Value))),
+                    ["last"] = w.LastActivity,
+                    ["look_again"] = w.LookAgain,
+                },
                 ["heading"] = w.Heading is not var (hx, hy, hnear) ? null : new JsonArray(hx, hy, hnear),
                 ["think"] = new JsonArray(w.ThinkEvery, w.NextThink, w.Thought, w.ActionDue),
                 ["forbidden"] = new JsonArray(w.Forbidden.Select(k => (JsonNode?)k).ToArray()),
@@ -565,8 +579,8 @@ public static class ColonySave
                 throw new ColonySaveException(at + ".interests is not a table of skill and \"enjoys\" or \"dislikes\"");
             foreach (var (skill, value) in interests)
             {
-                if (!content.Skills.ContainsKey(skill))
-                    throw new ColonySaveException(at + ".interests." + skill + " is not a skill the content knows");
+                if (!content.Skills.ContainsKey(skill) && !content.Leisure.Interests.ContainsKey(skill))
+                    throw new ColonySaveException(at + ".interests." + skill + " is not a skill or broad interest the content knows");
                 worker.Interests[skill] = (value as JsonValue)?.TryGetValue(out string? word) == true ? word switch
                 {
                     "enjoys" => Interest.Enjoys,
@@ -574,6 +588,37 @@ public static class ColonySave
                     _ => throw new ColonySaveException(at + ".interests." + skill + " is \"" + word + "\", which should be \"enjoys\" or \"dislikes\""),
                 } : throw new ColonySaveException(at + ".interests." + skill + " should be \"enjoys\" or \"dislikes\"");
             }
+            // Free time (step 25a): needs from 0 to 100 for each the content has; an outing of an activity it knows; the
+            // activities waiting; the last activity.
+            var free = Item(o["free"], at + ".free");
+            var freeNeeds = Item(free["needs"], at + ".free.needs");
+            foreach (string need in content.Leisure.Needs.Keys)
+                worker.FreeNeeds[need] = freeNeeds[need] is JsonValue fv && fv.TryGetValue(out double fl) && fl >= 0 && fl <= 100 ? fl
+                    : throw new ColonySaveException(at + ".free.needs." + need + " is not a level from 0 to 100");
+            bool Known(string? activity) => activity != null && content.Leisure.Activities.Any(a => a.Id == activity);
+            if (free["outing"] is JsonObject og)
+            {
+                string? activity = (og["activity"] as JsonValue)?.GetValue<string>();
+                if (!Known(activity) || og["x"] is not JsonValue ox || !ox.TryGetValue(out double outX) || og["y"] is not JsonValue oy
+                    || !oy.TryGetValue(out double outY) || og["stops_left"] is not JsonValue os || !os.TryGetValue(out int stopsLeft) || stopsLeft < 0)
+                    throw new ColonySaveException(at + ".free.outing is not an outing: an activity the content knows, x, y and stops left");
+                int? left = og["left"] is null ? null : og["left"] is JsonValue lv && lv.TryGetValue(out int l) && l > 0 ? l
+                    : throw new ColonySaveException(at + ".free.outing.left is not a number of ticks above 0, or null");
+                BuildingId? site = og["site"] is null ? null : og["site"] is JsonValue sv && sv.TryGetValue(out long sid) ? new BuildingId(sid)
+                    : throw new ColonySaveException(at + ".free.outing.site is not a workshop's number, or null");
+                worker.Outing = new Outing { Activity = activity!, X = outX, Y = outY, StopsLeft = stopsLeft, Left = left, Site = site };
+            }
+            else if (free["outing"] is not null)
+                throw new ColonySaveException(at + ".free.outing is not an outing, or null");
+            foreach (var (activity, value) in Item(free["not_before"], at + ".free.not_before"))
+                worker.NotBefore[Known(activity) ? activity : throw new ColonySaveException(at + ".free.not_before." + activity + " is not an activity the content knows")]
+                    = value is JsonValue nv && nv.TryGetValue(out long until) ? until
+                    : throw new ColonySaveException(at + ".free.not_before." + activity + " is not a tick");
+            if (free["last"] is not null)
+                worker.LastActivity = (free["last"] as JsonValue)?.TryGetValue(out string? last) == true && Known(last) ? last
+                    : throw new ColonySaveException(at + ".free.last is not an activity the content knows, or null");
+            worker.LookAgain = free["look_again"] is JsonValue la && la.TryGetValue(out long lookAgain) ? lookAgain
+                : throw new ColonySaveException(at + ".free.look_again is not a tick");
             long dueTick = 0;
             if (o["think"] is not JsonArray think || think.Count != 4
                 || !(think[0] is JsonValue t0 && t0.TryGetValue(out int every) && every >= 1)

@@ -103,9 +103,10 @@ public class WaterTests
         ada.Needs["hygiene"].Level = 50;                        // wants: washes in free time (17:00, a flexible hour)
         Assert.True(Until(colony, () => work.Doing(ada.Id) is "going to wash" or "washing", 60));
         int before = brook.Count("water");
+        Assert.True(Until(colony, () => work.Doing(ada.Id) == "washing", 60));
+        Assert.Equal(Ground.TileOf(brook.X, brook.Y), Ground.TileOf(ada.X, ada.Y));   // where she washes (afterwards she may go off in her free time)
         Assert.True(Until(colony, () => ada.Needs["hygiene"].Level < 5, 120), "never washed");
         Assert.Equal(before, brook.Count("water"));
-        Assert.Equal(Ground.TileOf(brook.X, brook.Y), Ground.TileOf(ada.X, ada.Y));
     }
 
     [Fact]

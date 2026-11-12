@@ -77,6 +77,32 @@ public class AreaTests
             Assert.InRange(ways, 1, checkedPairs - 1);
     }
 
+    [Theory]
+    [InlineData(1, 0.1, 6.0)]
+    [InlineData(3, 0.35, 9.5)]
+    [InlineData(4, 0.45, 4.0)]
+    [InlineData(8, 0.3, 12.0)]
+    public void A_way_cut_short_gives_the_same_metres_and_steps_as_the_whole_way(int seed, double crowded, double limit)
+    {
+        // Step 25a: free time works short ways out only so far. From any tile, the answer must be what the whole
+        // way says: within the limit from the cut way, beyond it from the whole way worked out after all.
+        for (int g = 0; g < 24 * 16; g += 7)
+        {
+            int gx = g % 24, gy = g / 24;
+            var whole = Scattered(seed, crowded);
+            var cut = Scattered(seed, crowded);
+            for (int y = 0; y < 16; y++)
+                for (int x = 0; x < 24; x++)
+                {
+                    var cutFirst = Scattered(seed, crowded);       // a fresh ground each time: nothing known yet
+                    double expected = whole.Metres(x, y, gx, gy);
+                    Assert.Equal(expected, cutFirst.Metres(x, y, gx, gy, limit));
+                    Assert.Equal(expected, cut.Metres(x, y, gx, gy, limit));       // and with what earlier asks left
+                    Assert.Equal(whole.Next(x, y, gx, gy), cut.Next(x, y, gx, gy));
+                }
+        }
+    }
+
     [Fact]
     public void Areas_are_worked_out_again_when_a_tile_is_blocked_or_opened()
     {

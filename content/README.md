@@ -88,6 +88,24 @@ what is wrong, before anything runs.
   `interests` (step 23c): the chance, for each founder and each skill, that
   they `enjoys` that work and that they `dislikes` it (each 0 to 1, together
   at most 1); otherwise neither.
+- `leisure.json` (step 25a, library Review 42: free time): the free-time
+  `needs` (each with a `name`, how fast it rises `per_hour` awake, the level at
+  which it `wants` easing and the `words` the inspector says then); the parts
+  of the day by hours (`times`, each `[from, to]`, which may run past
+  midnight); the broad `interests` (id and the words for it); how far a
+  colonist goes for free time (`within_m`), how far apart the stops of a walk
+  are (`stroll_m`), how long an interrupted or unavailable activity waits
+  before it is offered again (`retry_minutes`), how long a colonist who found
+  nothing to do waits before looking again (`look_again_minutes`); and the
+  `activities`: each
+  with an `id`, a `name`, what the inspector says they are `doing`, its
+  `place` (`trees`: beside a tree; `water`: beside water; `open`: open ground
+  with nothing beside it; `workplace`: a workshop of a skill they enjoy;
+  `camp`: near a store), `when` (parts of the day), how many `stops` and
+  `minutes_each`, the points an hour at it eases of each need
+  (`eases_per_hour`), the interests it is `drawn_by` (broad interests, or
+  `enjoyed_skill`) and what share of work it `teaches` (practice; 0 for the
+  rest). Add an activity here and colonists start doing it; no code.
 - `skills.json` (step 23a): the `skills`, each with an `id`, a `name` and the
   work it is `used_for`: `build` (all building), `boil` (boiling water) or a
   workshop's id (its recipes); each kind of work uses one skill at most, and

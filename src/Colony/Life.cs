@@ -97,10 +97,26 @@ public sealed partial class Work
             return false;
         }
         if (w.Stopped)
+        {
+            EndOuting(w, interrupted: true);                // an order ends free time (step 25a)
             return true;                                   // a stopped colonist does nothing for themselves either
+        }
         var (wish, level) = Wish(w);
         if (wish == null)
         {
+            // Free time (step 25a): an outing goes on while the block is free; it ends when the block does. A
+            // colonist free, in free time, with nothing to do, chooses something.
+            if (w.Outing != null)
+            {
+                if (FreeBlock(w) && w.Job == null)
+                {
+                    Spend(w, 0);                           // (heading on, if still on the way)
+                    return false;
+                }
+                EndOuting(w, interrupted: true);
+            }
+            else if (w.Job == null && FreeBlock(w))
+                Choose(w);
             // Out of their Work hours, work in hand is put down at their think (with its work kept), unless it is a
             // delivery: that is finished first (library §5.3; FP-01: work only in Work hours). Until step 24 this
             // happened by luck of timing, when a need came up at the hour; the clock's longer thinks showed it.
@@ -122,6 +138,7 @@ public sealed partial class Work
                 Reopen(job, w);
             // else: critical, carrying: the job and the goods stay with them while they see to it.
         }
+        EndOuting(w, interrupted: true);                   // a need comes before free time (step 25a)
         Start(w, wish.Value);
         return false;
     }
@@ -156,6 +173,7 @@ public sealed partial class Work
     void Collapse(Worker w, string need)
     {
         w.Collapsed = need;
+        EndOuting(w, interrupted: true);
         w.Heading = null;                                  // they fall where they are
         w.ActionDue = null;
         if (w.Personal is { Claim: ReservationId claim })
@@ -404,6 +422,8 @@ public sealed partial class Work
             };
         if (w.Job is TaskId t)
             return jobs[t.Value].Purpose;
+        if (w.Outing is Outing o)
+            return OutingWords(o);
         return BlockOf(w) switch
         {
             Block.Work => "waiting for work",

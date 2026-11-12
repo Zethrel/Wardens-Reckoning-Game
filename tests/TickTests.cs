@@ -189,7 +189,7 @@ public class TickTests
     {
         var (colony, _) = Founded();
         var save = ColonySave.Write(colony);
-        Assert.Equal(18, ColonySave.Version);
+        Assert.Equal(19, ColonySave.Version);
         save["version"] = 12;
         Assert.Contains("older saves are not converted", Assert.Throws<ColonySaveException>(() => ColonySave.Read(save.ToJsonString(), colony.Content!)).Message);
     }

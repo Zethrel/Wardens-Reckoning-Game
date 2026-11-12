@@ -104,7 +104,7 @@ public static class Program
         }
         if (paced.Count > 0)
         {
-            // Review 41's provisional thresholds, for comparison (not passed or failed here: the maintainer approves them).
+            // Review 41's thresholds, approved in Review 42, for comparison (the profiler reports; the maintainer judges).
             report.AppendLine();
             report.AppendLine("At ×5 (120 ticks a real second), frames of 1/60 s, the ticks timed above (after the first hour):");
             report.AppendLine();
@@ -113,7 +113,7 @@ public static class Program
             foreach (var line in paced)
                 report.AppendLine(line);
             report.AppendLine();
-            report.AppendLine("Provisional thresholds (Review 41): sustained speed 99% at ×5; at most 25% of a core; slowest tick 33 ms "
+            report.AppendLine("Thresholds (Review 41, approved and binding since Review 42): sustained speed 99% at ×5; at most 25% of a core; slowest tick 33 ms "
                               + "(everyday) and 100 ms (stress); saving and loading each under 1 s.");
         }
         if (saveLine != null)

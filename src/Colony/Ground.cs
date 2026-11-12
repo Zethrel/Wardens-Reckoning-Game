@@ -41,7 +41,9 @@ public sealed class Ground
     // Ways already worked out, by the tile they lead to, each with when it was last asked for (a count of the
     // asking); forgotten whenever something that blocks is built, and the least lately asked for when there are
     // more than `MostWays` (step 20c).
-    readonly Dictionary<int, (double[] Far, long Asked)> ways = new();
+    // The ways known, by goal: the metres from every tile, when it was last asked for, and how far it was worked
+    // out (infinity: the whole ground; step 25a: a short way stops at a limit).
+    readonly Dictionary<int, (double[] Far, long Asked, double Limit)> ways = new();
     // The areas, once worked out (step 22): for every tile, the number of the area of open tiles it belongs to, or
     // -1 if it is blocked. Forgotten whenever a tile becomes blocked or open.
     int[]? areaOf;
@@ -344,13 +346,16 @@ public sealed class Ground
     /// going on from the nearest tile not yet done) and kept until something blocking is built, or until it is the
     /// least lately asked for of more than `MostWays`.
     /// </summary>
-    double[] WayTo(int gx, int gy)
+    double[] WayTo(int gx, int gy, double limit = double.PositiveInfinity, int? from = null)
     {
         int goal = Index(gx, gy);
         WaysAsked++;
-        if (ways.TryGetValue(goal, out var known))
+        // A way worked out at least this far will do; so will a shorter one that already reaches the tile asked from
+        // (its metres there are exact: see below).
+        if (ways.TryGetValue(goal, out var known)
+            && (known.Limit >= limit || from is int f && !double.IsPositiveInfinity(known.Far[f])))
         {
-            ways[goal] = (known.Far, WaysAsked);
+            ways[goal] = (known.Far, WaysAsked, known.Limit);
             return known.Far;
         }
         long started = Stopwatch.GetTimestamp();
@@ -363,10 +368,16 @@ public sealed class Ground
         // comes out first does not matter: the metres every tile ends with are the same either way.
         var todo = new PriorityQueue<int, double>();
         todo.Enqueue(goal, 0);
+        bool cut = false;
         while (todo.TryDequeue(out int i, out double metres))
         {
             if (metres > far[i])
                 continue;                                       // an older entry: this tile is already done
+            if (metres > limit)
+            {
+                cut = true;                                     // everything left is farther than asked for
+                break;
+            }
             int x = i % Width, y = i / Width;
             // Stepping from a neighbour onto this tile: the step's length at this tile's speed.
             double speed = Speed(x, y);
@@ -390,9 +401,17 @@ public sealed class Ground
                 }
             }
         }
-        if (ways.Count >= MostWays)
+        // A way cut short (step 25a): every tile done is exact (Dijkstra's method finishes the nearer tiles first);
+        // the rest are forgotten, so a number kept is always right, and a tile beyond the limit reads as "not worked
+        // out" (infinity). From a tile inside the limit, the quickest next step never goes beyond it, so walking on
+        // such a way is exactly as on the whole one.
+        if (cut)
+            for (int t = 0; t < far.Length; t++)
+                if (far[t] > limit)
+                    far[t] = double.PositiveInfinity;
+        if (ways.Count >= MostWays && !ways.ContainsKey(goal))
             ways.Remove(ways.MinBy(w => w.Value.Asked).Key);    // the least lately asked for
-        ways[goal] = (far, WaysAsked);
+        ways[goal] = (far, WaysAsked, cut ? limit : double.PositiveInfinity);
         WaysWorked++;
         WayTime += Stopwatch.GetTimestamp() - started;
         return far;
@@ -482,20 +501,32 @@ public sealed class Ground
     /// <summary>How far it is to walk from tile (x, y) to tile (gx, gy), counted in metres of road (a metre of
     /// grass at 80% counts as 1.25 m), or infinity if there is no way. Someone standing on a blocked tile (a wall
     /// just finished where they stood) can still step off it.</summary>
-    public double Metres(int x, int y, int gx, int gy)
+    public double Metres(int x, int y, int gx, int gy) => Metres(x, y, gx, gy, double.PositiveInfinity);
+
+    /// <summary>As `Metres`, working the way out only as far as `limit` metres from the goal, if it is not already
+    /// known (step 25a: a short walk need not search the whole ground). Farther than that: worked out in full, so the
+    /// answer is the same either way.</summary>
+    public double Metres(int x, int y, int gx, int gy, double limit)
     {
         if (!Inside(x, y) || !Inside(gx, gy))
             return double.PositiveInfinity;
         if (x == gx && y == gy)
             return 0;
-        var far = WayTo(gx, gy);
+        var far = WayTo(gx, gy, limit, Open(x, y) ? Index(x, y) : null);
+        double best;
         if (Open(x, y))
-            return far[Index(x, y)];
-        double best = double.PositiveInfinity;
-        foreach (var (dx, dy, step) in Steps)
-            if (CanStep(x, y, dx, dy))
-                best = Math.Min(best, step / Speed(x + dx, y + dy) + far[Index(x + dx, y + dy)]);
-        return best;
+            best = far[Index(x, y)];
+        else
+        {
+            best = double.PositiveInfinity;
+            foreach (var (dx, dy, step) in Steps)
+                if (CanStep(x, y, dx, dy))
+                    best = Math.Min(best, step / Speed(x + dx, y + dy) + far[Index(x + dx, y + dy)]);
+        }
+        // Only an answer within the limit is sure to be right (from a blocked tile, a step beside it beyond the limit
+        // reads as "not worked out" and a dearer one may win): beyond it, the whole way after all, so the answer is
+        // always the same as without a limit.
+        return best > limit ? Metres(x, y, gx, gy) : best;
     }
 
     /// <summary>The next tile on the way from (x, y) to (gx, gy), or null if there is no way (or already there).
@@ -504,7 +535,7 @@ public sealed class Ground
     {
         if (!Inside(gx, gy) || (x == gx && y == gy))
             return null;
-        var far = WayTo(gx, gy);
+        var far = WayTo(gx, gy, from: Open(x, y) ? Index(x, y) : null);
         (int, int)? best = null;
         double left = double.PositiveInfinity;
         foreach (var (dx, dy, step) in Steps)

@@ -21,6 +21,41 @@ public sealed record Workshop(string Id, string Name);
 
 /// <summary>How one need grows and when it matters (needs.json), on a scale from 0 (none) to 100 (the limit). A
 /// need that never fells anyone (hygiene) has `"collapse_hours": null`: CollapseHours is then infinity.</summary>
+/// <summary>A free-time need (step 25a, library Review 42: Daily Life §11.1): its name, how fast it rises (points a
+/// game hour, awake), the level at which the colonist "wants" it eased, and the words the inspector says then.</summary>
+public sealed record LeisureNeed(string Id, string Name, double PerHour, double Wants, string Words);
+
+/// <summary>
+/// A free-time activity (step 25a, leisure.json): what the inspector calls it (`Doing`); where it happens
+/// (`Place`: "trees", "water", "open", "workplace" or "camp"); when (`When`: names of `LeisureRules.Times`); how
+/// many stops and how long at each; which free-time needs it eases, by how much a game hour spent at it; which
+/// interests draw a colonist to it (broad interests by id, or "enjoyed_skill"); and, for practice, what share of
+/// the same time at work it teaches.
+/// </summary>
+public sealed record Activity(string Id, string Name, string Doing, string Place, IReadOnlyList<string> When, int Stops,
+                             int MinutesEach, IReadOnlyDictionary<string, double> EasesPerHour, IReadOnlyList<string> DrawnBy,
+                             double Teaches);
+
+/// <summary>
+/// Free time (step 25a, leisure.json): the two free-time needs; the parts of the day by hours (`Times`: from, to; a
+/// part may run past midnight, as dark from 21 to 6); the broad interests, by id and the words for them; how far a
+/// colonist goes for free time (`WithinMetres`), how far apart the stops of a walk are (`StrollMetres`), how long an
+/// interrupted or unavailable activity waits before it is offered again (`RetryMinutes`), how long a colonist who
+/// found nothing to do waits before looking again (`LookAgainMinutes`), and the activities.
+/// </summary>
+public sealed record LeisureRules(IReadOnlyDictionary<string, LeisureNeed> Needs, IReadOnlyDictionary<string, (int From, int To)> Times,
+                                  IReadOnlyDictionary<string, string> Interests, double WithinMetres, double StrollMetres,
+                                  int RetryMinutes, int LookAgainMinutes, IReadOnlyList<Activity> Activities)
+{
+    /// <summary>The places an activity may need.</summary>
+    public static readonly string[] Places = { "trees", "water", "open", "workplace", "camp" };
+    /// <summary>What draws a colonist to practising: any skill they enjoy.</summary>
+    public const string EnjoyedSkill = "enjoyed_skill";
+
+    /// <summary>Whether `hour` falls in the part of the day `time` (an hour from `From` up to, not including, `To`).</summary>
+    public bool InTime(string time, int hour) => Times[time] is var (from, to) && (from <= to ? hour >= from && hour < to : hour >= from || hour < to);
+}
+
 public sealed record NeedRule(string Name, double PerHour, double AsleepPerHour, double Peckish, double Wants, double Urgent,
                               double Critical, double CollapseHours);
 
@@ -202,6 +237,8 @@ public sealed class Content
     public IReadOnlyDictionary<string, double> Challenge { get; private init; } = new Dictionary<string, double>();
     /// <summary>How skills are learned and lost (step 23b).</summary>
     public LearningRules Learning { get; private init; } = null!;
+    /// <summary>Free time (step 25a, leisure.json).</summary>
+    public LeisureRules Leisure { get; private init; } = null!;
 
     /// <summary>The rank shown for a proficiency ("Journeyman").</summary>
     public string RankOf(double proficiency) => Ranks.Last(r => r.From <= Math.Max(0, proficiency)).Name;
@@ -295,7 +332,7 @@ public sealed class Content
 
     /// <summary>The content's files.</summary>
     public static readonly string[] Files = { "goods.json", "recipes.json", "colony.json", "needs.json", "schedules.json", "construction.json", "founding.json",
-                                              "sanitation.json", "health.json", "skills.json" };
+                                              "sanitation.json", "health.json", "skills.json", "leisure.json" };
 
     /// <summary>Checks content given as file name to text (null: the file is missing).</summary>
     public static Content Read(IReadOnlyDictionary<string, string?> files)
@@ -866,6 +903,115 @@ public sealed class Content
                 problems.Add("skills.json.learning: should be an object { ... }");
         }
 
+        // Free time (step 25a, library Review 42).
+        LeisureRules? leisure = null;
+        if (Open("leisure.json", "needs", "times", "interests", "within_m", "stroll_m", "retry_minutes", "look_again_minutes", "activities") is JsonObject le2)
+        {
+            var lneeds = new Dictionary<string, LeisureNeed>();
+            if (le2["needs"] is JsonObject ln && ln.Count > 0)
+                foreach (var (id, node) in ln)
+                {
+                    string at = "leisure.json.needs." + id;
+                    if (node is not JsonObject need)
+                    {
+                        problems.Add(at + ": should be an object { ... }");
+                        continue;
+                    }
+                    check.Keys(need, at, "name", "per_hour", "wants", "words");
+                    string? name = check.Text(need, at, "name"), words = check.Text(need, at, "words");
+                    double? perHour = check.NotNegative(need, at, "per_hour"), wants = check.Positive(need, at, "wants");
+                    if (needs.ContainsKey(id))
+                        problems.Add(at + ": needs.json already has a need called \"" + id + "\"");
+                    else if (name != null && words != null && perHour != null && wants != null)
+                        lneeds[id] = new LeisureNeed(id, name, perHour.Value, wants.Value, words);
+                }
+            else if (le2.ContainsKey("needs"))
+                problems.Add("leisure.json.needs: should be a table of at least one need");
+            var times = new Dictionary<string, (int, int)>();
+            if (le2["times"] is JsonObject tm && tm.Count > 0)
+                foreach (var (id, node) in tm)
+                {
+                    if (node is JsonArray pair && pair.Count == 2 && pair[0] is JsonValue a && a.TryGetValue(out int from)
+                        && pair[1] is JsonValue b && b.TryGetValue(out int to) && from is >= 0 and < 24 && to is >= 0 and <= 24 && from != to)
+                        times[id] = (from, to);
+                    else
+                        problems.Add("leisure.json.times." + id + ": should be [from, to], two different hours from 0 to 24");
+                }
+            else if (le2.ContainsKey("times"))
+                problems.Add("leisure.json.times: should be a table of at least one part of the day");
+            var interests = new Dictionary<string, string>();
+            if (le2["interests"] is JsonObject ins)
+                foreach (var (id, node) in ins)
+                {
+                    if (skills.ContainsKey(id) || id == LeisureRules.EnjoyedSkill)
+                        problems.Add("leisure.json.interests." + id + ": a skill has that id (broad interests need their own)");
+                    else if (node is JsonValue v && v.TryGetValue(out string? words) && words.Trim().Length > 0)
+                        interests[id] = words;
+                    else
+                        problems.Add("leisure.json.interests." + id + ": should be the words for it, as \"the sky\"");
+                }
+            else if (le2.ContainsKey("interests"))
+                problems.Add("leisure.json.interests: should be a table of interest and the words for it");
+            double? within = check.Positive(le2, "leisure.json", "within_m"), stroll = check.Positive(le2, "leisure.json", "stroll_m");
+            int? retry = check.Int(le2, "leisure.json", "retry_minutes", 0), lookAgain = check.Int(le2, "leisure.json", "look_again_minutes", 0);
+            var activities = new List<Activity>();
+            foreach (var (item, at) in check.List(le2, "leisure.json", "activities"))
+            {
+                check.Keys(item, at, "id", "name", "doing", "place", "when", "stops", "minutes_each", "eases_per_hour", "drawn_by", "teaches");
+                string? id = check.Id(item, at, IdShape), name = check.Text(item, at, "name"), doing = check.Text(item, at, "doing"),
+                        place = check.Text(item, at, "place");
+                if (place != null && !LeisureRules.Places.Contains(place))
+                {
+                    problems.Add(at + ".place: \"" + place + "\" is no place (there is: " + string.Join(", ", LeisureRules.Places) + ")");
+                    place = null;
+                }
+                List<string>? Words(string key, Func<string, bool> known, string what)
+                {
+                    if (item[key] is not JsonArray list)
+                    {
+                        problems.Add(at + "." + key + ": should be a list of " + what);
+                        return null;
+                    }
+                    var got = new List<string>();
+                    for (int i = 0; i < list.Count; i++)
+                        if (list[i] is JsonValue v && v.TryGetValue(out string? s) && known(s))
+                            got.Add(s);
+                        else
+                            problems.Add(at + "." + key + "[" + i + "]: should be one of the " + what);
+                    return got;
+                }
+                var when = Words("when", times.ContainsKey, "parts of the day in \"times\"");
+                var drawn = Words("drawn_by", s => interests.ContainsKey(s) || s == LeisureRules.EnjoyedSkill, "broad interests, or \"enjoyed_skill\"");
+                if (when is { Count: 0 })
+                    problems.Add(at + ".when: should name at least one part of the day");
+                int? stops = check.Int(item, at, "stops", 1), minutes = check.Int(item, at, "minutes_each", 1);
+                var eases = new Dictionary<string, double>();
+                if (item["eases_per_hour"] is JsonObject ep && ep.Count > 0)
+                    foreach (var (need, node) in ep)
+                        if (!lneeds.ContainsKey(need))
+                            problems.Add(at + ".eases_per_hour." + need + ": no free-time need called that");
+                        else if (node is JsonValue v && v.TryGetValue(out double pts) && pts > 0 && double.IsFinite(pts))
+                            eases[need] = pts;
+                        else
+                            problems.Add(at + ".eases_per_hour." + need + ": should be a number above 0");
+                else
+                    problems.Add(at + ".eases_per_hour: should be a table of at least one free-time need and the points an hour eases");
+                // What share of the same time at work it teaches (practice; 0 for the rest).
+                double teaches = 0;
+                if (item["teaches"] is JsonValue tv && tv.TryGetValue(out double t) && t >= 0 && t <= 1)
+                    teaches = t;
+                else if (item.ContainsKey("teaches"))
+                    problems.Add(at + ".teaches: should be a share from 0 to 1");
+                if (id != null && activities.Any(a => a.Id == id))
+                    problems.Add(at + ": a second activity with the id \"" + id + "\"");
+                else if (id != null && name != null && doing != null && place != null && when != null && drawn != null && stops != null
+                         && minutes != null && eases.Count > 0)
+                    activities.Add(new Activity(id, name, doing, place, when, stops.Value, minutes.Value, eases, drawn, teaches));
+            }
+            if (within != null && stroll != null && retry != null && lookAgain != null)
+                leisure = new LeisureRules(lneeds, times, interests, within.Value, stroll.Value, retry.Value, lookAgain.Value, activities);
+        }
+
         // Who founds the colony.
         FoundingRules? founding = null;
         if (Open("founding.json", "founders", "names", "supplies", "bedroll_each", "skills", "interests") is JsonObject f)
@@ -1038,7 +1184,7 @@ public sealed class Content
             Templates = templates, Founding = founding!, Surfaces = surfaces,
             ThinkFrom = think!.Value.Item1, ThinkTo = think.Value.Item2,
             Skills = skills, SkillFor = skillFor, Ranks = ranks, SkillSpeed = paces, StandardProficiency = standard!.Value,
-            Challenge = challenge, Learning = learning!,
+            Challenge = challenge, Learning = learning!, Leisure = leisure!,
             Fingerprint = FingerprintOf(files),
         };
     }
