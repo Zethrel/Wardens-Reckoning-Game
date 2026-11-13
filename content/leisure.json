@@ -22,6 +22,29 @@
     { "id": "practice", "name": "Practising", "doing": "practising", "place": "workplace", "when": ["day", "dusk", "dark"],
       "stops": 1, "minutes_each": 40, "eases_per_hour": { "recreation": 30 }, "drawn_by": ["enjoyed_skill"], "teaches": 0.5 },
     { "id": "wander", "name": "Wandering", "doing": "wandering about the camp", "place": "camp", "when": ["day", "dusk"],
-      "stops": 3, "minutes_each": 5, "eases_per_hour": { "recreation": 25, "social": 10 }, "drawn_by": ["company"], "teaches": 0 }
-  ]
+      "stops": 3, "minutes_each": 5, "eases_per_hour": { "recreation": 25, "social": 10 }, "drawn_by": ["company"], "teaches": 0 },
+    { "id": "talk", "name": "Talking", "doing": "talking", "place": "company", "when": ["day", "dusk", "dark"],
+      "stops": 1, "minutes_each": 20, "eases_per_hour": { "social": 60, "recreation": 10 }, "drawn_by": ["company"], "teaches": 0 }
+  ],
+  "talk": {
+    "most": 4,
+    "willing": 0.4,
+    "recent_hours": 24,
+    "kept": 200,
+    "bubble_real_seconds": 3
+  },
+  "topics": {
+    "built": "the new {piece}",
+    "ill": "{name}'s {illness}",
+    "collapsed": "{name} collapsing",
+    "arrived": "the journey here",
+    "hungry": "food",
+    "thirsty": "a drink",
+    "tired": "sleep",
+    "unwashed": "a wash",
+    "enjoys": { "construction": "building", "food_preparation": "cooking", "nature": "the woods", "sky": "the sky", "company": "people" },
+    "dusk": "the sunset",
+    "dark": "the stars",
+    "everyday": ["the weather", "home", "the old days", "the road here", "the morning", "the work"]
+  }
 }

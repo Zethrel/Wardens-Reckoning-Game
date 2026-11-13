@@ -173,6 +173,7 @@ public sealed partial class Work
     void Collapse(Worker w, string need)
     {
         w.Collapsed = need;
+        Note("collapsed", w.Name);                         // something to talk about (step 25b)
         EndOuting(w, interrupted: true);
         w.Heading = null;                                  // they fall where they are
         w.ActionDue = null;
@@ -423,7 +424,7 @@ public sealed partial class Work
         if (w.Job is TaskId t)
             return jobs[t.Value].Purpose;
         if (w.Outing is Outing o)
-            return OutingWords(o);
+            return OutingWords(w, o);
         return BlockOf(w) switch
         {
             Block.Work => "waiting for work",

@@ -13,7 +13,7 @@ namespace WardensReckoning.Tests;
 /// </summary>
 public class FreeTimeTests
 {
-    static Moment At(int hour) => new(Calendar.TickOf(1, 1, 1, hour, 0));
+    internal static Moment At(int hour) => new(Calendar.TickOf(1, 1, 1, hour, 0));
 
     // A meadow of 40 x 30: trees at (10..12, 5) if `trees`, a stream down x = 35 if `water`.
     static LocalMap Meadow(bool trees = true, bool water = true)
@@ -31,7 +31,7 @@ public class FreeTimeTests
         }, "meadow");
     }
 
-    static Colony.Colony Found(int hour, bool trees = true, bool water = true, int seed = 7) =>
+    internal static Colony.Colony Found(int hour, bool trees = true, bool water = true, int seed = 7) =>
         Founding.Found(seed, At(hour), TestContent.Real, Meadow(trees, water)).Colony;
 
     // Runs tick by tick for `ticks`, noting each outing begun: (tick, colonist, activity).

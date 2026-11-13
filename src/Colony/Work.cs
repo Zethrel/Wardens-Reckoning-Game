@@ -183,6 +183,8 @@ public sealed class Outing
     public int? Left { get; internal set; }
     /// <summary>The workplace they practise at, for practice.</summary>
     public BuildingId? Site { get; init; }
+    /// <summary>The talk, for a talk (step 25b).</summary>
+    public long? Talk { get; init; }
 }
 
 /// <summary>A bedroll laid out at a place: a sleeping place, and whose it is.</summary>

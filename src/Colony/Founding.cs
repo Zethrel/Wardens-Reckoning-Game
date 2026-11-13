@@ -142,6 +142,7 @@ public static class Founding
                 work.AddBedroll(bx + 0.5, by + 0.5, founder.Id);
             }
         }
+        work.Note("arrived", "");                          // the journey here: something to talk about (step 25b)
         return (colony, carts, used);
     }
 

@@ -105,7 +105,17 @@ what is wrong, before anything runs.
   `minutes_each`, the points an hour at it eases of each need
   (`eases_per_hour`), the interests it is `drawn_by` (broad interests, or
   `enjoyed_skill`) and what share of work it `teaches` (practice; 0 for the
-  rest). Add an activity here and colonists start doing it; no code.
+  rest). Add an activity here and colonists start doing it; no code. The one
+  activity with place `company` is talking (step 25b). `talk`: at most `most`
+  in one talk; how `willing` a colonist is to be asked (a chance, raised by
+  their Social need and an interest in company); how many `recent_hours` back
+  the colony's happenings are talked about; how many finished talks are
+  `kept`; how long each speaker's bubble shows (`bubble_real_seconds`).
+  `topics`: the words for what they talk about: `built` (with `{piece}`),
+  `ill` (`{name}`, `{illness}`), `collapsed` (`{name}`), `arrived`, a
+  speaker's wants (`hungry`, `thirsty`, `tired`, `unwashed`), work and
+  interests they `enjoys` (by skill or broad interest), `dusk`, `dark`, and
+  `everyday` topics for when nothing else applies.
 - `skills.json` (step 23a): the `skills`, each with an `id`, a `name` and the
   work it is `used_for`: `build` (all building), `boil` (boiling water) or a
   workshop's id (its recipes); each kind of work uses one skill at most, and

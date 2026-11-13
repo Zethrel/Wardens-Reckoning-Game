@@ -54,12 +54,14 @@ public static class ColonySave
     // 15: skills (step 23a): each colonist's proficiency in each skill, and the work carried over between thinks
     // ("carry", which replaces "slow": it holds a skilled colonist's extra as well as an ill one's shortfall).
     // 16: learning (step 23b): for each skill [proficiency, best reached, aptitude, seconds practised, last practised].
+    // 20: talk (step 25b): "talk" in "work" (the next talk's number, the talks under way, the finished talks kept,
+    // what happened lately); an outing's "talk".
     // 19: free time (step 25a): each colonist's "free": their free-time needs, their outing (or null), the
     // activities waiting until a tick, and the last activity; "interests" also holds broad interests (leisure.json).
     // 18: interests (step 23c): each colonist's "interests", a table of skill and "enjoys" or "dislikes".
     // 17: the hybrid clock (step 24, library Review 41): each colonist's action deadline, the fourth of "think" (null
     // when nothing is due); 24 ticks are now a real second at ×1, so the same ticks mean slower walking.
-    public const int Version = 19;
+    public const int Version = 20;
 
     /// <summary>The colony as JSON.</summary>
     public static JsonObject Write(Colony colony) => new()
@@ -123,6 +125,7 @@ public static class ColonySave
                     {
                         ["activity"] = o.Activity, ["x"] = o.X, ["y"] = o.Y, ["stops_left"] = o.StopsLeft, ["left"] = o.Left,
                         ["site"] = o.Site?.Value,
+                        ["talk"] = o.Talk,
                     },
                     ["not_before"] = new JsonObject(w.NotBefore.Select(n => KeyValuePair.Create(n.Key, (JsonNode?)n.Value))),
                     ["last"] = w.LastActivity,
@@ -146,6 +149,18 @@ public static class ColonySave
                 w.Litres, w.Frozen, w.FouledUntil, w.Sign, w.SignSeen) : null).ToArray()),
             ["cold"] = work.Cold,
             ["news"] = new JsonArray(work.Told.Select(n => (JsonNode?)new JsonArray(n.Tick, n.Text)).ToArray()),
+            ["talk"] = new JsonObject
+            {
+                ["next"] = work.NextTalk,
+                ["under_way"] = new JsonArray(work.Talks.Select(t => (JsonNode?)new JsonObject
+                {
+                    ["id"] = t.Id, ["with"] = new JsonArray(t.With.Select(i => (JsonNode?)i.Value).ToArray()), ["x"] = t.X, ["y"] = t.Y,
+                    ["began"] = t.Began, ["topic"] = t.Topic, ["took"] = new JsonArray(t.Took.Select(i => (JsonNode?)i.Value).ToArray()),
+                }).ToArray()),
+                ["kept"] = new JsonArray(work.Talked.Select(r => (JsonNode?)new JsonArray(r.Began, r.Ended,
+                    new JsonArray(r.Took.Select(i => (JsonNode?)i.Value).ToArray()), r.Topic)).ToArray()),
+                ["happened"] = new JsonArray(work.Happenings.Select(h => (JsonNode?)new JsonArray(h.Tick, h.Kind, h.Words)).ToArray()),
+            },
             ["projects"] = new JsonArray(work.Projects.Select(p => (JsonNode?)new JsonObject
             {
                 ["id"] = p.Id.Value, ["piece"] = p.Piece, ["x"] = p.X, ["y"] = p.Y, ["stock"] = p.Stock.Value,
@@ -606,7 +621,9 @@ public static class ColonySave
                     : throw new ColonySaveException(at + ".free.outing.left is not a number of ticks above 0, or null");
                 BuildingId? site = og["site"] is null ? null : og["site"] is JsonValue sv && sv.TryGetValue(out long sid) ? new BuildingId(sid)
                     : throw new ColonySaveException(at + ".free.outing.site is not a workshop's number, or null");
-                worker.Outing = new Outing { Activity = activity!, X = outX, Y = outY, StopsLeft = stopsLeft, Left = left, Site = site };
+                long? talkId = og["talk"] is null ? null : og["talk"] is JsonValue tv2 && tv2.TryGetValue(out long tid) ? tid
+                    : throw new ColonySaveException(at + ".free.outing.talk is not a talk's number, or null");
+                worker.Outing = new Outing { Activity = activity!, X = outX, Y = outY, StopsLeft = stopsLeft, Left = left, Site = site, Talk = talkId };
             }
             else if (free["outing"] is not null)
                 throw new ColonySaveException(at + ".free.outing is not an outing, or null");
@@ -729,6 +746,43 @@ public static class ColonySave
                 throw new ColonySaveException("work.news holds something that is not [tick, text]");
             colony.Work!.PutNews(new News(Number(item[0], "work.news"), told));
         }
+        // Talk (step 25b).
+        var talk = Item(work["talk"], "work.talk");
+        List<ColonistId> Ids(JsonNode? node, string key) => (node as JsonArray ?? throw new ColonySaveException(key + " is not a list of colonists"))
+            .Select(n => new ColonistId(Number(n, key))).ToList();
+        var under = new List<Talk>();
+        foreach (var node in talk["under_way"] as JsonArray ?? throw new ColonySaveException("work.talk.under_way is not a list"))
+        {
+            var t = Item(node, "work.talk.under_way");
+            var made = new Talk
+            {
+                Id = Number(t["id"], "work.talk.under_way.id"),
+                X = t["x"] is JsonValue xv && xv.TryGetValue(out double tx) ? tx : throw new ColonySaveException("work.talk.under_way.x is not a number"),
+                Y = t["y"] is JsonValue yv && yv.TryGetValue(out double ty) ? ty : throw new ColonySaveException("work.talk.under_way.y is not a number"),
+                Began = t["began"] is null ? null : Number(t["began"], "work.talk.under_way.began"),
+                Topic = t["topic"] is null ? null : (t["topic"] as JsonValue)?.TryGetValue(out string? topic) == true ? topic
+                    : throw new ColonySaveException("work.talk.under_way.topic is not words, or null"),
+            };
+            made.With.AddRange(Ids(t["with"], "work.talk.under_way.with"));
+            made.Took.AddRange(Ids(t["took"], "work.talk.under_way.took"));
+            under.Add(made);
+        }
+        var kept = new List<TalkRecord>();
+        foreach (var node in talk["kept"] as JsonArray ?? throw new ColonySaveException("work.talk.kept is not a list"))
+        {
+            if (node is not JsonArray r || r.Count != 4 || r[3] is not JsonValue rv || !rv.TryGetValue(out string? about))
+                throw new ColonySaveException("work.talk.kept holds something that is not [began, ended, [who], topic]");
+            kept.Add(new TalkRecord(Number(r[0], "work.talk.kept"), Number(r[1], "work.talk.kept"), Ids(r[2], "work.talk.kept"), about));
+        }
+        var happened = new List<Happening>();
+        foreach (var node in talk["happened"] as JsonArray ?? throw new ColonySaveException("work.talk.happened is not a list"))
+        {
+            if (node is not JsonArray h || h.Count != 3 || h[1] is not JsonValue kv || !kv.TryGetValue(out string? kind)
+                || h[2] is not JsonValue wv || !wv.TryGetValue(out string? words))
+                throw new ColonySaveException("work.talk.happened holds something that is not [tick, kind, words]");
+            happened.Add(new Happening(Number(h[0], "work.talk.happened"), kind, words));
+        }
+        colony.Work!.PutTalks(Number(talk["next"], "work.talk.next"), under, kept, happened);
         colony.Work!.Cold = work["cold"] is JsonValue cv && cv.TryGetValue(out bool cold)
             ? cold : throw new ColonySaveException("work.cold is not true or false");
         foreach (var (job, worker) in jobWorkers)

@@ -264,6 +264,31 @@ public partial class ColonyView : Node2D
                 DrawArc(middle, radius * 1.6f, 0, Mathf.Tau, 24, Paper, radius * 0.3f);
             DrawName(font, w.Name, middle - new Vector2(0, radius * 1.6f + level * 19f / pixels), pixels);
         }
+        // Talk (step 25b): over whoever's turn it is in a talk, a bubble with what it is about, above their name.
+        foreach (var talk in work.Talks)
+            if (work.Bubble(talk) is var (speaker, words) && work.Workers.FirstOrDefault(x => x.Id == speaker) is Worker who)
+            {
+                var at = DrawnAt(who);
+                int level = drawn.FirstOrDefault(d => d.At == at).Level;
+                DrawBubble(font, words, at - new Vector2(0, radius * 1.6f + (level + 1) * 19f / pixels + 6f / pixels), pixels);
+            }
+    }
+
+    /// <summary>A chat bubble (step 25b): the words on paper with an ink edge and a little tail pointing down to the
+    /// speaker, the same size on screen at any zoom.</summary>
+    void DrawBubble(Font font, string text, Vector2 above, float pixels)
+    {
+        int size = 13;
+        float scale = 1f / pixels;
+        DrawSetTransform(above, 0, new Vector2(scale, scale));
+        var width = font.GetStringSize(text, HorizontalAlignment.Left, -1, size).X;
+        var box = new Rect2(-width / 2 - 6, -size - 5, width + 12, size + 11);
+        DrawRect(box, Paper);
+        DrawRect(box, Ink, false, 1.5f);
+        DrawColoredPolygon(new[] { new Vector2(-5, box.End.Y), new Vector2(5, box.End.Y), new Vector2(0, box.End.Y + 7) }, Paper);
+        DrawPolyline(new[] { new Vector2(-5, box.End.Y), new Vector2(0, box.End.Y + 7), new Vector2(5, box.End.Y) }, Ink, 1.5f);
+        DrawString(font, new Vector2(-width / 2, 0), text, HorizontalAlignment.Left, -1, size, Ink);
+        DrawSetTransform(Vector2.Zero, 0, Vector2.One);
     }
 
     // A small symbol for each surface that has one: what tells it apart besides its colour.

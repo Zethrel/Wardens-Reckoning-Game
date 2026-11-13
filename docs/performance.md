@@ -448,6 +448,28 @@ processors, .NET 8.0.33, Release build; own map): **every threshold met.**
 The same ways asked and worked out in every scenario as in the cloud, and the
 same 69 walls: the same colony on Windows and Linux.
 
+### Step 25b: talk, cloud, 13 November 2026
+
+Talk adds a seventh free-time activity, which needs someone to talk to and
+a topic. Measured 13 Nov 2026 on Ubuntu 24.04.5 LTS, 2 logical processors,
+.NET 8.0.33, Release build. Own map.
+
+| Scenario | Kind | Mean tick ms | Slowest tick ms | Sustained speed | Simulation's share of a core | Slowest frame ms |
+|---|---|---|---|---|---|---|
+| idle | everyday | 0.0049 | 33.6 | 100.0% | 0.06% | 33.6 |
+| hauling | everyday | 0.0078 | 17.7 | 100.0% | 0.09% | 17.7 |
+| arbitration | stress | 0.1200 | 65.9 | 100.0% | 1.4% | 76.5 |
+| interrupted | stress | 0.0069 | 13.1 | 100.0% | 0.08% | 13.1 |
+
+| Save scenario | Size KB | Text ms (mean / slowest) | Written ms | Loaded ms |
+|---|---|---|---|---|
+| after a day of arbitration | 560 | 21.7 / 68.1 | 59.0 / 151.5 | 36.4 / 82.2 |
+
+As in 25a, idle's slowest tick in the cloud is just over the everyday
+threshold (33.6 ms against 33; 25a measured 34.8 here and 16.9 on the
+maintainer's PC). The PC run decides. The test suite takes 2 minutes 43
+seconds.
+
 ## Assessment
 
 **Everyday play is far within its time.** A colony at rest or hauling takes a

@@ -47,14 +47,36 @@ public sealed record LeisureRules(IReadOnlyDictionary<string, LeisureNeed> Needs
                                   IReadOnlyDictionary<string, string> Interests, double WithinMetres, double StrollMetres,
                                   int RetryMinutes, int LookAgainMinutes, IReadOnlyList<Activity> Activities)
 {
-    /// <summary>The places an activity may need.</summary>
-    public static readonly string[] Places = { "trees", "water", "open", "workplace", "camp" };
+    /// <summary>The places an activity may need ("company": with other colonists: a talk, step 25b).</summary>
+    public static readonly string[] Places = { "trees", "water", "open", "workplace", "camp", "company" };
+    /// <summary>How talks go (step 25b).</summary>
+    public TalkRules Talk { get; init; } = null!;
+    /// <summary>The words for what colonists talk about (step 25b).</summary>
+    public Topics Topics { get; init; } = null!;
     /// <summary>What draws a colonist to practising: any skill they enjoy.</summary>
     public const string EnjoyedSkill = "enjoyed_skill";
 
     /// <summary>Whether `hour` falls in the part of the day `time` (an hour from `From` up to, not including, `To`).</summary>
     public bool InTime(string time, int hour) => Times[time] is var (from, to) && (from <= to ? hour >= from && hour < to : hour >= from || hour < to);
 }
+
+/// <summary>
+/// How talks go (step 25b, leisure.json "talk"; library Review 42): at most `Most` colonists in one talk; how willing
+/// a colonist is to be asked (`Willing`, a chance from 0 to 1, raised by their Social need and an interest in
+/// company); how many hours back the colony's happenings are talked about (`RecentHours`); how many finished talks
+/// are kept for later (`Kept`, for the relationships to come); how long each speaker's bubble shows, in ticks
+/// (`BubbleTicks`, from real seconds at ×1).
+/// </summary>
+public sealed record TalkRules(int Most, double Willing, int RecentHours, int Kept, int BubbleTicks);
+
+/// <summary>
+/// The words for what colonists talk about (step 25b, leisure.json "topics"): the colony's happenings (a piece built,
+/// with {piece}; someone ill, with {name} and {illness}; someone collapsed, with {name}; the arrival), a speaker's own
+/// state (hungry, thirsty, tired, unwashed), work and interests they enjoy (by skill or broad interest), the time of
+/// day (dusk, dark), and everyday topics when nothing else applies.
+/// </summary>
+public sealed record Topics(string Built, string Ill, string Collapsed, string Arrived, string Hungry, string Thirsty, string Tired,
+                            string Unwashed, IReadOnlyDictionary<string, string> Enjoys, string Dusk, string Dark, IReadOnlyList<string> Everyday);
 
 public sealed record NeedRule(string Name, double PerHour, double AsleepPerHour, double Peckish, double Wants, double Urgent,
                               double Critical, double CollapseHours);
@@ -905,7 +927,7 @@ public sealed class Content
 
         // Free time (step 25a, library Review 42).
         LeisureRules? leisure = null;
-        if (Open("leisure.json", "needs", "times", "interests", "within_m", "stroll_m", "retry_minutes", "look_again_minutes", "activities") is JsonObject le2)
+        if (Open("leisure.json", "needs", "times", "interests", "within_m", "stroll_m", "retry_minutes", "look_again_minutes", "activities", "talk", "topics") is JsonObject le2)
         {
             var lneeds = new Dictionary<string, LeisureNeed>();
             if (le2["needs"] is JsonObject ln && ln.Count > 0)
@@ -1008,8 +1030,75 @@ public sealed class Content
                          && minutes != null && eases.Count > 0)
                     activities.Add(new Activity(id, name, doing, place, when, stops.Value, minutes.Value, eases, drawn, teaches));
             }
-            if (within != null && stroll != null && retry != null && lookAgain != null)
-                leisure = new LeisureRules(lneeds, times, interests, within.Value, stroll.Value, retry.Value, lookAgain.Value, activities);
+            // Talk (step 25b): its rules, and the one activity that is a talk (place "company").
+            TalkRules? talk = null;
+            if (le2["talk"] is JsonObject tk)
+            {
+                const string at = "leisure.json.talk";
+                check.Keys(tk, at, "most", "willing", "recent_hours", "kept", "bubble_real_seconds");
+                int? most = check.Int(tk, at, "most", 2), recent = check.Int(tk, at, "recent_hours", 0), kept = check.Int(tk, at, "kept", 0);
+                double? willing = tk["willing"] is JsonValue wv && wv.TryGetValue(out double wd) && wd >= 0 && wd <= 1 ? wd : null;
+                if (willing == null)
+                    problems.Add(at + ".willing: should be a chance from 0 to 1");
+                double? bubble = check.Positive(tk, at, "bubble_real_seconds");
+                if (most != null && willing != null && recent != null && kept != null && bubble != null)
+                    talk = new TalkRules(most.Value, willing.Value, recent.Value, kept.Value, Calendar.TicksOf(bubble.Value));
+            }
+            else if (le2.ContainsKey("talk"))
+                problems.Add("leisure.json.talk: should be an object { ... }");
+            if (activities.Count(a => a.Place == "company") > 1)
+                problems.Add("leisure.json.activities: only one activity may be done in company (the talk)");
+            // The topics' words: each a few words; a pattern must have its blanks ({piece}, {name}, {illness}).
+            Topics? topics = null;
+            if (le2["topics"] is JsonObject tp)
+            {
+                const string at = "leisure.json.topics";
+                check.Keys(tp, at, "built", "ill", "collapsed", "arrived", "hungry", "thirsty", "tired", "unwashed", "enjoys", "dusk", "dark", "everyday");
+                string? Words(string key, params string[] blanks)
+                {
+                    string? text = check.Text(tp, at, key);
+                    foreach (string blank in blanks)
+                        if (text != null && !text.Contains("{" + blank + "}"))
+                        {
+                            problems.Add(at + "." + key + ": should have {" + blank + "} in it");
+                            return null;
+                        }
+                    return text;
+                }
+                var enjoys = new Dictionary<string, string>();
+                if (tp["enjoys"] is JsonObject ej)
+                    foreach (var (id, node) in ej)
+                        if (!skills.ContainsKey(id) && !interests.ContainsKey(id))
+                            problems.Add(at + ".enjoys." + id + ": no skill or broad interest called that");
+                        else if (node is JsonValue v && v.TryGetValue(out string? words) && words.Trim().Length > 0)
+                            enjoys[id] = words;
+                        else
+                            problems.Add(at + ".enjoys." + id + ": should be the words for it");
+                else if (tp.ContainsKey("enjoys"))
+                    problems.Add(at + ".enjoys: should be a table of skill or interest and the words for talking about it");
+                var everyday = new List<string>();
+                if (tp["everyday"] is JsonArray ev && ev.Count > 0)
+                    for (int i = 0; i < ev.Count; i++)
+                        if (ev[i] is JsonValue v && v.TryGetValue(out string? words) && words.Trim().Length > 0)
+                            everyday.Add(words);
+                        else
+                            problems.Add(at + ".everyday[" + i + "]: should be a few words");
+                else if (tp.ContainsKey("everyday"))
+                    problems.Add(at + ".everyday: should be a list of at least one topic");
+                string? built = Words("built", "piece"), ill = Words("ill", "name", "illness"), collapsed = Words("collapsed", "name"),
+                        arrived = Words("arrived"), hungry = Words("hungry"), thirsty = Words("thirsty"), tired = Words("tired"),
+                        unwashed = Words("unwashed"), dusk = Words("dusk"), dark = Words("dark");
+                if (built != null && ill != null && collapsed != null && arrived != null && hungry != null && thirsty != null && tired != null
+                    && unwashed != null && dusk != null && dark != null && everyday.Count > 0)
+                    topics = new Topics(built, ill, collapsed, arrived, hungry, thirsty, tired, unwashed, enjoys, dusk, dark, everyday);
+            }
+            else if (le2.ContainsKey("topics"))
+                problems.Add("leisure.json.topics: should be an object { ... }");
+            if (within != null && stroll != null && retry != null && lookAgain != null && talk != null && topics != null)
+                leisure = new LeisureRules(lneeds, times, interests, within.Value, stroll.Value, retry.Value, lookAgain.Value, activities)
+                {
+                    Talk = talk, Topics = topics,
+                };
         }
 
         // Who founds the colony.

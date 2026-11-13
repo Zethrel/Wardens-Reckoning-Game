@@ -355,6 +355,7 @@ public sealed partial class Work
         }
         foreach (var (tx, ty) in Footprint(kind, project.X, project.Y))
             Ground!.AddPiece(project.Piece, kind.Blocks, tx, ty, kind.Encloses, kind.Speed);
+        Note("built", kind.Name.ToLowerInvariant());          // something to talk about (step 25b)
         // A water barrel or a wash basin holds water on its tile.
         if (kind.HoldsLitres > 0)
             AddContainer(kind, project.X, project.Y);

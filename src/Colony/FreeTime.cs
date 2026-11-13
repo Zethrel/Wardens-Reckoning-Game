@@ -49,9 +49,19 @@ public sealed partial class Work
         var possible = rules.Activities.Where(a => !(w.NotBefore.TryGetValue(a.Id, out long until) && until > now)
                                                   && a.When.Any(time => rules.InTime(time, hour))).ToList();
         var offered = new List<(Activity Activity, (double X, double Y, BuildingId? Site) Spot, double Weight)>();
+        (double X, double Y, long? Join, ColonistId? Ask)? talkSpot = null;
         var spots = possible.Count > 0 ? Spots(w, w.X, w.Y, rules.WithinMetres) : null;   // every kind of place around, in one look
         foreach (var activity in possible)
         {
+            if (activity.Place == "company")
+            {
+                // A talk (step 25b): someone to talk with, or a talk to join, nearby.
+                if (TalkSpot(w) is not var (tx, ty, join, ask))
+                    continue;
+                talkSpot = (tx, ty, join, ask);
+                offered.Add((activity, (tx, ty, null), Weight(w, activity, Math.Sqrt((tx - w.X) * (tx - w.X) + (ty - w.Y) * (ty - w.Y)))));
+                continue;
+            }
             if (FirstSpot(w, activity, spots!) is not var (x, y, site))
                 continue;                                  // no place for it: another is chosen (Review 42)
             offered.Add((activity, (x, y, site), Weight(w, activity, Math.Sqrt((x - w.X) * (x - w.X) + (y - w.Y) * (y - w.Y)))));
@@ -73,6 +83,13 @@ public sealed partial class Work
                 break;
             }
             roll -= o.Weight;
+        }
+        if (chosen.Activity.Place == "company")
+        {
+            // Asked, the other may say no: then nothing now, and they look again in a while.
+            if (!StartTalk(w, talkSpot!.Value, chosen.Activity))
+                w.LookAgain = now + rules.LookAgainMinutes * Calendar.TicksPerMinute;
+            return;
         }
         w.Outing = new Outing
         {
@@ -214,6 +231,8 @@ public sealed partial class Work
     {
         var o = w.Outing!;
         var activity = content.Leisure.Activities.First(a => a.Id == o.Activity);
+        if (o.Talk != null && !SpendTalk(w, o))
+            return;                                        // a talk not yet under way for them (step 25b)
         if (o.Left == null)
         {
             // The way there is gone, or the workplace taken: unavailable, so they let it go.
@@ -259,11 +278,15 @@ public sealed partial class Work
             w.NotBefore[o.Activity] = colony.Now.Tick + content.Leisure.RetryMinutes * Calendar.TicksPerMinute;
         w.Outing = null;
         w.Heading = null;
+        if (o.Talk is long talk)
+            LeaveTalk(w, talk);                            // the talk goes on with two or more (step 25b)
     }
 
     /// <summary>What a colonist on an outing is doing, in words.</summary>
-    string OutingWords(Outing o)
+    string OutingWords(Worker w, Outing o)
     {
+        if (o.Talk != null)
+            return TalkWords(w, o);
         var activity = content.Leisure.Activities.First(a => a.Id == o.Activity);
         return o.Left == null && o.StopsLeft == activity.Stops - 1 ? activity.Doing + " (on the way)" : activity.Doing;
     }
