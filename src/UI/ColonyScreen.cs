@@ -106,6 +106,7 @@ public partial class ColonyScreen : Node
         // the bar; hidden until something is picked. Its height follows what it shows, up to the map's, scrolling
         // beyond that.
         side = new PanelContainer { Visible = false };
+        side.AddThemeStyleboxOverride("panel", Ledger.Panel());     // the Warden's Ledger look (step 26b)
         side.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.RightWide);
         side.OffsetLeft = -InspectorWidth;
         middle.AddChild(side);
@@ -119,6 +120,7 @@ public partial class ColonyScreen : Node
         column.AddChild(head);
         inspectorTitle = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         inspectorTitle.AddThemeFontSizeOverride("font_size", 18);
+        inspectorTitle.AddThemeColorOverride("font_color", Ledger.Parchment);
         head.AddChild(inspectorTitle);
         more = new Button { Text = "More", TooltipText = "Show everything about it (M)", FocusMode = Control.FocusModeEnum.None };
         more.Pressed += ToggleMore;
@@ -330,9 +332,10 @@ public partial class ColonyScreen : Node
     void ShowInspection()
     {
         Inspection? shown = null;
+        ColonistCard? card = null;
         var commands = (IReadOnlyList<Command>)Array.Empty<Command>();
         if (view!.SelectedWorker is ColonistId id && Colony.Work!.Workers.Any(w => w.Id == id))
-            shown = Inspect.Worker(Colony, id, trace);
+            card = Inspect.Card(Colony, id, trace);
         else if (view.SelectedTile is var (x, y))
         {
             shown = Inspect.Tile(Colony, x, y, trace);
@@ -344,26 +347,99 @@ public partial class ColonyScreen : Node
             child.QueueFree();
         ShowCommands(commands);
         // Shown while something is picked and the player has not hidden it; the tab while it is hidden (step 26a).
-        side!.Visible = shown != null && !hidden;
-        reopen!.Visible = shown != null && hidden;
-        if (shown == null)
-            return;
-        inspectorTitle!.Text = shown.Title;
-        // Compact: the brief lines, if the inspection has them; More shows them all.
-        more!.Visible = shown.Brief != null;
+        bool any = shown != null || card != null;
+        side!.Visible = any && !hidden;
+        reopen!.Visible = any && hidden;
+        // More/Less is for a colonist's card; a tile shows all it has.
+        more!.Visible = card != null;
         more.Text = expanded ? "Less" : "More";
-        more.TooltipText = expanded ? "Show only the main things (M)" : "Show everything about it (M)";
-        foreach (var line in Inspect.Shown(shown, expanded))
+        more.TooltipText = expanded ? "Show only the main things (M)" : "Show skills, interests, where and what they carry (M)";
+        if (card != null)
+            ShowCard(card);
+        else if (shown != null)
         {
-            var label = new Label { Text = line.Label + ": " + line.Text, AutowrapMode = TextServer.AutowrapMode.WordSmart,
-                                    CustomMinimumSize = new Vector2(InspectorWidth - 30, 0) };
-            label.AddThemeFontSizeOverride("font_size", 14);
-            // The developer's trace looks different from the player's words (FP-06): grey, in its own line.
-            if (line.Label == "Trace")
-                label.AddThemeColorOverride("font_color", new Color(0.65f, 0.65f, 0.65f));
-            inspector.AddChild(label);
+            inspectorTitle!.Text = shown.Title;
+            foreach (var line in shown.Lines)
+                inspector.AddChild(Line(line.Label + ": " + line.Text, line.Label == "Trace" ? Ledger.Faded : null));
         }
     }
+
+    // A line of the inspector, wrapped to its width.
+    Label Line(string text, Color? color = null, int size = 14)
+    {
+        var label = Ledger.Label(text, size, color);
+        label.CustomMinimumSize = new Vector2(InspectorWidth - 30, 0);
+        return label;
+    }
+
+    /// <summary>
+    /// A colonist's card (step 26b, UI plan UI-02), in groups: their status and schedule under the name; what they are
+    /// doing; what needs seeing to now (lacking, unwell); their needs as bars, a fuller bar a more pressing need; and,
+    /// with More, their skills and interests, where they are and what they carry; with F3, the developer's trace.
+    /// </summary>
+    void ShowCard(ColonistCard card)
+    {
+        inspectorTitle!.Text = card.Name;
+        inspector!.AddChild(Line(card.Status, Ledger.Parchment, 14));
+        inspector.AddChild(Line(card.Schedule, Ledger.Faded, 12));
+        inspector.AddChild(Gap());
+        inspector.AddChild(Ledger.Heading("Doing"));
+        inspector.AddChild(Line(card.Doing));
+        foreach (var alert in card.Alerts)
+            inspector.AddChild(Line(alert.Label + ": " + alert.Text, Ledger.Warning));
+        inspector.AddChild(Gap());
+        // Needs: counted as deficits (0 not at all, 100 at its limit), so the bar fills as the need grows. The number
+        // and the word say it too, so the colour is never the only sign (FP-11).
+        inspector.AddChild(Ledger.Heading("Needs: how pressing"));
+        foreach (var need in card.Needs)
+            inspector.AddChild(NeedRow(need));
+        if (expanded)
+        {
+            inspector.AddChild(Gap());
+            inspector.AddChild(Ledger.Heading("Skills and interests"));
+            foreach (var line in card.Skills)
+                inspector.AddChild(Line(line.Label + ": " + line.Text));
+            inspector.AddChild(Gap());
+            inspector.AddChild(Ledger.Heading("Where and carrying"));
+            foreach (var line in card.More)
+                inspector.AddChild(Line(line.Label + ": " + line.Text));
+        }
+        if (card.Diagnostics.Count > 0)
+        {
+            inspector.AddChild(Gap());
+            inspector.AddChild(Ledger.Heading("Developer's trace (F3)"));
+            foreach (var line in card.Diagnostics)
+                inspector.AddChild(Line(line.Text, Ledger.Faded, 12));
+        }
+    }
+
+    // A need: its name, a bar filled as far as it is pressing, and its level and word ("35 · wants").
+    static Control NeedRow(NeedBar need)
+    {
+        var row = new HBoxContainer();
+        row.AddThemeConstantOverride("separation", 6);
+        var name = Ledger.Label(need.Name, 13);
+        name.AutowrapMode = TextServer.AutowrapMode.Off;
+        name.CustomMinimumSize = new Vector2(78, 0);
+        row.AddChild(name);
+        var bar = new ProgressBar
+        {
+            MinValue = 0, MaxValue = 100, Value = need.Level, ShowPercentage = false,
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+            CustomMinimumSize = new Vector2(0, 10),
+            TooltipText = need.Name + ": " + Math.Round(need.Level) + " of 100, " + need.Word + " (a fuller bar is a more pressing need)",
+        };
+        bar.AddThemeStyleboxOverride("background", Ledger.Flat(Ledger.CharcoalLight));
+        bar.AddThemeStyleboxOverride("fill", Ledger.Flat(Ledger.Pressing(need.Pressing)));
+        row.AddChild(bar);
+        var value = Ledger.Label(Math.Round(need.Level) + " · " + need.Word, 12, need.Pressing >= 2 ? Ledger.Warning : Ledger.Faded);
+        value.AutowrapMode = TextServer.AutowrapMode.Off;
+        value.CustomMinimumSize = new Vector2(92, 0);
+        row.AddChild(value);
+        return row;
+    }
+
+    static Control Gap() => new Control { CustomMinimumSize = new Vector2(0, 4) };
 
     // The waiting list as an inspection, and a button per entry under it (made again only when the list changes).
     Inspection WaitingList()

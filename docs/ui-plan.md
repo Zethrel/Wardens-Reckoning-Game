@@ -132,6 +132,17 @@ Implement each phase as a small, independently testable change. The order may be
 - UI scaling and testing at different resolutions.
 - Usability testing with players unfamiliar with the simulation.
 
+## 5a. Visual direction: the Warden's Ledger (the maintainer, 13-11-2026)
+
+Charcoal panels, parchment accents, muted brass highlights, and organised
+information resembling a settlement administrator's records. A concept picture
+of the colony screen in this look: `docs/ui/wardens-ledger-concept.png` (a
+concept, not a specification: its buttons and portrait are not decided).
+
+Applied as each piece of the interface is reworked, from step 26b (the
+inspector); the colours are kept in one place (`src/UI/Ledger.cs`). The full
+art pass stays deferred (section 6).
+
 ## 6. Explicitly deferred
 
 Do **not** treat the following as requirements for the immediate UI improvement:

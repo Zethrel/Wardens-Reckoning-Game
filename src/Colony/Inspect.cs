@@ -6,12 +6,26 @@ namespace WardensReckoning.Colony;
 /// <summary>One line of an inspection: a label ("Doing") and what it says ("carrying timber to the house").</summary>
 public sealed record Line(string Label, string Text);
 
-/// <summary>What the inspector panel shows for a tile or a colonist: a title and its lines; and, for a colonist, the
-/// few lines the compact inspector shows (`Brief`, step 26a), or null to show them all.</summary>
-public sealed record Inspection(string Title, IReadOnlyList<Line> Lines)
-{
-    public IReadOnlyList<Line>? Brief { get; init; }
-}
+/// <summary>What the inspector panel shows for a tile: a title and its lines.</summary>
+public sealed record Inspection(string Title, IReadOnlyList<Line> Lines);
+
+/// <summary>
+/// One need on a colonist's card (step 26b, UI plan UI-02): its name, how pressing it is from 0 (not at all) to 100
+/// (at its limit; the needs are counted as deficits, so a fuller bar is a more pressing need), the word for that
+/// level ("fine", "peckish", "wants"..., or the free-time need's own words), and how pressing that word is: 0 fine, 1
+/// a little, 2 wants it, 3 urgent, 4 critical (for the bar's colour).
+/// </summary>
+public sealed record NeedBar(string Name, double Level, string Word, int Pressing);
+
+/// <summary>
+/// A colonist in the inspector, in groups (step 26b, UI plan UI-02): who and in what state (`Status`, and their
+/// `Schedule` now); what they are doing; their needs; then, behind More, their skills and interests (`Skills`) and the
+/// rest (`More`: where, carrying); what needs seeing to now (`Alerts`: lacking, unwell) is always shown; and with the
+/// developer's trace on, `Diagnostics`. The words are the same as the full list's (`Inspect.Worker`).
+/// </summary>
+public sealed record ColonistCard(string Name, string Status, string Schedule, string Doing, IReadOnlyList<NeedBar> Needs,
+                                  IReadOnlyList<Line> Alerts, IReadOnlyList<Line> Skills, IReadOnlyList<Line> More,
+                                  IReadOnlyList<Line> Diagnostics);
 
 /// <summary>
 /// Something the player can do from the inspector (step 18b): its button's words, the key that does it too, what it
@@ -110,28 +124,67 @@ public static class Inspect
             lines.Add(new Line("Unwell", illness.Name + ": working slower, thirsty and tired; until " + new Moment(illness.Ends)));
         else if (trace && w.Illness is Illness coming)
             lines.Add(new Line("Trace", "caught " + coming.Name.ToLowerInvariant() + ", shows " + new Moment(coming.Shows)));
-        return new Inspection(w.Name, lines) { Brief = Brief(lines, w.Needs.Keys.Select(n => Capital(Rules(colony).Needs[n].Name))
-                                                                 .Concat(w.FreeNeeds.Keys.Select(n => leisure.Needs[n].Name)).ToHashSet()) };
+        return new Inspection(w.Name, lines);
     }
-
-    /// <summary>The lines the inspector shows (step 26a): all of them when `expanded` or when there is no brief; the
-    /// brief ones otherwise.</summary>
-    public static IReadOnlyList<Line> Shown(Inspection inspection, bool expanded) =>
-        expanded || inspection.Brief == null ? inspection.Lines : inspection.Brief;
 
     /// <summary>
-    /// The compact inspector's lines for a colonist (step 26a, UI plan UI-01): what they are doing, their schedule
-    /// now, only the needs that are not "fine" (or one line saying all are), and what they lack or are ill with. The
-    /// rest is a click away (More).
+    /// A colonist's card (step 26b): the full list (`Worker`) sorted into its groups, word for word, with the needs as
+    /// levels for bars and a status in a few words.
     /// </summary>
-    static IReadOnlyList<Line> Brief(IReadOnlyList<Line> lines, IReadOnlySet<string> needs)
+    public static ColonistCard Card(Colony colony, ColonistId id, bool trace = false)
     {
-        var brief = lines.Where(l => l.Label is "Doing" or "Schedule").ToList();
-        var wanting = lines.Where(l => needs.Contains(l.Label) && !l.Text.EndsWith(", fine")).ToList();
-        brief.AddRange(wanting.Count > 0 ? wanting : new[] { new Line("Needs", "all fine") });
-        brief.AddRange(lines.Where(l => l.Label is "Lacking" or "Unwell"));
-        return brief;
+        var work = colony.Work ?? throw new InvalidOperationException("the colony has no colonists");
+        var w = work.Workers.First(x => x.Id == id);
+        var lines = Worker(colony, id, trace).Lines;
+        string Text(string label) => lines.FirstOrDefault(l => l.Label == label)?.Text ?? "";
+        var content = Rules(colony);
+        var needs = new List<NeedBar>();
+        foreach (var (need, state) in w.Needs)
+        {
+            var rule = content.Needs[need];
+            string word = Word(rule, state.Level);
+            needs.Add(new NeedBar(Capital(rule.Name), state.Level, word,
+                                  word switch { "fine" => 0, "peckish" => 1, "wants" => 2, "urgent" => 3, _ => 4 }));
+        }
+        foreach (var (need, level) in w.FreeNeeds)
+        {
+            var rule = content.Leisure.Needs[need];
+            bool wants = level >= rule.Wants;
+            needs.Add(new NeedBar(rule.Name, level, wants ? rule.Words : "fine", wants ? 2 : 0));
+        }
+        var skillNames = content.Skills.Values.Select(s => s.Name).ToHashSet();
+        var diagnostics = lines.Where(l => l.Label == "Trace").ToList();
+        if (trace)
+            diagnostics.Add(new Line("Trace", "at (" + Number(w.X) + ", " + Number(w.Y) + "); thinks next at " + new Moment(w.NextThink)
+                                              + (w.BetweenSince is long since ? "; between jobs since " + new Moment(since) : "")));
+        return new ColonistCard(
+            w.Name, Status(work, w), Text("Schedule"), Text("Doing"), needs,
+            lines.Where(l => l.Label is "Lacking" or "Unwell").ToList(),
+            lines.Where(l => l.Label == "Interests" || skillNames.Contains(l.Label)).ToList(),
+            lines.Where(l => l.Label is "Where" or "Carrying").ToList(),
+            diagnostics);
     }
+
+    /// <summary>
+    /// A colonist's state in a few words (step 26b): collapsed, asleep, seeing to a need, stopped, working, between
+    /// jobs, at their free time, or what their schedule's block is for. Each from the colony's own state, nothing
+    /// guessed.
+    /// </summary>
+    public static string Status(Work work, Worker w) =>
+        w.Collapsed != null ? "Collapsed"
+        : w.Asleep ? "Asleep"
+        : w.Personal != null ? "Seeing to a need"
+        : w.Stopped ? "Stopped by order"
+        : w.Job != null ? "Working"
+        : w.BetweenSince != null ? "Between jobs · available for work"
+        : w.Outing != null ? "Free time"
+        : work.BlockOf(w) switch
+        {
+            Block.Work => "Waiting for work",
+            Block.Meals => "Meal time",
+            Block.Sleep => "Time to sleep",
+            _ => "Free time",
+        };
 
     /// <summary>The word for a need's level: "fine" below peckish, then "peckish", "wants", "urgent", "critical".</summary>
     public static string Word(NeedRule rule, double level) =>
