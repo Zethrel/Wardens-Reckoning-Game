@@ -22,12 +22,14 @@ public class ThinkTests
         var work = colony.Work!;
         var rhythm = work.Workers.ToDictionary(w => w.Id, w => w.ThinkEvery);
         Assert.All(rhythm.Values, every => Assert.InRange(every, 2, 7));
-        // Over five minutes, each thinks exactly on their rhythm (an order would hurry them; none is given here).
+        // Over five minutes, each thinks exactly on their rhythm (an order would hurry them; none is given here). A think
+        // sets the next one a rhythm ahead; `Thought` alone would also count wake-ups (an arrival: since step 25c, idling
+        // between jobs walks them about).
         var thoughts = work.Workers.ToDictionary(w => w.Id, _ => new List<long>());
         colony.Run(5 * 60, c =>
         {
             foreach (var w in c.Work!.Workers)
-                if (w.Thought == c.Now.Tick)
+                if (w.NextThink == c.Now.Tick + w.ThinkEvery)
                     thoughts[w.Id].Add(c.Now.Tick);
         });
         foreach (var w in work.Workers)

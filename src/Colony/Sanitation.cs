@@ -168,6 +168,7 @@ public sealed partial class Work
                 Third = colony.Ids.Next<OperationId>(), Boiling = water.Id, Purpose = "boil water from " + water.Name.ToLowerInvariant(),
             };
             jobs[job.Id.Value] = job;
+            Reconsider = true;                            // a new job: those between jobs may take it (step 25c)
         }
     }
 

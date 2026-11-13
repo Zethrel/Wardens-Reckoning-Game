@@ -10,6 +10,12 @@
   "stroll_m": 12,
   "retry_minutes": 60,
   "look_again_minutes": 10,
+  "between_jobs": {
+    "wait_minutes": 30,
+    "within_m": 25,
+    "eases_share": 0.5,
+    "idle": { "doing": "between jobs, pottering about", "within_m": 8, "stops": 3, "minutes_each": 4 }
+  },
   "activities": [
     { "id": "nature_walk", "name": "Nature walk", "doing": "on a nature walk", "place": "trees", "when": ["day", "dusk"],
       "stops": 3, "minutes_each": 10, "eases_per_hour": { "recreation": 40 }, "drawn_by": ["nature"], "teaches": 0 },

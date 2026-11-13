@@ -61,7 +61,10 @@ public static class ColonySave
     // 18: interests (step 23c): each colonist's "interests", a table of skill and "enjoys" or "dislikes".
     // 17: the hybrid clock (step 24, library Review 41): each colonist's action deadline, the fourth of "think" (null
     // when nothing is due); 24 ticks are now a real second at ×1, so the same ticks mean slower walking.
-    public const int Version = 20;
+    // 21: between jobs (step 25c, library Review 43): each colonist's "free" also holds "between_since" (a tick, or
+    // null) and "worked_at" ([x, y], or null); an outing's "between"; "reconsider" in "work". An outing's activity may
+    // be "idle".
+    public const int Version = 21;
 
     /// <summary>The colony as JSON.</summary>
     public static JsonObject Write(Colony colony) => new()
@@ -126,10 +129,13 @@ public static class ColonySave
                         ["activity"] = o.Activity, ["x"] = o.X, ["y"] = o.Y, ["stops_left"] = o.StopsLeft, ["left"] = o.Left,
                         ["site"] = o.Site?.Value,
                         ["talk"] = o.Talk,
+                        ["between"] = o.Between,
                     },
                     ["not_before"] = new JsonObject(w.NotBefore.Select(n => KeyValuePair.Create(n.Key, (JsonNode?)n.Value))),
                     ["last"] = w.LastActivity,
                     ["look_again"] = w.LookAgain,
+                    ["between_since"] = w.BetweenSince,
+                    ["worked_at"] = w.WorkedAt is not var (wx, wy) ? null : new JsonArray(wx, wy),
                 },
                 ["heading"] = w.Heading is not var (hx, hy, hnear) ? null : new JsonArray(hx, hy, hnear),
                 ["think"] = new JsonArray(w.ThinkEvery, w.NextThink, w.Thought, w.ActionDue),
@@ -148,6 +154,7 @@ public static class ColonySave
             ["springs"] = new JsonArray(work.Springs.Select(s => work.SourceOf(s) is var w ? (JsonNode?)new JsonArray(s.Value, w.Kind.ToString(),
                 w.Litres, w.Frozen, w.FouledUntil, w.Sign, w.SignSeen) : null).ToArray()),
             ["cold"] = work.Cold,
+            ["reconsider"] = work.Reconsider,
             ["news"] = new JsonArray(work.Told.Select(n => (JsonNode?)new JsonArray(n.Tick, n.Text)).ToArray()),
             ["talk"] = new JsonObject
             {
@@ -611,10 +618,11 @@ public static class ColonySave
                 worker.FreeNeeds[need] = freeNeeds[need] is JsonValue fv && fv.TryGetValue(out double fl) && fl >= 0 && fl <= 100 ? fl
                     : throw new ColonySaveException(at + ".free.needs." + need + " is not a level from 0 to 100");
             bool Known(string? activity) => activity != null && content.Leisure.Activities.Any(a => a.Id == activity);
+            bool KnownOrIdle(string? activity) => activity == BetweenJobsRules.IdleId || Known(activity);
             if (free["outing"] is JsonObject og)
             {
                 string? activity = (og["activity"] as JsonValue)?.GetValue<string>();
-                if (!Known(activity) || og["x"] is not JsonValue ox || !ox.TryGetValue(out double outX) || og["y"] is not JsonValue oy
+                if (!KnownOrIdle(activity) || og["x"] is not JsonValue ox || !ox.TryGetValue(out double outX) || og["y"] is not JsonValue oy
                     || !oy.TryGetValue(out double outY) || og["stops_left"] is not JsonValue os || !os.TryGetValue(out int stopsLeft) || stopsLeft < 0)
                     throw new ColonySaveException(at + ".free.outing is not an outing: an activity the content knows, x, y and stops left");
                 int? left = og["left"] is null ? null : og["left"] is JsonValue lv && lv.TryGetValue(out int l) && l > 0 ? l
@@ -623,7 +631,11 @@ public static class ColonySave
                     : throw new ColonySaveException(at + ".free.outing.site is not a workshop's number, or null");
                 long? talkId = og["talk"] is null ? null : og["talk"] is JsonValue tv2 && tv2.TryGetValue(out long tid) ? tid
                     : throw new ColonySaveException(at + ".free.outing.talk is not a talk's number, or null");
-                worker.Outing = new Outing { Activity = activity!, X = outX, Y = outY, StopsLeft = stopsLeft, Left = left, Site = site, Talk = talkId };
+                bool between = og["between"] is JsonValue bv && bv.TryGetValue(out bool bb) ? bb
+                    : throw new ColonySaveException(at + ".free.outing.between is not true or false");
+                if (activity == BetweenJobsRules.IdleId && !between)
+                    throw new ColonySaveException(at + ".free.outing is idling, which is only between jobs");
+                worker.Outing = new Outing { Activity = activity!, X = outX, Y = outY, StopsLeft = stopsLeft, Left = left, Site = site, Talk = talkId, Between = between };
             }
             else if (free["outing"] is not null)
                 throw new ColonySaveException(at + ".free.outing is not an outing, or null");
@@ -636,6 +648,14 @@ public static class ColonySave
                     : throw new ColonySaveException(at + ".free.last is not an activity the content knows, or null");
             worker.LookAgain = free["look_again"] is JsonValue la && la.TryGetValue(out long lookAgain) ? lookAgain
                 : throw new ColonySaveException(at + ".free.look_again is not a tick");
+            // Between jobs (step 25c).
+            worker.BetweenSince = free["between_since"] is null ? null
+                : free["between_since"] is JsonValue bs && bs.TryGetValue(out long since) && since <= colony.Now.Tick ? since
+                : throw new ColonySaveException(at + ".free.between_since is not a tick up to now, or null");
+            worker.WorkedAt = free["worked_at"] is null ? null
+                : free["worked_at"] is JsonArray wa && wa.Count == 2 && wa[0] is JsonValue wax && wax.TryGetValue(out double ax)
+                  && wa[1] is JsonValue way && way.TryGetValue(out double ay) ? (ax, ay)
+                : throw new ColonySaveException(at + ".free.worked_at is not [x, y], or null");
             long dueTick = 0;
             if (o["think"] is not JsonArray think || think.Count != 4
                 || !(think[0] is JsonValue t0 && t0.TryGetValue(out int every) && every >= 1)
@@ -785,6 +805,8 @@ public static class ColonySave
         colony.Work!.PutTalks(Number(talk["next"], "work.talk.next"), under, kept, happened);
         colony.Work!.Cold = work["cold"] is JsonValue cv && cv.TryGetValue(out bool cold)
             ? cold : throw new ColonySaveException("work.cold is not true or false");
+        colony.Work!.Reconsider = work["reconsider"] is JsonValue rv2 && rv2.TryGetValue(out bool reconsider)
+            ? reconsider : throw new ColonySaveException("work.reconsider is not true or false");
         foreach (var (job, worker) in jobWorkers)
             if (colony.Work!.Worker(new ColonistId(worker)).Job != new TaskId(job))
                 throw new ColonySaveException("work.jobs: job " + job + " names worker " + worker + ", who is not doing it");

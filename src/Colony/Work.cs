@@ -103,6 +103,13 @@ public sealed class Worker(ColonistId id, string name, double x, double y, Inven
     /// <summary>The tick before which they do not look for free time again, after looking and finding nothing (step
     /// 25a): so a colonist with nothing to do does not search the ground at every think.</summary>
     public long LookAgain { get; internal set; }
+    /// <summary>Since when they have been between jobs in this Work block (step 25c, library Review 43): the tick they
+    /// first found no work they may take, or null. Only starting work, or the end of the Work block, sets it back
+    /// (R43-C01): losing a job to someone nearer does not.</summary>
+    public long? BetweenSince { get; internal set; }
+    /// <summary>Where they last finished work in this Work block (step 25c), or null: their work area, where they idle
+    /// and look for free time between jobs (R43-C03). Forgotten when the Work block ends.</summary>
+    public (double X, double Y)? WorkedAt { get; internal set; }
 
     double legs = 1;
     /// <summary>How well their legs carry them (step 15c), as a share of a healthy walk: 1 (100%) until body
@@ -185,6 +192,9 @@ public sealed class Outing
     public BuildingId? Site { get; init; }
     /// <summary>The talk, for a talk (step 25b).</summary>
     public long? Talk { get; init; }
+    /// <summary>Begun between jobs, in Work hours (step 25c): it eases at a share of the usual rate, and ends when the
+    /// Work block does.</summary>
+    public bool Between { get; init; }
 }
 
 /// <summary>A bedroll laid out at a place: a sleeping place, and whose it is.</summary>
@@ -398,6 +408,10 @@ public sealed partial class Work
     /// second, whatever their rhythm (step 21c).</summary>
     internal void Urge(Worker worker) => worker.NextThink = Math.Min(worker.NextThink, colony.Now.Tick + 1);
 
+    /// <summary>A job was added or put down since the last tick (step 25c, library Review 43, R43-C02): on the next
+    /// tick, those between jobs are offered the open jobs too, not only those thinking. Kept in the save.</summary>
+    public bool Reconsider { get; internal set; }
+
     /// <summary>
     /// Cancels a job. Goods not picked up are let go where they are; goods being carried are taken to the nearest
     /// store instead (the job stays, with a new destination, until they are put down).
@@ -443,6 +457,7 @@ public sealed partial class Work
         worker.ActionDue = null;                          // the step's deadline goes with it (Review 41)
         job.Worker = null;
         job.Step = Step.Open;
+        Reconsider = true;                                // a job put down: those between jobs may take it (step 25c)
         if (job.Kind == JobKind.Haul)
             job.Left = 0;
     }
@@ -483,12 +498,35 @@ public sealed partial class Work
             // Those thinking who are free for work take jobs, and set off at once. A colonist only woken to get on
             // with their work never chooses new work: that waits for their think (Review 41).
             var deciding = due.Where(w => w.NextThink <= now).ToList();
-            foreach (var worker in Assign(deciding))
-                Act(worker, jobs[worker.Job!.Value.Value], 0);
+            var took = Assign(Asked(deciding));
+            foreach (var worker in took)
+                StartWork(worker, processed: due.Contains(worker));
+            // Those thinking, free for work, who got none: between jobs (step 25c). They idle near their work, and
+            // after a while may take free time near it.
+            foreach (var worker in deciding)
+                if (worker.Job == null && Available(worker))
+                {
+                    worker.BetweenSince ??= now;
+                    if (worker.Outing == null)
+                        Occupy(worker);
+                }
             foreach (var worker in deciding)
                 worker.NextThink = now + worker.ThinkEvery;
             foreach (var worker in due)
                 Schedule(worker);
+            foreach (var worker in took)
+                if (!due.Contains(worker))
+                    Schedule(worker);
+        }
+        else if (Reconsider)
+        {
+            // Nobody due, but a job was added or put down: those between jobs may take it now (R43-C02).
+            var took = Assign(Asked(new List<Worker>()));
+            foreach (var worker in took)
+            {
+                StartWork(worker, processed: false);
+                Schedule(worker);
+            }
         }
         // Illnesses over this tick are forgotten only now, after the work done while ill was counted at the ill
         // pace (Health.cs, `Sicken`).
@@ -498,6 +536,45 @@ public sealed partial class Work
                 worker.Illness = null;
             ended.Clear();
         }
+    }
+
+    /// <summary>
+    /// Who is offered the open jobs this tick (step 25c): those thinking; and, when a job was added or put down since
+    /// the last tick (`Reconsider`), also everyone between jobs, at once, without waiting for their think (library
+    /// Review 43, R43-C02). The job allocation is the usual one (`Assign`): nearest first, in the order of their
+    /// numbers. Those between jobs who get nothing carry on with what they were doing, their wait still counting.
+    /// </summary>
+    List<Worker> Asked(List<Worker> deciding)
+    {
+        if (!Reconsider)
+            return deciding;
+        Reconsider = false;
+        return deciding.Concat(workers.Values.Where(w => w.BetweenSince != null && !deciding.Contains(w)))
+                       .OrderBy(w => w.Id.Value).ToList();
+    }
+
+    /// <summary>
+    /// A colonist took a job (step 25c): their wait between jobs is over (R43-C01), and what they were doing between
+    /// jobs ends now, credited for the time spent at it (R43-C02). One not processed this tick first has the time since
+    /// they were last processed counted, as `Process` would.
+    /// </summary>
+    void StartWork(Worker worker, bool processed)
+    {
+        worker.BetweenSince = null;
+        worker.WorkedAt = null;
+        if (!processed)
+        {
+            long now = colony.Now.Tick;
+            int elapsed = (int)Math.Min(now - worker.Thought, int.MaxValue);
+            worker.Thought = now;
+            worker.ActionDue = null;
+            worker.Heading = null;
+            if (worker.Outing != null)
+                Spend(worker, elapsed);
+        }
+        if (worker.Outing != null)
+            EndOuting(worker, interrupted: true);
+        Act(worker, jobs[worker.Job!.Value.Value], 0);
     }
 
     /// <summary>
@@ -756,6 +833,7 @@ public sealed partial class Work
     void Finish(Worker worker, Job job)
     {
         worker.Job = null;
+        worker.WorkedAt = (worker.X, worker.Y);           // their work area, if they are left between jobs (step 25c)
         jobs.Remove(job.Id.Value);
         stirred.Add(job.From.Value);                      // where it took from and brought to ask again, before
         stirred.Add(job.To.Value);                        // anyone takes a job
@@ -974,6 +1052,7 @@ public sealed partial class Work
                 From = site.Input, To = site.Output, Purpose = recipe.Name,
             };
             jobs[job.Id.Value] = job;
+            Reconsider = true;
             return;
         }
         // Otherwise it asks for what is missing, counting what is already on its way.
@@ -1034,6 +1113,7 @@ public sealed partial class Work
             Second = colony.Ids.Next<OperationId>(), Purpose = purpose,
         };
         jobs[job.Id.Value] = job;
+        Reconsider = true;
     }
 
     /// <summary>Open jobs go to those of `thinking` who are free for work (step 21c: a colonist takes work when

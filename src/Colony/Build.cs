@@ -314,6 +314,7 @@ public sealed partial class Work
                 Purpose = (project.Removing ? "take down " : "build ") + Article(kind.Name) + " at (" + project.X + ", " + project.Y + ")",
             };
             jobs[job.Id.Value] = job;
+            Reconsider = true;                            // a new job: those between jobs may take it (step 25c)
             return;
         }
         foreach (var (good, needed) in kind.Materials)

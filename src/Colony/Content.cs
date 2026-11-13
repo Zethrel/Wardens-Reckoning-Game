@@ -53,11 +53,26 @@ public sealed record LeisureRules(IReadOnlyDictionary<string, LeisureNeed> Needs
     public TalkRules Talk { get; init; } = null!;
     /// <summary>The words for what colonists talk about (step 25b).</summary>
     public Topics Topics { get; init; } = null!;
+    /// <summary>Between jobs in Work hours (step 25c).</summary>
+    public BetweenJobsRules BetweenJobs { get; init; } = null!;
     /// <summary>What draws a colonist to practising: any skill they enjoy.</summary>
     public const string EnjoyedSkill = "enjoyed_skill";
 
     /// <summary>Whether `hour` falls in the part of the day `time` (an hour from `From` up to, not including, `To`).</summary>
     public bool InTime(string time, int hour) => Times[time] is var (from, to) && (from <= to ? hour >= from && hour < to : hour >= from || hour < to);
+}
+
+/// <summary>
+/// Between jobs in Work hours (step 25c, leisure.json "between_jobs"; library Review 43, Daily Life §11.1): how long a
+/// colonist with no work idles before they may take free time (`WaitMinutes`), how far from their work area that free
+/// time may be (`WithinMetres`), what share of an activity's usual easing it gives then (`EasesShare`), and the idling
+/// itself (`Idle`: an activity of its own, not in the catalogue, easing nothing, within `IdleMetres` of their work
+/// area).
+/// </summary>
+public sealed record BetweenJobsRules(int WaitMinutes, double WithinMetres, double EasesShare, double IdleMetres, Activity Idle)
+{
+    /// <summary>The idling's id, which no activity in the catalogue may have.</summary>
+    public const string IdleId = "idle";
 }
 
 /// <summary>
@@ -927,7 +942,7 @@ public sealed class Content
 
         // Free time (step 25a, library Review 42).
         LeisureRules? leisure = null;
-        if (Open("leisure.json", "needs", "times", "interests", "within_m", "stroll_m", "retry_minutes", "look_again_minutes", "activities", "talk", "topics") is JsonObject le2)
+        if (Open("leisure.json", "needs", "times", "interests", "within_m", "stroll_m", "retry_minutes", "look_again_minutes", "between_jobs", "activities", "talk", "topics") is JsonObject le2)
         {
             var lneeds = new Dictionary<string, LeisureNeed>();
             if (le2["needs"] is JsonObject ln && ln.Count > 0)
@@ -1024,7 +1039,9 @@ public sealed class Content
                     teaches = t;
                 else if (item.ContainsKey("teaches"))
                     problems.Add(at + ".teaches: should be a share from 0 to 1");
-                if (id != null && activities.Any(a => a.Id == id))
+                if (id == BetweenJobsRules.IdleId)
+                    problems.Add(at + ": \"" + id + "\" is kept for idling between jobs; give the activity another id");
+                else if (id != null && activities.Any(a => a.Id == id))
                     problems.Add(at + ": a second activity with the id \"" + id + "\"");
                 else if (id != null && name != null && doing != null && place != null && when != null && drawn != null && stops != null
                          && minutes != null && eases.Count > 0)
@@ -1094,10 +1111,42 @@ public sealed class Content
             }
             else if (le2.ContainsKey("topics"))
                 problems.Add("leisure.json.topics: should be an object { ... }");
-            if (within != null && stroll != null && retry != null && lookAgain != null && talk != null && topics != null)
+            // Between jobs (step 25c): the wait, the reach and the share; and the idling, made into an activity of its own
+            // that eases nothing and may be done at any time of day.
+            BetweenJobsRules? between = null;
+            if (le2["between_jobs"] is JsonObject bj)
+            {
+                const string at = "leisure.json.between_jobs";
+                check.Keys(bj, at, "wait_minutes", "within_m", "eases_share", "idle");
+                int? wait = check.Int(bj, at, "wait_minutes", 0);
+                double? reach = check.Positive(bj, at, "within_m");
+                double? share = bj["eases_share"] is JsonValue sv && sv.TryGetValue(out double sh) && sh >= 0 && sh <= 1 ? sh : null;
+                if (share == null)
+                    problems.Add(at + ".eases_share: should be a share from 0 to 1");
+                Activity? idle = null;
+                double? idleWithin = null;
+                if (bj["idle"] is JsonObject id)
+                {
+                    const string iat = at + ".idle";
+                    check.Keys(id, iat, "doing", "within_m", "stops", "minutes_each");
+                    string? doing = check.Text(id, iat, "doing");
+                    idleWithin = check.Positive(id, iat, "within_m");
+                    int? stops = check.Int(id, iat, "stops", 1), minutes = check.Int(id, iat, "minutes_each", 1);
+                    if (doing != null && stops != null && minutes != null)
+                        idle = new Activity(BetweenJobsRules.IdleId, "Idling", doing, "near", times.Keys.ToList(), stops.Value, minutes.Value,
+                                            new Dictionary<string, double>(), new List<string>(), 0);
+                }
+                else
+                    problems.Add(at + ".idle: should be an object { ... }");
+                if (wait != null && reach != null && share != null && idle != null && idleWithin != null)
+                    between = new BetweenJobsRules(wait.Value, reach.Value, share.Value, idleWithin.Value, idle);
+            }
+            else
+                problems.Add("leisure.json.between_jobs: should be an object { ... }");
+            if (within != null && stroll != null && retry != null && lookAgain != null && talk != null && topics != null && between != null)
                 leisure = new LeisureRules(lneeds, times, interests, within.Value, stroll.Value, retry.Value, lookAgain.Value, activities)
                 {
-                    Talk = talk, Topics = topics,
+                    Talk = talk, Topics = topics, BetweenJobs = between,
                 };
         }
 

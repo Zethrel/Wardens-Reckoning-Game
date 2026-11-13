@@ -81,6 +81,12 @@ public sealed partial class Work
     /// </summary>
     bool Live(Worker w)
     {
+        // Out of their Work hours nobody is between jobs: the wait and the work area are forgotten (step 25c, R43-C01).
+        if (BlockOf(w) != Block.Work)
+        {
+            w.BetweenSince = null;
+            w.WorkedAt = null;
+        }
         // A need at its limit fells them at once, before they think of anything else.
         if (w.Collapsed == null && Fells(w) is string felled)
             Collapse(w, felled);
@@ -108,7 +114,9 @@ public sealed partial class Work
             // colonist free, in free time, with nothing to do, chooses something.
             if (w.Outing != null)
             {
-                if (FreeBlock(w) && w.Job == null)
+                // A free-time outing goes on in free time; one begun between jobs, while they still are (step 25c).
+                bool goesOn = w.Outing.Between ? BlockOf(w) == Block.Work && w.BetweenSince != null : FreeBlock(w);
+                if (goesOn && w.Job == null)
                 {
                     Spend(w, 0);                           // (heading on, if still on the way)
                     return false;
@@ -427,7 +435,7 @@ public sealed partial class Work
             return OutingWords(w, o);
         return BlockOf(w) switch
         {
-            Block.Work => "waiting for work",
+            Block.Work => w.BetweenSince != null ? "between jobs" : "waiting for work",
             Block.Sleep => "awake in sleeping hours",
             Block.Meals => "at a meal",
             Block.Recreation => "at leisure",

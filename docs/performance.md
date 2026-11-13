@@ -470,6 +470,46 @@ threshold (33.6 ms against 33; 25a measured 34.8 here and 16.9 on the
 maintainer's PC). The PC run decides. The test suite takes 2 minutes 43
 seconds.
 
+**The maintainer's PC, 13 November 2026** (Windows 10.0.26200, 16 logical
+processors, .NET 8.0.33, Release build; own map): **every threshold met.**
+
+| Scenario | Kind | Mean tick ms | Slowest tick ms | Sustained speed | Simulation's share of a core | Slowest frame ms |
+|---|---|---|---|---|---|---|
+| idle | everyday | 0.0027 | 19.7 | 100.0% | 0.03% | 19.7 |
+| hauling | everyday | 0.0064 | 8.463 | 100.0% | 0.08% | 8.469 |
+| arbitration | stress | 0.0577 | 34.8 | 100.0% | 0.69% | 34.9 |
+| interrupted | stress | 0.0038 | 8.758 | 100.0% | 0.05% | 8.759 |
+
+| Save scenario | Size KB | Text ms (mean / slowest) | Written ms | Loaded ms |
+|---|---|---|---|---|
+| after a day of arbitration | 584 | 11.3 / 30.1 | 35.6 / 63.1 | 21.8 / 53.7 |
+
+The same 70 walls as in the cloud.
+
+### Step 25c: between jobs, cloud, 13 November 2026
+
+Between jobs (library Review 43) makes colonists without work in Work hours
+idle and, after a while, take free time; a new job is offered at once to those
+between jobs. Measured 13 Nov 2026 on Ubuntu 24.04.5 LTS, 2 logical
+processors, .NET 8.0.33, Release build. Own map.
+
+| Scenario | Kind | Mean tick ms | Slowest tick ms | Sustained speed | Simulation's share of a core | Slowest frame ms |
+|---|---|---|---|---|---|---|
+| idle | everyday | 0.0060 | 34.5 | 100.0% | 0.07% | 34.5 |
+| hauling | everyday | 0.0085 | 11.6 | 100.0% | 0.10% | 11.6 |
+| arbitration | stress | 0.1188 | 55.7 | 100.0% | 1.4% | 65.6 |
+| interrupted | stress | 0.0082 | 18.1 | 100.0% | 0.10% | 18.1 |
+
+| Save scenario | Size KB | Text ms (mean / slowest) | Written ms | Loaded ms |
+|---|---|---|---|---|
+| after a day of arbitration | 561 | 21.4 / 73.4 | 52.2 / 137.0 | 34.5 / 86.1 |
+
+As in 25a and 25b, idle's slowest tick in the cloud is just over the
+everyday threshold (34.5 ms against 33); on the maintainer's PC 25b measured
+19.7. Idle's mean tick rose from 0.0049 to 0.0060 ms: idling colonists now
+walk in Work hours. The PC run decides. The test suite takes 3 minutes 1
+second.
+
 ## Assessment
 
 **Everyday play is far within its time.** A colony at rest or hauling takes a

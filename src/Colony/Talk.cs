@@ -77,7 +77,7 @@ public sealed partial class Work
     /// <summary>Whether a colonist is free to be asked to talk (step 25b): in their free time, nothing urgent, not
     /// busy, and not on their way anywhere (at a stop of an outing is fine: they may leave it to talk).</summary>
     bool FreeToTalk(Worker p) =>
-        FreeBlock(p) && p.Job == null && !p.Stopped && !p.Asleep && p.Collapsed == null && p.Personal == null && Level(p) < 3
+        (FreeBlock(p) || PastWait(p)) && p.Job == null && !p.Stopped && !p.Asleep && p.Collapsed == null && p.Personal == null && Level(p) < 3
         && (p.Outing == null || p.Outing.Talk == null && p.Outing.Left != null);
 
     /// <summary>
@@ -85,10 +85,10 @@ public sealed partial class Work
     /// place; or else the nearest colonist free for it, walked to. Null: nobody. Asking (and the answer) comes only if
     /// talking is chosen.
     /// </summary>
-    (double X, double Y, long? Join, ColonistId? Ask)? TalkSpot(Worker w)
+    (double X, double Y, long? Join, ColonistId? Ask)? TalkSpot(Worker w, double cx, double cy, double within)
     {
-        double within = content.Leisure.WithinMetres;
-        double Dist(double x, double y) => Math.Sqrt((x - w.X) * (x - w.X) + (y - w.Y) * (y - w.Y));
+        // How far from where they look (themselves; between jobs, their work area: step 25c).
+        double Dist(double x, double y) => Math.Sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
         foreach (var talk in talks.Values.Where(t => t.Began != null && t.With.Count < content.Leisure.Talk.Most)
                                          .OrderBy(t => Dist(t.X, t.Y)).ThenBy(t => t.Id))
             if (Dist(talk.X, talk.Y) <= within && Beside(w, talk.X, talk.Y) is var (jx, jy))
@@ -123,7 +123,7 @@ public sealed partial class Work
     /// with both, the one asked leaves what they were doing (no wait: they chose this) and stays where they are. True
     /// if there is a talk to go to.
     /// </summary>
-    bool StartTalk(Worker w, (double X, double Y, long? Join, ColonistId? Ask) spot, Activity activity)
+    bool StartTalk(Worker w, (double X, double Y, long? Join, ColonistId? Ask) spot, Activity activity, bool between)
     {
         Talk talk;
         if (spot.Join is long join)
@@ -143,11 +143,11 @@ public sealed partial class Work
             talk = new Talk { Id = nextTalk++, X = p.X, Y = p.Y };
             talks[talk.Id] = talk;
             talk.With.Add(p.Id);
-            p.Outing = new Outing { Activity = activity.Id, X = p.X, Y = p.Y, Talk = talk.Id };
+            p.Outing = new Outing { Activity = activity.Id, X = p.X, Y = p.Y, Talk = talk.Id, Between = BlockOf(p) == Block.Work };
             p.ActionDue = null;
         }
         talk.With.Add(w.Id);
-        w.Outing = new Outing { Activity = activity.Id, X = spot.X, Y = spot.Y, Talk = talk.Id };
+        w.Outing = new Outing { Activity = activity.Id, X = spot.X, Y = spot.Y, Talk = talk.Id, Between = between };
         w.LastActivity = activity.Id;
         Head(w, spot.X, spot.Y);
         return true;
@@ -180,7 +180,7 @@ public sealed partial class Work
         if (!Walk(w, o.X, o.Y))
             return false;
         long now = colony.Now.Tick;
-        var activity = content.Leisure.Activities.First(a => a.Id == o.Activity);
+        var activity = ActivityOf(o.Activity);
         int length = activity.MinutesEach * Calendar.TicksPerMinute;
         if (talk.Began == null)
         {

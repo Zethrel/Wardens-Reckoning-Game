@@ -38,31 +38,35 @@ public sealed partial class Work
     /// (not waiting after an interruption, at a fitting time of day, with a place for it) is weighed, and one is
     /// drawn on the "leisure" dice by those weights. Nothing fits: they stay where they are.
     /// </summary>
-    void Choose(Worker w)
+    void Choose(Worker w, bool between = false)
     {
         var rules = content.Leisure;
         long now = colony.Now.Tick;
         int hour = colony.Now.Hour;
         if (w.LookAgain > now)
             return;                                        // they looked a little while ago and found nothing
+        // Where they look, and how far: around themselves in their free time; between jobs, nearer, around their work
+        // area (step 25c, R43-C03).
+        var (cx, cy) = between ? Origin(w) : (w.X, w.Y);
+        double within = between ? rules.BetweenJobs.WithinMetres : rules.WithinMetres;
         // The activities that may be done now at all (the time of day, no wait), before looking at the ground.
         var possible = rules.Activities.Where(a => !(w.NotBefore.TryGetValue(a.Id, out long until) && until > now)
                                                   && a.When.Any(time => rules.InTime(time, hour))).ToList();
         var offered = new List<(Activity Activity, (double X, double Y, BuildingId? Site) Spot, double Weight)>();
         (double X, double Y, long? Join, ColonistId? Ask)? talkSpot = null;
-        var spots = possible.Count > 0 ? Spots(w, w.X, w.Y, rules.WithinMetres) : null;   // every kind of place around, in one look
+        var spots = possible.Count > 0 ? Spots(w, cx, cy, within) : null;   // every kind of place around, in one look
         foreach (var activity in possible)
         {
             if (activity.Place == "company")
             {
                 // A talk (step 25b): someone to talk with, or a talk to join, nearby.
-                if (TalkSpot(w) is not var (tx, ty, join, ask))
+                if (TalkSpot(w, cx, cy, within) is not var (tx, ty, join, ask))
                     continue;
                 talkSpot = (tx, ty, join, ask);
                 offered.Add((activity, (tx, ty, null), Weight(w, activity, Math.Sqrt((tx - w.X) * (tx - w.X) + (ty - w.Y) * (ty - w.Y)))));
                 continue;
             }
-            if (FirstSpot(w, activity, spots!) is not var (x, y, site))
+            if (FirstSpot(w, activity, spots!, cx, cy, within) is not var (x, y, site))
                 continue;                                  // no place for it: another is chosen (Review 42)
             offered.Add((activity, (x, y, site), Weight(w, activity, Math.Sqrt((x - w.X) * (x - w.X) + (y - w.Y) * (y - w.Y)))));
         }
@@ -87,18 +91,72 @@ public sealed partial class Work
         if (chosen.Activity.Place == "company")
         {
             // Asked, the other may say no: then nothing now, and they look again in a while.
-            if (!StartTalk(w, talkSpot!.Value, chosen.Activity))
+            if (!StartTalk(w, talkSpot!.Value, chosen.Activity, between))
                 w.LookAgain = now + rules.LookAgainMinutes * Calendar.TicksPerMinute;
             return;
         }
         w.Outing = new Outing
         {
             Activity = chosen.Activity.Id, X = chosen.Spot.X, Y = chosen.Spot.Y, StopsLeft = chosen.Activity.Stops - 1,
-            Site = chosen.Spot.Site,
+            Site = chosen.Spot.Site, Between = between,
         };
         w.LastActivity = chosen.Activity.Id;
         Head(w, w.Outing.X, w.Outing.Y, near: w.Outing.Site != null);
     }
+
+    /// <summary>
+    /// A colonist between jobs, at their think, with nothing to do (step 25c, library Review 43): after the wait
+    /// (`WaitMinutes`, counted since they were first left without work), they may choose free time, near their work
+    /// area; until then, or if nothing is found, they idle there.
+    /// </summary>
+    void Occupy(Worker w)
+    {
+        var rules = content.Leisure.BetweenJobs;
+        if (colony.Now.Tick - w.BetweenSince!.Value >= (long)rules.WaitMinutes * Calendar.TicksPerMinute)
+        {
+            Choose(w, between: true);
+            if (w.Outing != null)
+                return;
+        }
+        Idle(w);
+    }
+
+    /// <summary>Whether a colonist has been between jobs for the whole wait (step 25c): free for free time, and so for a
+    /// talk.</summary>
+    bool PastWait(Worker w) => BlockOf(w) == Block.Work && w.BetweenSince is long since
+                               && colony.Now.Tick - since >= (long)content.Leisure.BetweenJobs.WaitMinutes * Calendar.TicksPerMinute;
+
+    /// <summary>
+    /// Idling between jobs (step 25c): they potter from spot to spot within a short reach of their work area. It eases
+    /// nothing and is not free time (Review 43). With no spot there, they stand where they are.
+    /// </summary>
+    void Idle(Worker w)
+    {
+        var rules = content.Leisure.BetweenJobs;
+        var (cx, cy) = Origin(w);
+        if (Draw(Spots(w, cx, cy, rules.IdleMetres, near: true), "near") is not var (x, y))
+            return;
+        w.Outing = new Outing { Activity = rules.Idle.Id, X = x, Y = y, StopsLeft = rules.Idle.Stops - 1, Between = true };
+        Head(w, x, y);
+    }
+
+    /// <summary>
+    /// A colonist's work area (step 25c, R43-C03): where they last finished work in this Work block; or else the store
+    /// or workplace nearest to them. Never one fixed centre of the camp, so someone at a far workplace stays there.
+    /// </summary>
+    (double X, double Y) Origin(Worker w)
+    {
+        if (w.WorkedAt is var (ax, ay))
+            return (ax, ay);
+        var places = Stocks.Inventories.Where(i => i.Holder == Holder.Store).Select(i => (i.X, i.Y, Id: i.Id.Value))
+                           .Concat(sites.Values.Select(s => (s.X, s.Y, Id: s.Id.Value)));
+        var nearest = places.OrderBy(p => (p.X - w.X) * (p.X - w.X) + (p.Y - w.Y) * (p.Y - w.Y)).ThenBy(p => p.Id).FirstOrDefault();
+        return nearest == default ? (w.X, w.Y) : (nearest.X, nearest.Y);
+    }
+
+    /// <summary>The activity of an outing: one of the catalogue, or idling between jobs (step 25c).</summary>
+    Activity ActivityOf(string id) =>
+        id == BetweenJobsRules.IdleId ? content.Leisure.BetweenJobs.Idle : content.Leisure.Activities.First(a => a.Id == id);
 
     /// <summary>Sets off for a free-time spot: its way worked out first only a little beyond `WithinMetres` (it is
     /// near; Ground.Metres: the same way, found with less work), then walked as any other.</summary>
@@ -135,14 +193,15 @@ public sealed partial class Work
     /// at; otherwise a tile of the activity's kind of place within `WithinMetres`, open, reachable and held by no
     /// other outing, drawn on the "leisure" dice. Null: there is none.
     /// </summary>
-    (double X, double Y, BuildingId? Site)? FirstSpot(Worker w, Activity activity, Dictionary<string, List<(double X, double Y)>> spots)
+    (double X, double Y, BuildingId? Site)? FirstSpot(Worker w, Activity activity, Dictionary<string, List<(double X, double Y)>> spots,
+                                                      double cx, double cy, double within)
     {
         if (activity.Place == "workplace")
         {
             foreach (var site in sites.Values)
             {
                 if (content.SkillFor.GetValueOrDefault(site.Workshop) is not string skill || w.Interests.GetValueOrDefault(skill) != Interest.Enjoys
-                    || (site.X - w.X) * (site.X - w.X) + (site.Y - w.Y) * (site.Y - w.Y) > content.Leisure.WithinMetres * content.Leisure.WithinMetres)
+                    || (site.X - cx) * (site.X - cx) + (site.Y - cy) * (site.Y - cy) > within * within)
                     continue;
                 bool busy = jobs.Values.Any(j => j.Site == site.Id && j.Worker != null && j.Step == Step.Working)
                             || workers.Values.Any(o => o != w && o.Outing?.Site == site.Id);
@@ -165,16 +224,24 @@ public sealed partial class Work
     /// beside it ("open"), near a store ("camp"). Without a ground (a camp in the tests) only "camp" has spots:
     /// points around the nearest store.
     /// </summary>
-    Dictionary<string, List<(double X, double Y)>> Spots(Worker w, double cx, double cy, double metres)
+    Dictionary<string, List<(double X, double Y)>> Spots(Worker w, double cx, double cy, double metres, bool near = false)
     {
         var found = new Dictionary<string, List<(double X, double Y)>>
         {
-            ["trees"] = new(), ["water"] = new(), ["open"] = new(), ["camp"] = new(),
+            ["trees"] = new(), ["water"] = new(), ["open"] = new(), ["camp"] = new(), ["near"] = new(),
         };
         var store = NearestStoreOf(w);
         double stroll = content.Leisure.StrollMetres;
         if (Ground is not Ground g)
         {
+            if (near)
+            {
+                // Idling without a ground: a point a little way from the work area.
+                var dice = colony.DiceFor("leisure");
+                double angle = dice.Uniform(0, 2 * Math.PI), far = dice.Uniform(0.5, metres);
+                found["near"].Add((cx + Math.Round(Math.Cos(angle) * far, 1), cy + Math.Round(Math.Sin(angle) * far, 1)));
+                return found;
+            }
             if (store is var (sx, sy))
             {
                 var dice = colony.DiceFor("leisure");
@@ -203,9 +270,10 @@ public sealed partial class Work
                 bool water = g.Water(x + 1, y) || g.Water(x - 1, y) || g.Water(x, y + 1) || g.Water(x, y - 1);
                 bool open = Clear(x + 1, y) && Clear(x - 1, y) && Clear(x, y + 1) && Clear(x, y - 1);
                 bool camp = store is var (scx, scy) && (x + 0.5 - scx) * (x + 0.5 - scx) + (y + 0.5 - scy) * (y + 0.5 - scy) <= campMost;
-                if (!(trees || water || open || camp) || !g.CanReach(wx, wy, x, y))
+                if (!(trees || water || open || camp || near) || !g.CanReach(wx, wy, x, y))
                     continue;
                 var middle = Ground.Centre(x, y);
+                if (near) found["near"].Add(middle);   // any tile at all, for idling between jobs (step 25c)
                 if (trees) found["trees"].Add(middle);
                 if (water) found["water"].Add(middle);
                 if (open) found["open"].Add(middle);
@@ -230,14 +298,14 @@ public sealed partial class Work
     void Spend(Worker w, int seconds)
     {
         var o = w.Outing!;
-        var activity = content.Leisure.Activities.First(a => a.Id == o.Activity);
+        var activity = ActivityOf(o.Activity);
         if (o.Talk != null && !SpendTalk(w, o))
             return;                                        // a talk not yet under way for them (step 25b)
         if (o.Left == null)
         {
             // The way there is gone, or the workplace taken: unavailable, so they let it go.
             // (A free-time spot is near: its way is worked out only a little beyond `WithinMetres`, Ground.Metres.)
-            if (double.IsPositiveInfinity(Far(w.X, w.Y, o.X, o.Y, o.StopsLeft == content.Leisure.Activities.First(a => a.Id == o.Activity).Stops - 1 ? Reach : 2 * content.Leisure.StrollMetres))
+            if (double.IsPositiveInfinity(Far(w.X, w.Y, o.X, o.Y, o.StopsLeft == activity.Stops - 1 ? Reach : 2 * content.Leisure.StrollMetres))
                 || o.Site is BuildingId taken && jobs.Values.Any(j => j.Site == taken && j.Worker != null && j.Step == Step.Working))
             {
                 EndOuting(w, interrupted: true);
@@ -249,14 +317,21 @@ public sealed partial class Work
             return;                                        // the stay begins now, on arriving: the walk eased nothing
         }
         int spent = Math.Min(seconds, o.Left.Value);
+        // Between jobs, free time eases at a share of its usual rate (step 25c, Review 43): free time in their own
+        // hours stays worth more.
+        double share = o.Between ? content.Leisure.BetweenJobs.EasesShare : 1;
         foreach (var (need, perHour) in activity.EasesPerHour)
-            w.FreeNeeds[need] = Math.Max(0, w.FreeNeeds.GetValueOrDefault(need) - perHour * spent / Calendar.TicksPerHour);
+            w.FreeNeeds[need] = Math.Max(0, w.FreeNeeds.GetValueOrDefault(need) - perHour * share * spent / Calendar.TicksPerHour);
         if (activity.Teaches > 0 && o.Site is BuildingId at)
             PractiseAt(w, sites[at.Value], (int)(spent * activity.Teaches));
         o.Left -= spent;
         if (o.Left > 0)
             return;
-        if (o.StopsLeft > 0 && Draw(Spots(w, o.X, o.Y, content.Leisure.StrollMetres), activity.Place) is var (nx, ny))
+        // The next stop: near the last; for idling, near their work area again (step 25c).
+        bool idling = o.Activity == BetweenJobsRules.IdleId;
+        var (scx, scy) = idling ? Origin(w) : (o.X, o.Y);
+        double sm = idling ? content.Leisure.BetweenJobs.IdleMetres : content.Leisure.StrollMetres;
+        if (o.StopsLeft > 0 && Draw(Spots(w, scx, scy, sm, near: idling), activity.Place) is var (nx, ny))
         {
             o.X = nx;
             o.Y = ny;
@@ -274,7 +349,7 @@ public sealed partial class Work
     {
         if (w.Outing is not Outing o)
             return;
-        if (interrupted)
+        if (interrupted && o.Activity != BetweenJobsRules.IdleId)        // (idling is not free time: no wait)
             w.NotBefore[o.Activity] = colony.Now.Tick + content.Leisure.RetryMinutes * Calendar.TicksPerMinute;
         w.Outing = null;
         w.Heading = null;
@@ -285,9 +360,11 @@ public sealed partial class Work
     /// <summary>What a colonist on an outing is doing, in words.</summary>
     string OutingWords(Worker w, Outing o)
     {
+        // Free time taken between jobs says so (step 25c); idling's own words already do.
+        string between = o.Between && o.Activity != BetweenJobsRules.IdleId ? ", between jobs" : "";
         if (o.Talk != null)
-            return TalkWords(w, o);
-        var activity = content.Leisure.Activities.First(a => a.Id == o.Activity);
-        return o.Left == null && o.StopsLeft == activity.Stops - 1 ? activity.Doing + " (on the way)" : activity.Doing;
+            return TalkWords(w, o) + between;
+        var activity = ActivityOf(o.Activity);
+        return (o.Left == null && o.StopsLeft == activity.Stops - 1 ? activity.Doing + " (on the way)" : activity.Doing) + between;
     }
 }

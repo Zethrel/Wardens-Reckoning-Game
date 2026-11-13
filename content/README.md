@@ -115,7 +115,13 @@ what is wrong, before anything runs.
   `ill` (`{name}`, `{illness}`), `collapsed` (`{name}`), `arrived`, a
   speaker's wants (`hungry`, `thirsty`, `tired`, `unwashed`), work and
   interests they `enjoys` (by skill or broad interest), `dusk`, `dark`, and
-  `everyday` topics for when nothing else applies.
+  `everyday` topics for when nothing else applies. `between_jobs` (step 25c,
+  library Review 43): a colonist in Work hours with no work they may take
+  idles near their work area (`idle`: what the inspector says they are
+  `doing`, within `within_m` of it, `stops` of `minutes_each`; it eases
+  nothing); after `wait_minutes` still without work they may take free time
+  within `within_m` of their work area, easing at `eases_share` of the usual
+  rate. No activity may have the id `idle`.
 - `skills.json` (step 23a): the `skills`, each with an `id`, a `name` and the
   work it is `used_for`: `build` (all building), `boil` (boiling water) or a
   workshop's id (its recipes); each kind of work uses one skill at most, and
