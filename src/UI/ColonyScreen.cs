@@ -5,9 +5,10 @@ using WardensReckoning.Colony;
 namespace WardensReckoning.UI;
 
 /// <summary>
-/// The screen while a colony is played (step 18a, library Review 38): the local map in the middle (ColonyView, with
-/// the world map's camera), the inspector on the right, the bar along the bottom (pause and the speeds, the date
-/// and time, the colonists), and the in-game menu (Esc).
+/// The screen while a colony is played (step 18a, library Review 38): the local map filling the screen (ColonyView,
+/// with the world map's camera), the inspector over its right side while something is picked (step 26a, UI plan
+/// UI-01), the bar along the bottom (pause and the speeds, the date and time, the colonists), and the in-game menu
+/// (Esc).
 ///
 /// Time runs through the `Session` (src/Colony/Session.cs): each frame it is told how much real time passed, and it
 /// runs the ticks now due at the chosen speed and makes the morning autosave. The screen never runs the colony
@@ -16,7 +17,8 @@ namespace WardensReckoning.UI;
 /// Keys: Space pauses or plays; 1, 2 and 3 choose the speed; Tab picks the next colonist; B opens the build panel
 /// (ColonyScreen.Build.cs); J lists the buildings that wait, and why (FP-06); F3 shows the developer's trace beside
 /// the player's words; P, X and R do what the picked tile offers (pause, cancel or take down, remove a stockpile);
-/// Esc stops building, or opens the menu. The mouse: a left click inspects the colonist or the tile under it; the
+/// I hides or shows the inspector, keeping what is picked; M shows more of it, or less (step 26a); Esc stops
+/// building, or else lets go of what is picked, or else opens the menu. The mouse: a left click inspects the colonist or the tile under it; the
 /// wheel zooms; the right button drags.
 /// </summary>
 public partial class ColonyScreen : Node
@@ -32,6 +34,14 @@ public partial class ColonyScreen : Node
     readonly Button[] speeds = new Button[Pacer.Speeds.Length];
     VBoxContainer? inspector;
     VBoxContainer? commandBox;
+    // The inspector panel (step 26a): over the map's right side, shown while something is picked and not hidden;
+    // compact unless `expanded`. Hidden with something picked, a small tab at the right edge brings it back.
+    const int InspectorWidth = 320;
+    PanelContainer? side;
+    Button? reopen;
+    Button? more;
+    bool hidden;
+    bool expanded;
     string shownCommands = "";
     Label? inspectorTitle;
     CanvasLayer? hudLayer;
@@ -70,12 +80,13 @@ public partial class ColonyScreen : Node
         screen.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
         screen.AddThemeConstantOverride("separation", 0);
         hud.AddChild(screen);
-        var middle = new HBoxContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill };
-        middle.AddThemeConstantOverride("separation", 0);
+        // The middle: the map fills it; the inspector lies over its right side (step 26a), so opening and closing it
+        // never moves the map.
+        var middle = new Control { SizeFlagsVertical = Control.SizeFlags.ExpandFill, MouseFilter = Control.MouseFilterEnum.Pass };
         screen.AddChild(middle);
 
-        var frame = new SubViewportContainer { Stretch = true, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-                                               SizeFlagsVertical = Control.SizeFlags.ExpandFill };
+        var frame = new SubViewportContainer { Stretch = true };
+        frame.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
         middle.AddChild(frame);
         var port = new SubViewport { HandleInputLocally = true };
         frame.AddChild(port);
@@ -91,17 +102,37 @@ public partial class ColonyScreen : Node
         view.Released += OnReleased;
         view.Moved += OnMoved;
 
-        // The inspector, on the right.
-        var side = new PanelContainer { CustomMinimumSize = new Vector2(320, 0) };
+        // The inspector (step 26a, UI plan UI-01): a panel over the map's right side, 320 wide, from the top down to
+        // the bar; hidden until something is picked. Its height follows what it shows, up to the map's, scrolling
+        // beyond that.
+        side = new PanelContainer { Visible = false };
+        side.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.RightWide);
+        side.OffsetLeft = -InspectorWidth;
         middle.AddChild(side);
         var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         side.AddChild(scroll);
         var column = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         column.AddThemeConstantOverride("separation", 4);
         scroll.AddChild(column);
-        inspectorTitle = new Label { Text = "Click a colonist or a tile", AutowrapMode = TextServer.AutowrapMode.WordSmart };
+        // Its head: the title, More/Less, and × to hide it.
+        var head = new HBoxContainer();
+        column.AddChild(head);
+        inspectorTitle = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         inspectorTitle.AddThemeFontSizeOverride("font_size", 18);
-        column.AddChild(inspectorTitle);
+        head.AddChild(inspectorTitle);
+        more = new Button { Text = "More", TooltipText = "Show everything about it (M)", FocusMode = Control.FocusModeEnum.None };
+        more.Pressed += ToggleMore;
+        head.AddChild(more);
+        var close = new Button { Text = "×", TooltipText = "Hide the inspector; what is picked stays picked (I)", FocusMode = Control.FocusModeEnum.None };
+        close.Pressed += ToggleHidden;
+        head.AddChild(close);
+        // The tab that brings a hidden inspector back, at the map's right edge.
+        reopen = new Button { Text = "◂ Inspector", TooltipText = "Show the inspector again (I)", Visible = false,
+                              FocusMode = Control.FocusModeEnum.None };
+        reopen.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.TopRight);
+        reopen.GrowHorizontal = Control.GrowDirection.Begin;
+        reopen.Pressed += ToggleHidden;
+        middle.AddChild(reopen);
         inspector = new VBoxContainer();
         column.AddChild(inspector);
         // The commands of the picked tile (pause, cancel, take down...): made again only when they change, so a
@@ -240,6 +271,7 @@ public partial class ColonyScreen : Node
     void PickWorker(ColonistId id, bool centre)
     {
         listWaiting = false;
+        hidden = false;                  // picking something shows it (step 26a)
         view!.SelectedWorker = id;
         view.SelectedTile = null;
         if (centre && Colony.Work!.Workers.FirstOrDefault(w => w.Id == id) is Worker w)
@@ -253,6 +285,7 @@ public partial class ColonyScreen : Node
         if (!Colony.Ground!.Inside(x, y))
             return;
         listWaiting = false;
+        hidden = false;
         view!.SelectedTile = (x, y);
         view.SelectedWorker = null;
         ShowInspection();
@@ -263,10 +296,36 @@ public partial class ColonyScreen : Node
     public void ShowWaiting()
     {
         listWaiting = true;
+        hidden = false;
         view!.SelectedTile = null;
         view.SelectedWorker = null;
         ShowInspection();
     }
+
+    // I, ×, the tab: hide the inspector, or show it again; what is picked stays picked (step 26a).
+    void ToggleHidden()
+    {
+        hidden = !hidden;
+        ShowInspection();
+    }
+
+    // M, More/Less: all the lines, or the brief ones (step 26a).
+    void ToggleMore()
+    {
+        expanded = !expanded;
+        ShowInspection();
+    }
+
+    // Esc with something picked (step 26a): nothing is picked any more, and the inspector goes.
+    void LetGo()
+    {
+        listWaiting = false;
+        view!.SelectedTile = null;
+        view.SelectedWorker = null;
+        ShowInspection();
+    }
+
+    bool Picked => view!.SelectedWorker != null || view.SelectedTile != null || listWaiting;
 
     void ShowInspection()
     {
@@ -284,13 +343,20 @@ public partial class ColonyScreen : Node
         foreach (var child in inspector!.GetChildren())
             child.QueueFree();
         ShowCommands(commands);
+        // Shown while something is picked and the player has not hidden it; the tab while it is hidden (step 26a).
+        side!.Visible = shown != null && !hidden;
+        reopen!.Visible = shown != null && hidden;
         if (shown == null)
             return;
         inspectorTitle!.Text = shown.Title;
-        foreach (var line in shown.Lines)
+        // Compact: the brief lines, if the inspection has them; More shows them all.
+        more!.Visible = shown.Brief != null;
+        more.Text = expanded ? "Less" : "More";
+        more.TooltipText = expanded ? "Show only the main things (M)" : "Show everything about it (M)";
+        foreach (var line in Inspect.Shown(shown, expanded))
         {
             var label = new Label { Text = line.Label + ": " + line.Text, AutowrapMode = TextServer.AutowrapMode.WordSmart,
-                                    CustomMinimumSize = new Vector2(290, 0) };
+                                    CustomMinimumSize = new Vector2(InspectorWidth - 30, 0) };
             label.AddThemeFontSizeOverride("font_size", 14);
             // The developer's trace looks different from the player's words (FP-06): grey, in its own line.
             if (line.Label == "Trace")
@@ -386,6 +452,15 @@ public partial class ColonyScreen : Node
         {
             case Key.Escape when buildPanel != null:
                 CloseBuildPanel();
+                break;
+            case Key.Escape when Picked:
+                LetGo();
+                break;
+            case Key.I when Picked:
+                ToggleHidden();
+                break;
+            case Key.M when Picked:
+                ToggleMore();
                 break;
             case Key.B:
                 ToggleBuildPanel();

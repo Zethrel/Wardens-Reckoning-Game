@@ -547,6 +547,23 @@ As in 25a to 25c, idle's slowest tick in the cloud is just over the everyday
 threshold (34.9 ms against 33); on the maintainer's PC 25c measured 20.6. The
 PC run decides. The test suite takes 3 minutes 6 seconds.
 
+**The maintainer's PC, 13 November 2026** (Windows 10.0.26200, 16 logical
+processors, .NET 8.0.33, Release build; own map): **every threshold met.**
+
+| Scenario | Kind | Mean tick ms | Slowest tick ms | Sustained speed | Simulation's share of a core | Slowest frame ms |
+|---|---|---|---|---|---|---|
+| idle | everyday | 0.0033 | 7.830 | 100.0% | 0.04% | 7.869 |
+| hauling | everyday | 0.0068 | 8.856 | 100.0% | 0.08% | 10.0 |
+| arbitration | stress | 0.0567 | 18.7 | 100.0% | 0.68% | 18.7 |
+| interrupted | stress | 0.0048 | 7.015 | 100.0% | 0.06% | 7.018 |
+
+| Save scenario | Size KB | Text ms (mean / slowest) | Written ms | Loaded ms |
+|---|---|---|---|---|
+| after a day of arbitration | 585 | 12.5 / 39.4 | 35.6 / 58.3 | 21.4 / 50.6 |
+
+Step 26a changes only the screen (the simulation's code is untouched but for
+the inspector's words), so it was not profiled again.
+
 ## Assessment
 
 **Everyday play is far within its time.** A colony at rest or hauling takes a

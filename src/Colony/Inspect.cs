@@ -6,8 +6,12 @@ namespace WardensReckoning.Colony;
 /// <summary>One line of an inspection: a label ("Doing") and what it says ("carrying timber to the house").</summary>
 public sealed record Line(string Label, string Text);
 
-/// <summary>What the inspector panel shows for a tile or a colonist: a title and its lines.</summary>
-public sealed record Inspection(string Title, IReadOnlyList<Line> Lines);
+/// <summary>What the inspector panel shows for a tile or a colonist: a title and its lines; and, for a colonist, the
+/// few lines the compact inspector shows (`Brief`, step 26a), or null to show them all.</summary>
+public sealed record Inspection(string Title, IReadOnlyList<Line> Lines)
+{
+    public IReadOnlyList<Line>? Brief { get; init; }
+}
 
 /// <summary>
 /// Something the player can do from the inspector (step 18b): its button's words, the key that does it too, what it
@@ -106,7 +110,27 @@ public static class Inspect
             lines.Add(new Line("Unwell", illness.Name + ": working slower, thirsty and tired; until " + new Moment(illness.Ends)));
         else if (trace && w.Illness is Illness coming)
             lines.Add(new Line("Trace", "caught " + coming.Name.ToLowerInvariant() + ", shows " + new Moment(coming.Shows)));
-        return new Inspection(w.Name, lines);
+        return new Inspection(w.Name, lines) { Brief = Brief(lines, w.Needs.Keys.Select(n => Capital(Rules(colony).Needs[n].Name))
+                                                                 .Concat(w.FreeNeeds.Keys.Select(n => leisure.Needs[n].Name)).ToHashSet()) };
+    }
+
+    /// <summary>The lines the inspector shows (step 26a): all of them when `expanded` or when there is no brief; the
+    /// brief ones otherwise.</summary>
+    public static IReadOnlyList<Line> Shown(Inspection inspection, bool expanded) =>
+        expanded || inspection.Brief == null ? inspection.Lines : inspection.Brief;
+
+    /// <summary>
+    /// The compact inspector's lines for a colonist (step 26a, UI plan UI-01): what they are doing, their schedule
+    /// now, only the needs that are not "fine" (or one line saying all are), and what they lack or are ill with. The
+    /// rest is a click away (More).
+    /// </summary>
+    static IReadOnlyList<Line> Brief(IReadOnlyList<Line> lines, IReadOnlySet<string> needs)
+    {
+        var brief = lines.Where(l => l.Label is "Doing" or "Schedule").ToList();
+        var wanting = lines.Where(l => needs.Contains(l.Label) && !l.Text.EndsWith(", fine")).ToList();
+        brief.AddRange(wanting.Count > 0 ? wanting : new[] { new Line("Needs", "all fine") });
+        brief.AddRange(lines.Where(l => l.Label is "Lacking" or "Unwell"));
+        return brief;
     }
 
     /// <summary>The word for a need's level: "fine" below peckish, then "peckish", "wants", "urgent", "critical".</summary>
