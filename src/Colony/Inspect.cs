@@ -25,7 +25,11 @@ public sealed record NeedBar(string Name, double Level, string Word, int Pressin
 /// </summary>
 public sealed record ColonistCard(string Name, string Status, string Schedule, string Doing, IReadOnlyList<NeedBar> Needs,
                                   IReadOnlyList<Line> Alerts, IReadOnlyList<Line> Skills, IReadOnlyList<Line> More,
-                                  IReadOnlyList<Line> Diagnostics);
+                                  IReadOnlyList<Line> Diagnostics)
+{
+    /// <summary>Why they are doing it (step 26c, UI plan UI-03): a short reason, what would help, the trace.</summary>
+    public Explanation Why { get; init; } = new("", "", "");
+}
 
 /// <summary>
 /// Something the player can do from the inspector (step 18b): its button's words, the key that does it too, what it
@@ -154,6 +158,9 @@ public static class Inspect
         }
         var skillNames = content.Skills.Values.Select(s => s.Name).ToHashSet();
         var diagnostics = lines.Where(l => l.Label == "Trace").ToList();
+        var why = work.WhyDoing(id);
+        if (trace)
+            diagnostics.Add(new Line("Trace", why.Trace));
         if (trace)
             diagnostics.Add(new Line("Trace", "at (" + Number(w.X) + ", " + Number(w.Y) + "); thinks next at " + new Moment(w.NextThink)
                                               + (w.BetweenSince is long since ? "; between jobs since " + new Moment(since) : "")));
@@ -162,7 +169,7 @@ public static class Inspect
             lines.Where(l => l.Label is "Lacking" or "Unwell").ToList(),
             lines.Where(l => l.Label == "Interests" || skillNames.Contains(l.Label)).ToList(),
             lines.Where(l => l.Label is "Where" or "Carrying").ToList(),
-            diagnostics);
+            diagnostics) { Why = why };
     }
 
     /// <summary>

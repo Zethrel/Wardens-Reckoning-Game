@@ -385,6 +385,16 @@ public partial class ColonyScreen : Node
         inspector.AddChild(Gap());
         inspector.AddChild(Ledger.Heading("Doing"));
         inspector.AddChild(Line(card.Doing));
+        // Why (step 26c, UI plan UI-03): the short reason under it; hovering over it, or More, shows what would help.
+        if (card.Why.Player != "")
+        {
+            var why = Line("ⓘ " + card.Why.Player, Ledger.Faded, 12);
+            why.MouseFilter = Control.MouseFilterEnum.Stop;          // so its tooltip shows
+            why.TooltipText = card.Why.NextStep != "" ? "What would help: " + card.Why.NextStep : "Nothing needs doing about it.";
+            inspector.AddChild(why);
+            if (expanded && card.Why.NextStep != "")
+                inspector.AddChild(Line("What would help: " + card.Why.NextStep, Ledger.Brass, 12));
+        }
         foreach (var alert in card.Alerts)
             inspector.AddChild(Line(alert.Label + ": " + alert.Text, Ledger.Warning));
         inspector.AddChild(Gap());
