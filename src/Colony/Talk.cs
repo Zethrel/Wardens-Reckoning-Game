@@ -82,22 +82,34 @@ public sealed partial class Work
 
     /// <summary>
     /// Where a talk could be had (step 25b), for choosing: a talk under way within reach, not full, joined beside its
-    /// place; or else the nearest colonist free for it, walked to. Null: nobody. Asking (and the answer) comes only if
-    /// talking is chosen.
+    /// place (one at a gathering place first, step 25d); or else the nearest colonist free for it. With a gathering
+    /// place within reach of both (step 25d), the two meet there (`Meet`: the tile the one asked goes to; the one
+    /// asking stands beside it); otherwise the one asking walks over to them. Null: nobody. Asking (and the answer)
+    /// comes only if talking is chosen.
     /// </summary>
-    (double X, double Y, long? Join, ColonistId? Ask)? TalkSpot(Worker w, double cx, double cy, double within)
+    (double X, double Y, long? Join, ColonistId? Ask, (double X, double Y)? Meet)? TalkSpot(Worker w, double cx, double cy, double within)
     {
         // How far from where they look (themselves; between jobs, their work area: step 25c).
         double Dist(double x, double y) => Math.Sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy));
         foreach (var talk in talks.Values.Where(t => t.Began != null && t.With.Count < content.Leisure.Talk.Most)
-                                         .OrderBy(t => Dist(t.X, t.Y)).ThenBy(t => t.Id))
+                                         .OrderBy(t => InGathering(t.X, t.Y) ? 0 : 1).ThenBy(t => Dist(t.X, t.Y)).ThenBy(t => t.Id))
             if (Dist(talk.X, talk.Y) <= within && Beside(w, talk.X, talk.Y) is var (jx, jy))
-                return (jx, jy, talk.Id, null);
+                return (jx, jy, talk.Id, null, null);
         foreach (var p in workers.Values.Where(p => p != w && FreeToTalk(p)).OrderBy(p => Dist(p.X, p.Y)).ThenBy(p => p.Id.Value))
-            if (Dist(p.X, p.Y) <= within && Beside(w, p.X, p.Y) is var (bx, by))
-                return (bx, by, null, p.Id);
+        {
+            if (Dist(p.X, p.Y) > within)
+                continue;
+            if (MeetingPoint(w, p, cx, cy, within) is var (mx, my) && Beside(w, mx, my) is var (sx, sy))
+                return (sx, sy, null, p.Id, (mx, my));
+            if (Beside(w, p.X, p.Y) is var (bx, by))
+                return (bx, by, null, p.Id, null);
+        }
         return null;
     }
+
+    /// <summary>Whether a talk to be had would be at a gathering place (step 25d): one joined there, or a meeting there.</summary>
+    bool AtGathering((double X, double Y, long? Join, ColonistId? Ask, (double X, double Y)? Meet) spot) =>
+        spot.Meet != null || spot.Join is long join && InGathering(talks[join].X, talks[join].Y);
 
     /// <summary>A spot to stand beside (x, y) to talk, reachable from the colonist: the nearest open tile next to it
     /// held by no outing (without a ground: a metre away).</summary>
@@ -123,7 +135,7 @@ public sealed partial class Work
     /// with both, the one asked leaves what they were doing (no wait: they chose this) and stays where they are. True
     /// if there is a talk to go to.
     /// </summary>
-    bool StartTalk(Worker w, (double X, double Y, long? Join, ColonistId? Ask) spot, Activity activity, bool between)
+    bool StartTalk(Worker w, (double X, double Y, long? Join, ColonistId? Ask, (double X, double Y)? Meet) spot, Activity activity, bool between)
     {
         Talk talk;
         if (spot.Join is long join)
@@ -132,7 +144,8 @@ public sealed partial class Work
         {
             var p = workers[spot.Ask!.Value.Value];
             double chance = content.Leisure.Talk.Willing + p.FreeNeeds.GetValueOrDefault("social") / 200
-                            + p.Interests.GetValueOrDefault("company") switch { Interest.Enjoys => 0.25, Interest.Dislikes => -0.25, _ => 0 };
+                            + p.Interests.GetValueOrDefault("company") switch { Interest.Enjoys => 0.25, Interest.Dislikes => -0.25, _ => 0 }
+                            + (spot.Meet != null ? content.Leisure.Gathering.Willing : 0);   // more readily at a gathering place (step 25d)
             if (colony.DiceFor("talk").Uniform(0, 1) >= chance)
                 return false;                              // not now: nobody is made to talk
             if (p.Outing != null)
@@ -140,11 +153,15 @@ public sealed partial class Work
                 p.Outing = null;                           // they leave what they were doing to talk
                 p.Heading = null;
             }
-            talk = new Talk { Id = nextTalk++, X = p.X, Y = p.Y };
+            // Where they meet: at the gathering place (step 25d), to which the one asked walks too; or where they are.
+            var (mx, my) = spot.Meet ?? (p.X, p.Y);
+            talk = new Talk { Id = nextTalk++, X = mx, Y = my };
             talks[talk.Id] = talk;
             talk.With.Add(p.Id);
-            p.Outing = new Outing { Activity = activity.Id, X = p.X, Y = p.Y, Talk = talk.Id, Between = BlockOf(p) == Block.Work };
+            p.Outing = new Outing { Activity = activity.Id, X = mx, Y = my, Talk = talk.Id, Between = BlockOf(p) == Block.Work };
             p.ActionDue = null;
+            if (spot.Meet != null)
+                Head(p, mx, my);
         }
         talk.With.Add(w.Id);
         w.Outing = new Outing { Activity = activity.Id, X = spot.X, Y = spot.Y, Talk = talk.Id, Between = between };
@@ -169,19 +186,23 @@ public sealed partial class Work
         }
         if (o.Left != null)
             return true;
-        bool waiting = talk.With[0] == w.Id && talk.Began == null;
-        if (waiting)
-            return false;                                  // asked: they stay where they are until the other comes
-        if (double.IsPositiveInfinity(Far(w.X, w.Y, o.X, o.Y, Reach)))
+        // To their place in the talk: the one asked is already there, unless they meet at a gathering place (step 25d).
+        if (!Arrived(w, o.X, o.Y, false))
         {
-            EndOuting(w, interrupted: true);
-            return false;
+            if (double.IsPositiveInfinity(Far(w.X, w.Y, o.X, o.Y, Reach)))
+            {
+                EndOuting(w, interrupted: true);
+                return false;
+            }
+            if (!Walk(w, o.X, o.Y))
+                return false;
         }
-        if (!Walk(w, o.X, o.Y))
-            return false;
         long now = colony.Now.Tick;
         var activity = ActivityOf(o.Activity);
         int length = activity.MinutesEach * Calendar.TicksPerMinute;
+        // Not begun: it begins once everyone in it is at their place; until then, whoever is there waits.
+        if (talk.Began == null && talk.With.Any(id => workers[id.Value] is var p && !(p.Outing is Outing po && Arrived(p, po.X, po.Y, false))))
+            return false;
         if (talk.Began == null)
         {
             // They are both there: the talk begins, one topic, one end, for both.
@@ -195,8 +216,9 @@ public sealed partial class Work
                     talk.Took.Add(id);
                 if (p == w)
                     continue;
-                // The one who waited: their time in the talk starts now, not when they were last processed (the wait
-                // eases nothing), and they are woken when it ends.
+                // The one who waited (at their place: the one asked, or at a gathering place whoever came first):
+                // their time in the talk starts now, not when they were last processed (the wait eases nothing), and
+                // they are woken when it ends.
                 p.Thought = now;
                 p.ActionDue = now + length;
             }

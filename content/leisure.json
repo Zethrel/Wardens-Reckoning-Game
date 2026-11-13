@@ -10,6 +10,7 @@
   "stroll_m": 12,
   "retry_minutes": 60,
   "look_again_minutes": 10,
+  "gathering": { "willing": 0.2, "drawn": 1.5 },
   "between_jobs": {
     "wait_minutes": 30,
     "within_m": 25,

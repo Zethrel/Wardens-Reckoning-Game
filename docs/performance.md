@@ -510,6 +510,43 @@ everyday threshold (34.5 ms against 33); on the maintainer's PC 25b measured
 walk in Work hours. The PC run decides. The test suite takes 3 minutes 1
 second.
 
+**The maintainer's PC, 13 November 2026** (Windows 10.0.26200, 16 logical
+processors, .NET 8.0.33, Release build; own map): **every threshold met.**
+
+| Scenario | Kind | Mean tick ms | Slowest tick ms | Sustained speed | Simulation's share of a core | Slowest frame ms |
+|---|---|---|---|---|---|---|
+| idle | everyday | 0.0046 | 20.6 | 100.0% | 0.05% | 20.6 |
+| hauling | everyday | 0.0074 | 8.508 | 100.0% | 0.09% | 8.510 |
+| arbitration | stress | 0.0746 | 38.7 | 100.0% | 0.89% | 46.1 |
+| interrupted | stress | 0.0054 | 7.664 | 100.0% | 0.07% | 7.671 |
+
+| Save scenario | Size KB | Text ms (mean / slowest) | Written ms | Loaded ms |
+|---|---|---|---|---|
+| after a day of arbitration | 585 | 11.6 / 36.0 | 38.9 / 68.2 | 22.8 / 56.5 |
+
+The same 70 walls as in the cloud.
+
+### Step 25d: gathering places, cloud, 13 November 2026
+
+Gathering places change only where talks meet (the profiler's scenarios mark
+none). Measured 13 Nov 2026 on Ubuntu 24.04.5 LTS, 2 logical processors, .NET
+8.0.33, Release build. Own map.
+
+| Scenario | Kind | Mean tick ms | Slowest tick ms | Sustained speed | Simulation's share of a core | Slowest frame ms |
+|---|---|---|---|---|---|---|
+| idle | everyday | 0.0060 | 34.9 | 100.0% | 0.07% | 34.9 |
+| hauling | everyday | 0.0104 | 17.4 | 100.0% | 0.13% | 19.6 |
+| arbitration | stress | 0.1243 | 33.1 | 100.0% | 1.5% | 33.1 |
+| interrupted | stress | 0.0087 | 24.9 | 100.0% | 0.10% | 24.9 |
+
+| Save scenario | Size KB | Text ms (mean / slowest) | Written ms | Loaded ms |
+|---|---|---|---|---|
+| after a day of arbitration | 561 | 19.2 / 59.8 | 60.6 / 171.4 | 41.2 / 92.2 |
+
+As in 25a to 25c, idle's slowest tick in the cloud is just over the everyday
+threshold (34.9 ms against 33); on the maintainer's PC 25c measured 20.6. The
+PC run decides. The test suite takes 3 minutes 6 seconds.
+
 ## Assessment
 
 **Everyday play is far within its time.** A colony at rest or hauling takes a

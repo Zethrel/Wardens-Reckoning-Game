@@ -64,7 +64,8 @@ public static class ColonySave
     // 21: between jobs (step 25c, library Review 43): each colonist's "free" also holds "between_since" (a tick, or
     // null) and "worked_at" ([x, y], or null); an outing's "between"; "reconsider" in "work". An outing's activity may
     // be "idle".
-    public const int Version = 21;
+    // 22: gathering places (step 25d): "gatherings" in "work", each { id, name, area: [x, y, width, height] }.
+    public const int Version = 22;
 
     /// <summary>The colony as JSON.</summary>
     public static JsonObject Write(Colony colony) => new()
@@ -155,6 +156,10 @@ public static class ColonySave
                 w.Litres, w.Frozen, w.FouledUntil, w.Sign, w.SignSeen) : null).ToArray()),
             ["cold"] = work.Cold,
             ["reconsider"] = work.Reconsider,
+            ["gatherings"] = new JsonArray(work.Gatherings.Select(g => (JsonNode?)new JsonObject
+            {
+                ["id"] = g.Id.Value, ["name"] = g.Name, ["area"] = new JsonArray(g.Area.X, g.Area.Y, g.Area.Width, g.Area.Height),
+            }).ToArray()),
             ["news"] = new JsonArray(work.Told.Select(n => (JsonNode?)new JsonArray(n.Tick, n.Text)).ToArray()),
             ["talk"] = new JsonObject
             {
@@ -734,6 +739,25 @@ public static class ColonySave
             if (owner is ColonistId ow && !workerIds.Contains(ow.Value))
                 throw new ColonySaveException(at + ".owner " + ow.Value + " is no colonist");
             colony.Work!.Put(new Bedroll(new BuildingId(id), Real(o, "x", at), Real(o, "y", at), owner));
+        }
+        // Gathering places (step 25d).
+        var gatheringIds = new HashSet<long>();
+        foreach (var (node, i) in (work["gatherings"] as JsonArray ?? throw new ColonySaveException("work.gatherings is not a list")).Select((n, i) => (n, i)))
+        {
+            string at = "work.gatherings[" + i + "]";
+            var o = Item(node, at);
+            long id = Id(o, "id", at);
+            Given<BuildingId>(id, at + ".id");
+            if (sites.Contains(id) || projects.Contains(id) || bedIds.Contains(id) || !gatheringIds.Add(id))
+                throw new ColonySaveException(at + ".id " + id + " is given twice");
+            string name = o["name"] is JsonValue nv && nv.TryGetValue(out string? n) && !string.IsNullOrWhiteSpace(n) ? n
+                : throw new ColonySaveException(at + ".name is not a name");
+            if (o["area"] is not JsonArray area || area.Count != 4)
+                throw new ColonySaveException(at + ".area is not [x, y, width, height]");
+            long[] v = area.Select((a, k) => Number(a, at + ".area[" + k + "]")).ToArray();
+            if (v[2] < 1 || v[3] < 1 || v.Any(a => a < 0 || a > int.MaxValue))
+                throw new ColonySaveException(at + ".area is not a block of tiles");
+            colony.Work!.Put(new Gathering(new BuildingId(id), name, new Area((int)v[0], (int)v[1], (int)v[2], (int)v[3])));
         }
         foreach (var node in work["springs"] as JsonArray ?? throw new ColonySaveException("work.springs is not a list"))
         {

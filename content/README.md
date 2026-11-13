@@ -121,7 +121,10 @@ what is wrong, before anything runs.
   `doing`, within `within_m` of it, `stops` of `minutes_each`; it eases
   nothing); after `wait_minutes` still without work they may take free time
   within `within_m` of their work area, easing at `eases_share` of the usual
-  rate. No activity may have the id `idle`.
+  rate. No activity may have the id `idle`. `gathering` (step 25d): at a
+  gathering place the player marks, how much more `willing` the one asked is
+  (added to the chance) and how much more a talk there is `drawn` (times its
+  weight).
 - `skills.json` (step 23a): the `skills`, each with an `id`, a `name` and the
   work it is `used_for`: `build` (all building), `boil` (boiling water) or a
   workshop's id (its recipes); each kind of work uses one skill at most, and

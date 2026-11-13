@@ -420,7 +420,10 @@ public class SanitationTests
         int before = to.Count("water");
         Assert.True(Until(colony, () => !work.Jobs.Contains(job), 90), "never finished");
         Assert.True(to.Count("water") >= before + 10 - 2);
-        Assert.All(work.Workers, w => Assert.Equal(0, colony.Stocks[w.Arms].Count("timber")));
+        // The cancelled boiling's fuel was burnt, not left in anyone's arms. (The water is still marked "boil first",
+        // so a new boiling may already be under way, its fuel fetched: that one may hold timber.)
+        Assert.All(work.Workers.Where(w => w.Job is not TaskId t || work.Jobs.First(j => j.Id == t).Kind != JobKind.Boil),
+                   w => Assert.Equal(0, colony.Stocks[w.Arms].Count("timber")));
     }
 
     [Fact]

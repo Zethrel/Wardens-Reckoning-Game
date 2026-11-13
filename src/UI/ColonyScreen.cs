@@ -128,7 +128,7 @@ public partial class ColonyScreen : Node
         clock = new Label { CustomMinimumSize = new Vector2(250, 0), VerticalAlignment = VerticalAlignment.Center,
                             SizeFlagsVertical = Control.SizeFlags.ShrinkCenter };
         row.AddChild(clock);
-        Bar(row, "Build", "Build walls, floors, the house, stockpiles (B)", ToggleBuildPanel);
+        Bar(row, "Build", "Build walls, floors, the house, stockpiles, gathering places (B)", ToggleBuildPanel);
         Bar(row, "Waiting", "What waits, and why (J)", ShowWaiting);
         foreach (var w in Colony.Work!.Workers)
         {

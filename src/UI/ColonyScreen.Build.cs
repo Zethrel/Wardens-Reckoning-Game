@@ -11,7 +11,7 @@ namespace WardensReckoning.UI;
 /// Pick what to build in the build panel (B), then on the map:
 ///
 /// - walls, doors and roads: drag a straight line (a click is one tile);
-/// - floors and stockpiles: drag a box;
+/// - floors, stockpiles and gathering places (step 25d): drag a box;
 /// - the well and the small house: click where its top left corner goes; R turns the house, F mirrors it;
 /// - take down: drag over what to take down.
 ///
@@ -38,6 +38,7 @@ public partial class ColonyScreen
     Control? buildColumn;
 
     const string Stockpile = "stockpile";
+    const string GatheringPlace = "gathering place";   // step 25d
     const string TakeDown = "take down";
     const string Target = "target";
 
@@ -60,6 +61,7 @@ public partial class ColonyScreen
         foreach (var (id, template) in content.Templates)
             yield return new Tool(id, template.Name, Shape.Template);
         yield return new Tool(Stockpile, "Stockpile", Shape.Box);
+        yield return new Tool(GatheringPlace, "Gathering place", Shape.Box);
         yield return new Tool(TakeDown, "Take down", Shape.Line);
     }
 
@@ -135,6 +137,7 @@ public partial class ColonyScreen
         Shape.Line when t.What == TakeDown => "Drag over what to take down. Esc stops.",
         Shape.Line => "Drag a straight line of " + t.Name.ToLowerInvariant() + " (a click is one). Esc stops.",
         Shape.Box when t.What == Stockpile => "Drag the stockpile's area. Esc stops.",
+        Shape.Box when t.What == GatheringPlace => "Drag the gathering place's area: talks happen there more often. Esc stops.",
         Shape.Box => "Drag a box of " + t.Name.ToLowerInvariant() + ". Esc stops.",
         Shape.Template => "Click where its top left corner goes. R turns it, F mirrors it. Esc stops.",
         _ => "Click where its top left corner goes. Esc stops.",
@@ -320,6 +323,14 @@ public partial class ColonyScreen
             return (area.Tiles.Select(p => (p.X, p.Y, check.Ok)).ToList(),
                     check.Ok ? "Stockpile, " + area.Width + " by " + area.Height : "Not here: " + check.Why);
         }
+        if (t.What == GatheringPlace)
+        {
+            var from = anchor ?? cursor;
+            var area = Shapes.Box(from.X, from.Y, cursor.X, cursor.Y);
+            var check = work.CheckGathering(area);
+            return (area.Tiles.Select(p => (p.X, p.Y, check.Ok)).ToList(),
+                    check.Ok ? "Gathering place, " + area.Width + " by " + area.Height : "Not here: " + check.Why);
+        }
         if (t.What == TakeDown)
         {
             var tiles = Covered().Select(p => (p.X, p.Y, Inspect.Commands(Colony, p.X, p.Y).Any(c => c.Label == "Take down"))).ToList();
@@ -375,6 +386,12 @@ public partial class ColonyScreen
             var from = anchor ?? cursor;
             var (pile, check) = work.PlaceStockpile(Shapes.Box(from.X, from.Y, cursor.X, cursor.Y));
             result = pile != null ? pile.Name + " laid." : "Not here: " + check.Why;
+        }
+        else if (t.What == GatheringPlace)
+        {
+            var from = anchor ?? cursor;
+            var (gathering, check) = work.PlaceGathering(Shapes.Box(from.X, from.Y, cursor.X, cursor.Y));
+            result = gathering != null ? gathering.Name + " marked." : "Not here: " + check.Why;
         }
         else if (t.What == TakeDown)
         {

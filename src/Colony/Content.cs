@@ -55,12 +55,20 @@ public sealed record LeisureRules(IReadOnlyDictionary<string, LeisureNeed> Needs
     public Topics Topics { get; init; } = null!;
     /// <summary>Between jobs in Work hours (step 25c).</summary>
     public BetweenJobsRules BetweenJobs { get; init; } = null!;
+    /// <summary>Gathering places (step 25d).</summary>
+    public GatheringRules Gathering { get; init; } = null!;
     /// <summary>What draws a colonist to practising: any skill they enjoy.</summary>
     public const string EnjoyedSkill = "enjoyed_skill";
 
     /// <summary>Whether `hour` falls in the part of the day `time` (an hour from `From` up to, not including, `To`).</summary>
     public bool InTime(string time, int hour) => Times[time] is var (from, to) && (from <= to ? hour >= from && hour < to : hour >= from || hour < to);
 }
+
+/// <summary>
+/// Gathering places (step 25d, leisure.json "gathering"): how much more readily a colonist agrees to talk when asked
+/// to meet at one (`Willing`, added to the chance), and how much more a talk there draws (`Drawn`, times the weight).
+/// </summary>
+public sealed record GatheringRules(double Willing, double Drawn);
 
 /// <summary>
 /// Between jobs in Work hours (step 25c, leisure.json "between_jobs"; library Review 43, Daily Life §11.1): how long a
@@ -942,7 +950,7 @@ public sealed class Content
 
         // Free time (step 25a, library Review 42).
         LeisureRules? leisure = null;
-        if (Open("leisure.json", "needs", "times", "interests", "within_m", "stroll_m", "retry_minutes", "look_again_minutes", "between_jobs", "activities", "talk", "topics") is JsonObject le2)
+        if (Open("leisure.json", "needs", "times", "interests", "within_m", "stroll_m", "retry_minutes", "look_again_minutes", "between_jobs", "gathering", "activities", "talk", "topics") is JsonObject le2)
         {
             var lneeds = new Dictionary<string, LeisureNeed>();
             if (le2["needs"] is JsonObject ln && ln.Count > 0)
@@ -1143,10 +1151,26 @@ public sealed class Content
             }
             else
                 problems.Add("leisure.json.between_jobs: should be an object { ... }");
-            if (within != null && stroll != null && retry != null && lookAgain != null && talk != null && topics != null && between != null)
+            // Gathering places (step 25d).
+            GatheringRules? gathering = null;
+            if (le2["gathering"] is JsonObject ga)
+            {
+                const string at = "leisure.json.gathering";
+                check.Keys(ga, at, "willing", "drawn");
+                double? willing = ga["willing"] is JsonValue wv && wv.TryGetValue(out double wl) && wl >= 0 && wl <= 1 ? wl : null;
+                if (willing == null)
+                    problems.Add(at + ".willing: should be a chance from 0 to 1");
+                double? drawn = check.Positive(ga, at, "drawn");
+                if (willing != null && drawn != null)
+                    gathering = new GatheringRules(willing.Value, drawn.Value);
+            }
+            else
+                problems.Add("leisure.json.gathering: should be an object { ... }");
+            if (within != null && stroll != null && retry != null && lookAgain != null && talk != null && topics != null && between != null
+                && gathering != null)
                 leisure = new LeisureRules(lneeds, times, interests, within.Value, stroll.Value, retry.Value, lookAgain.Value, activities)
                 {
-                    Talk = talk, Topics = topics, BetweenJobs = between,
+                    Talk = talk, Topics = topics, BetweenJobs = between, Gathering = gathering,
                 };
         }
 

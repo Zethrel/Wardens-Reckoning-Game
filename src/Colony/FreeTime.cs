@@ -53,17 +53,19 @@ public sealed partial class Work
         var possible = rules.Activities.Where(a => !(w.NotBefore.TryGetValue(a.Id, out long until) && until > now)
                                                   && a.When.Any(time => rules.InTime(time, hour))).ToList();
         var offered = new List<(Activity Activity, (double X, double Y, BuildingId? Site) Spot, double Weight)>();
-        (double X, double Y, long? Join, ColonistId? Ask)? talkSpot = null;
+        (double X, double Y, long? Join, ColonistId? Ask, (double X, double Y)? Meet)? talkSpot = null;
         var spots = possible.Count > 0 ? Spots(w, cx, cy, within) : null;   // every kind of place around, in one look
         foreach (var activity in possible)
         {
             if (activity.Place == "company")
             {
                 // A talk (step 25b): someone to talk with, or a talk to join, nearby.
-                if (TalkSpot(w, cx, cy, within) is not var (tx, ty, join, ask))
+                if (TalkSpot(w, cx, cy, within) is not var (tx, ty, join, ask, meet))
                     continue;
-                talkSpot = (tx, ty, join, ask);
-                offered.Add((activity, (tx, ty, null), Weight(w, activity, Math.Sqrt((tx - w.X) * (tx - w.X) + (ty - w.Y) * (ty - w.Y)))));
+                talkSpot = (tx, ty, join, ask, meet);
+                // At a gathering place, a talk draws them more (step 25d).
+                double drawn = AtGathering(talkSpot.Value) ? rules.Gathering.Drawn : 1;
+                offered.Add((activity, (tx, ty, null), drawn * Weight(w, activity, Math.Sqrt((tx - w.X) * (tx - w.X) + (ty - w.Y) * (ty - w.Y)))));
                 continue;
             }
             if (FirstSpot(w, activity, spots!, cx, cy, within) is not var (x, y, site))

@@ -172,6 +172,8 @@ public static class Inspect
                 string owner = bed.Owner is ColonistId o ? work!.Workers.FirstOrDefault(w => w.Id == o)?.Name ?? "" : "";
                 lines.Add(new Line("Bedroll", owner == "" ? "nobody's" : owner + "'s"));
             }
+        if (work?.GatheringAt(x, y) is Gathering gathering)
+            lines.Add(new Line("Gathering", gathering.Name + ": talks happen here more often"));
         if (surface.CanWalk)
             lines.Add(new Line("Shelter", ground.Indoors(x, y) ? "indoors (a room)" : "outdoors"));
         var here = (work?.Workers ?? Array.Empty<Worker>()).Where(w => Ground.TileOf(w.X, w.Y) == (x, y)).Select(w => w.Name).ToList();
@@ -183,7 +185,7 @@ public static class Inspect
     /// <summary>
     /// What the player can do on tile (x, y) (step 18b, library Review 38): pause or resume a building under way,
     /// cancel it; take down a finished piece; move a bedroll; empty the carts (or another store) into the
-    /// stockpiles; empty and remove a stockpile. Each command's key is shown on its
+    /// stockpiles; empty and remove a stockpile; remove a gathering place (step 25d). Each command's key is shown on its
     /// button, so the keyboard alone can do it too (FP-11).
     /// </summary>
     public static IReadOnlyList<Command> Commands(Colony colony, int x, int y)
@@ -243,6 +245,12 @@ public static class Inspect
             var id = pile.Id;
             commands.Add(new Command("Remove stockpile", 'R', "Carry everything in " + pile.Name + " to the other stores, then remove it",
                 () => work.RemoveStockpile(id)));
+        }
+        if (work.GatheringAt(x, y) is Gathering gathering)
+        {
+            var id = gathering.Id;
+            commands.Add(new Command("Remove gathering place", 'G', "Remove " + gathering.Name + "; talks there go on to their end",
+                () => work.RemoveGathering(id)));
         }
         return commands;
     }

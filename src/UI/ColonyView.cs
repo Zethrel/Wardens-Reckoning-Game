@@ -188,6 +188,13 @@ public partial class ColonyView : Node2D
             if (p.Paused)
                 DrawLine(box.Position, box.End, Ink, 0.08f);       // a paused one is crossed through
         }
+        // Gathering places (step 25d): the area softly filled and outlined in green.
+        foreach (var gathering in work.Gatherings)
+        {
+            var area = new Rect2(gathering.Area.X, gathering.Area.Y, gathering.Area.Width, gathering.Area.Height);
+            DrawRect(area, new Color(0.45f, 0.75f, 0.45f, 0.18f));
+            DrawRect(area, new Color(0.3f, 0.6f, 0.3f), false, 0.1f);
+        }
         // Stores: a stockpile's area outlined, the carts and other stores as a box with their first letter.
         var springs = work.Springs.ToHashSet();
         // (A water barrel's or a wash basin's water is its piece: drawn with the pieces, not as a store.)
