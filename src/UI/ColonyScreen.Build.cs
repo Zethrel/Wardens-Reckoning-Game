@@ -234,7 +234,12 @@ public partial class ColonyScreen
 
     void OnMoved(Vector2 point)
     {
-        if (tool == null || TileUnderMouse() is not var (x, y) || (x, y) == cursor)
+        if (tool == null)
+        {
+            Hover(point);                    // step 26d: what is under the mouse, marked (ColonyScreen.Notices.cs)
+            return;
+        }
+        if (TileUnderMouse() is not var (x, y) || (x, y) == cursor)
             return;
         cursor = (x, y);
         UpdateGhost();

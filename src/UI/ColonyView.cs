@@ -49,6 +49,11 @@ public partial class ColonyView : Node2D
     /// <summary>The colonist picked in the inspector, ringed (or null).</summary>
     public ColonistId? SelectedWorker { get; set; }
 
+    /// <summary>Under the mouse (step 26d, UI plan UI-04): the colonist, or else the tile, lightly marked; null for
+    /// nothing (the mouse is off the map, or a build tool is in hand).</summary>
+    public ColonistId? HoverWorker { get; set; }
+    public (int X, int Y)? HoverTile { get; set; }
+
     public ColonyView() : this(null!) { }
 
     // Where each colonist stood before the last tick (step 21b), by their number, and the colony that was: the
@@ -227,8 +232,15 @@ public partial class ColonyView : Node2D
             DrawRect(new Rect2(middle - new Vector2(0.3f, 0.42f), new Vector2(0.6f, 0.84f)), new Color(0.75f, 0.35f, 0.3f));
             DrawRect(new Rect2(middle - new Vector2(0.3f, 0.42f), new Vector2(0.6f, 0.84f)), Ink, false, 0.05f);
         }
+        // The tile under the mouse, faintly; the picked tile in brass with a dark edge, so it shows on any ground
+        // (step 26d).
+        if (HoverTile is var (hx, hy) && HoverTile != SelectedTile)
+            DrawRect(new Rect2(hx + 0.04f, hy + 0.04f, 0.92f, 0.92f), new Color(1, 1, 1, 0.55f), false, 0.06f);
         if (SelectedTile is var (sx, sy))
-            DrawRect(new Rect2(sx, sy, 1, 1), new Color(1, 1, 1), false, 0.12f);
+        {
+            DrawRect(new Rect2(sx - 0.04f, sy - 0.04f, 1.08f, 1.08f), Ink, false, 0.16f);
+            DrawRect(new Rect2(sx, sy, 1, 1), Ledger.Brass, false, 0.1f);
+        }
         foreach (var (gx, gy, ok) in Ghost)
         {
             var tile = new Rect2(gx + 0.08f, gy + 0.08f, 0.84f, 0.84f);
@@ -267,8 +279,14 @@ public partial class ColonyView : Node2D
             var middle = at;
             DrawCircle(middle, radius, w.Collapsed != null ? new Color(0.6f, 0.6f, 0.6f) : new Color(0.95f, 0.85f, 0.65f));
             DrawArc(middle, radius, 0, Mathf.Tau, 20, Ink, radius * 0.18f);
+            // Picked: a brass ring with a dark edge (step 26d); under the mouse: a faint one.
             if (SelectedWorker == w.Id)
-                DrawArc(middle, radius * 1.6f, 0, Mathf.Tau, 24, Paper, radius * 0.3f);
+            {
+                DrawArc(middle, radius * 1.65f, 0, Mathf.Tau, 28, Ink, radius * 0.42f);
+                DrawArc(middle, radius * 1.65f, 0, Mathf.Tau, 28, Ledger.Brass, radius * 0.26f);
+            }
+            else if (HoverWorker == w.Id)
+                DrawArc(middle, radius * 1.5f, 0, Mathf.Tau, 24, new Color(1, 1, 1, 0.6f), radius * 0.15f);
             DrawName(font, w.Name, middle - new Vector2(0, radius * 1.6f + level * 19f / pixels), pixels);
         }
         // Talk (step 25b): over whoever's turn it is in a talk, a bubble with what it is about, above their name.

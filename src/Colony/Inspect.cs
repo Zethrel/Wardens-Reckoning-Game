@@ -10,6 +10,13 @@ public sealed record Line(string Label, string Text);
 public sealed record Inspection(string Title, IReadOnlyList<Line> Lines);
 
 /// <summary>
+/// Something the player may want to act on (step 26d, UI plan UI-05): a key naming the condition (the same while it
+/// holds, so it is shown once, not again and again), how serious (3 a colonist in danger, 2 someone or the colony
+/// in want, 1 work held up), the words, and who or where it is about, to go to.
+/// </summary>
+public sealed record Alert(string Key, int Severity, string Text, ColonistId? Who = null, (int X, int Y)? Where = null);
+
+/// <summary>
 /// One need on a colonist's card (step 26b, UI plan UI-02): its name, how pressing it is from 0 (not at all) to 100
 /// (at its limit; the needs are counted as deficits, so a fuller bar is a more pressing need), the word for that
 /// level ("fine", "peckish", "wants"..., or the free-time need's own words), and how pressing that word is: 0 fine, 1
@@ -170,6 +177,67 @@ public static class Inspect
             lines.Where(l => l.Label == "Interests" || skillNames.Contains(l.Label)).ToList(),
             lines.Where(l => l.Label is "Where" or "Carrying").ToList(),
             diagnostics) { Why = why };
+    }
+
+    /// <summary>
+    /// What the player may want to act on now (step 26d, UI plan UI-05), worked out from the colony's state as it is,
+    /// most serious first: a colonist collapsed, or with a need at critical; someone visibly unwell or lacking what
+    /// they need; no food left in the stores; buildings held up, one alert for each reason. Each lasts as long as its
+    /// condition, under the same key, so it is shown once and goes when the condition does. Few on purpose: an urgent
+    /// need is part of a working day and not alerted; a critical one is.
+    /// </summary>
+    public static IReadOnlyList<Alert> Alerts(Colony colony)
+    {
+        var work = colony.Work;
+        var alerts = new List<Alert>();
+        if (work == null)
+            return alerts;
+        var content = Rules(colony);
+        foreach (var w in work.Workers)
+        {
+            if (w.Collapsed is string felled)
+                alerts.Add(new Alert("collapsed:" + w.Id.Value, 3, w.Name + " has collapsed (" + felled + ")", w.Id));
+            else
+                foreach (var (need, state) in w.Needs)
+                    if (Word(content.Needs[need], state.Level) == "critical")
+                        alerts.Add(new Alert("critical:" + w.Id.Value + ":" + need, 3, w.Name + "'s " + need + " is critical", w.Id));
+            if (w.Illness is Illness illness && work.Ill(w))
+                alerts.Add(new Alert("unwell:" + w.Id.Value, 2, w.Name + " is unwell: " + illness.Name.ToLowerInvariant(), w.Id));
+            if (w.Lacking != null)
+                alerts.Add(new Alert("lacking:" + w.Id.Value, 2, w.Name + ": " + w.Lacking, w.Id));
+        }
+        var stores = colony.Stocks.Inventories.Where(i => i.Holder == Holder.Store).ToList();
+        if (work.Workers.Count > 0 && content.Eat.Good != "" && stores.Sum(i => colony.Stocks.Free(i.Id, content.Eat.Good)) == 0)
+            alerts.Add(new Alert("no food", 2, "No " + content.Goods[content.Eat.Good].Name.ToLowerInvariant() + " left free in the stores"));
+        foreach (var group in work.Projects.Where(p => !p.Paused && p.Blocked != null).GroupBy(p => p.Blocked!).OrderBy(g => g.Key, StringComparer.Ordinal))
+        {
+            var first = group.OrderBy(p => p.Id.Value).First();
+            int n = group.Count();
+            string what = n == 1 ? content.Pieces[first.Piece].Name + " at (" + first.X + ", " + first.Y + ") waits" : n + " buildings wait";
+            alerts.Add(new Alert("waits:" + group.Key, 1, what + ": " + group.Key, Where: (first.X, first.Y)));
+        }
+        return alerts.OrderByDescending(a => a.Severity).ThenBy(a => a.Key, StringComparer.Ordinal).ToList();
+    }
+
+    /// <summary>
+    /// A tile's hover hint (step 26d, UI plan UI-04): what is notable on it in a few words ("Tree", "Wall",
+    /// "Building: Road", "Store: the carts", "Gathering place 1"), or null when there is nothing but ground.
+    /// </summary>
+    public static string? Hint(Colony colony, int x, int y)
+    {
+        var ground = colony.Ground;
+        if (ground == null || !ground.Inside(x, y))
+            return null;
+        var parts = Tile(colony, x, y).Lines
+            .Where(l => l.Label is "In the way" or "Built" or "Project" or "Store" or "Water" or "Gathering" or "Bedroll")
+            .Select(l => l.Label switch
+            {
+                "In the way" or "Built" => l.Text,
+                "Store" or "Water" or "Gathering" => l.Text.Split(':')[0],
+                "Bedroll" => "Bedroll, " + l.Text,
+                _ => l.Text,
+            }).ToList();
+        return parts.Count == 0 ? null : string.Join(" · ", parts);
     }
 
     /// <summary>

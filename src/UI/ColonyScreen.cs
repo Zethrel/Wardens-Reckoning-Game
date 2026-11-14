@@ -39,6 +39,8 @@ public partial class ColonyScreen : Node
     const int InspectorWidth = 320;
     PanelContainer? side;
     Button? reopen;
+    Control? stage;                          // the middle: the map and what lies over it
+    SubViewportContainer? mapFrame;
     Button? more;
     bool hidden;
     bool expanded;
@@ -84,8 +86,10 @@ public partial class ColonyScreen : Node
         // never moves the map.
         var middle = new Control { SizeFlagsVertical = Control.SizeFlags.ExpandFill, MouseFilter = Control.MouseFilterEnum.Pass };
         screen.AddChild(middle);
+        stage = middle;
 
         var frame = new SubViewportContainer { Stretch = true };
+        mapFrame = frame;
         frame.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
         middle.AddChild(frame);
         var port = new SubViewport { HandleInputLocally = true };
@@ -135,6 +139,7 @@ public partial class ColonyScreen : Node
         reopen.GrowHorizontal = Control.GrowDirection.Begin;
         reopen.Pressed += ToggleHidden;
         middle.AddChild(reopen);
+        MakeNotices(middle);                 // the alerts and the hover tooltip (step 26d, ColonyScreen.Notices.cs)
         inspector = new VBoxContainer();
         column.AddChild(inspector);
         // The commands of the picked tile (pause, cancel, take down...): made again only when they change, so a
@@ -217,12 +222,16 @@ public partial class ColonyScreen : Node
             said.TooltipText = string.Join("\n", told.TakeLast(10).Select(n => new Moment(n.Tick) + ": " + n.Text));
             newsShown = told.Count;
         }
-        // The inspector is written again four times a second, so what it shows follows the colony.
+        // The inspector is written again four times a second, so what it shows follows the colony; the alerts and
+        // the tooltip's words with it (step 26d).
+        FollowMouse();
         refresh -= delta;
         if (refresh <= 0)
         {
             refresh = 0.25;
             ShowInspection();
+            ShowAlerts();
+            ShowTooltip();
         }
     }
 
