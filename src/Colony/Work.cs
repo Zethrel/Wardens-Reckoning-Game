@@ -750,7 +750,7 @@ public sealed partial class Work
                     break;
                 }
                 // Someone standing there starts at once; anyone else walks on. A builder works from beside the tile.
-                bool near = job.Kind == JobKind.Build && content.Pieces[projects[job.Site!.Value.Value].Piece].Access == null;
+                bool near = job.Kind == JobKind.Build && KindOf(projects[job.Site!.Value.Value]).Access == null;
                 if (Walk(worker, gx, gy, near))
                 {
                     job.Step = job.Kind is JobKind.Haul or JobKind.Boil ? Step.Loading : Step.Working;

@@ -85,7 +85,7 @@ public sealed partial class Work
     internal string? SkillOf(Job job) => content.SkillFor.GetValueOrDefault(
         job.Kind switch
         {
-            JobKind.Build => BuildWork,
+            JobKind.Build => projects[job.Site!.Value.Value].Felling ? FellWork : BuildWork,
             JobKind.Boil => BoilWork,
             JobKind.Craft => sites[job.Site!.Value.Value].Workshop,
             _ => "",

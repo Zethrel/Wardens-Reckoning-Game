@@ -71,6 +71,12 @@ what is wrong, before anything runs.
     `holds_litres` of water carried to it (a barrel, a basin; 0 for the
     rest), whether colonists wash at it (`wash_place`), and whether it is the
     work of opening frozen water (`opens_ice`).
+  - `trees` (step 28a, library Review 44): the kinds of tree that can be
+    felled, each with its `id` (the obstacle's kind on the ground: the local
+    maps' trees are `tree`), a `name`, its `yield` (good id to whole units,
+    left on the tile where it stood) and the `work_minutes` of felling it at
+    the usual pace. Each needs a challenge in `skills.json`; felling is the
+    work `fell` (the Forestry skill).
   - `templates`: buildings to plan in one go, drawn as `rows` of letters, one
     per tile, with a `key` saying which piece each letter is (`.` leaves the
     tile as it is).

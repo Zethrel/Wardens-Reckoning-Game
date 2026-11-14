@@ -131,10 +131,14 @@ public partial class ColonyView : Node2D
     static readonly Color TreeColour = new(0.13f, 0.33f, 0.16f);
     static readonly Color RockColour = new(0.55f, 0.55f, 0.55f);
 
+    // The ground the picture was painted from, and how many obstacle changes it had then (step 28a).
+    (Ground? Ground, int Changes) painted;
+
     /// <summary>Paints the ground picture again (when another colony is loaded, or a tree is felled).</summary>
     public void PaintGround()
     {
         var ground = colony().Ground!;
+        painted = (ground, ground.ObstacleChanges);
         var image = Image.CreateEmpty(ground.Width, ground.Height, false, Image.Format.Rgb8);
         for (int y = 0; y < ground.Height; y++)
             for (int x = 0; x < ground.Width; x++)
@@ -190,6 +194,9 @@ public partial class ColonyView : Node2D
 
     public override void _Process(double delta)
     {
+        // A tree felled (step 28a) or another colony loaded: the ground picture is painted again.
+        if (colony().Ground is Ground g && (g != painted.Ground || g.ObstacleChanges != painted.Changes))
+            PaintGround();
         UpdateCanopy(delta);
         QueueRedraw();                      // the colonists move: draw again each frame
     }
@@ -293,9 +300,9 @@ public partial class ColonyView : Node2D
 
         var work = c.Work!;
         // Buildings under way: an outline of their size, and how far along they are.
-        foreach (var p in work.Projects)
+        foreach (var p in work.Projects.Where(p => !p.Felling))
         {
-            var kind = c.Content!.Pieces[p.Piece];
+            var kind = work.KindOf(p);
             var box = new Rect2(p.X + 0.1f, p.Y + 0.1f, Math.Max(1, kind.Width) - 0.2f, Math.Max(1, kind.Height) - 0.2f);
             DrawRect(box, p.Removing ? new Color(0.85f, 0.3f, 0.2f) : new Color(1f, 0.85f, 0.2f), false, 0.08f);
             if (p.Paused)
@@ -334,6 +341,10 @@ public partial class ColonyView : Node2D
                 Letter(font, Initial(inventory.Name), middle, pixels);
             }
         }
+        // Goods lying on the ground (step 28a): a felled tree's timber, or materials brought to a building, as a
+        // stand-in pile until the pile pictures exist (Review 45).
+        foreach (var lying in c.Stocks.Inventories.Where(i => i.Holder == Holder.Construction && i.Goods.Count > 0))
+            DrawPile(lying, new Vector2((float)lying.X, (float)lying.Y));
         foreach (var bed in work.Bedrolls)
         {
             var middle = new Vector2((float)bed.X, (float)bed.Y);
@@ -383,6 +394,10 @@ public partial class ColonyView : Node2D
                 DrawLine(new Vector2(tile.End.X, tile.Position.Y), new Vector2(tile.Position.X, tile.End.Y), Ink, 0.1f);
             }
         }
+        // Trees marked for felling (step 28a): a red-brown notch on the trunk, over the leaves so it always shows; a
+        // paused one is hollow.
+        foreach (var p in work.Projects.Where(p => p.Felling && !p.Cancelled))
+            DrawFellMark(new Vector2(p.X + 0.5f, p.Y + 0.75f), p.Paused, pixels);
         if (Cursor is var (kx, ky))
         {
             DrawRect(new Rect2(kx - 0.05f, ky - 0.05f, 1.1f, 1.1f), Ink, false, 0.14f);
@@ -420,6 +435,58 @@ public partial class ColonyView : Node2D
                 int level = drawn.FirstOrDefault(d => d.At == at).Level;
                 DrawBubble(font, words, at - new Vector2(0, radius * 1.6f + (level + 1) * 19f / pixels + 6f / pixels), pixels);
             }
+    }
+
+    static readonly Color Bark = new(0.42f, 0.28f, 0.16f);
+    static readonly Color Heartwood = new(0.80f, 0.64f, 0.42f);
+    static readonly Color Plank = new(0.82f, 0.68f, 0.46f);
+    static readonly Color Sack = new(0.72f, 0.64f, 0.48f);
+
+    // A pile of goods lying on the ground, as a stand-in (step 28a): logs for timber, planks for lumber, a sack for
+    // anything else; more logs or planks for more units (one, two or three). The goods with the most units are drawn.
+    void DrawPile(Inventory lying, Vector2 middle)
+    {
+        var (good, count) = lying.Goods.OrderByDescending(g => g.Value).ThenBy(g => g.Key, StringComparer.Ordinal).First();
+        int shown = count >= 4 ? 3 : count >= 2 ? 2 : 1;
+        if (good == "timber")
+        {
+            // Logs side on, the lowest first: two on the ground, the third on top of them.
+            var spots = new[] { new Vector2(-0.18f, 0.22f), new Vector2(0.18f, 0.22f), new Vector2(0, 0.02f) };
+            for (int i = 0; i < shown; i++)
+            {
+                var at = middle + spots[i];
+                var log = new Rect2(at - new Vector2(0.17f, 0.09f), new Vector2(0.34f, 0.18f));
+                DrawRect(log, Bark);
+                DrawRect(log, Ink, false, 0.04f);
+                DrawCircle(at + new Vector2(0.17f, 0), 0.09f, Heartwood);     // the cut end
+                DrawArc(at + new Vector2(0.17f, 0), 0.09f, 0, Mathf.Tau, 12, Ink, 0.03f);
+            }
+            return;
+        }
+        if (good == "lumber")
+        {
+            for (int i = 0; i < shown; i++)
+            {
+                var plank = new Rect2(middle + new Vector2(-0.36f, 0.24f - i * 0.13f), new Vector2(0.72f, 0.11f));
+                DrawRect(plank, Plank);
+                DrawRect(plank, Ink, false, 0.03f);
+            }
+            return;
+        }
+        var bag = new Rect2(middle - new Vector2(0.2f, 0.1f), new Vector2(0.4f, 0.4f));
+        DrawRect(bag, Sack);
+        DrawRect(bag, Ink, false, 0.04f);
+    }
+
+    // A tree marked for felling (step 28a): a notch, as an axe cuts it, at least 8 screen pixels wide; hollow when
+    // paused.
+    void DrawFellMark(Vector2 at, bool paused, float pixels)
+    {
+        float size = Math.Max(0.32f, 8f / pixels);
+        var notch = new[] { at + new Vector2(-size, -size * 0.5f), at + new Vector2(size * 0.2f, 0), at + new Vector2(-size, size * 0.5f) };
+        if (!paused)
+            DrawColoredPolygon(notch, new Color(0.78f, 0.25f, 0.12f));
+        DrawPolyline(notch.Append(notch[0]).ToArray(), paused ? new Color(0.78f, 0.25f, 0.12f) : Ink, size * 0.18f);
     }
 
     // A colonist's body: a circle with an outline, grey while collapsed (at least 5 screen pixels across, so they

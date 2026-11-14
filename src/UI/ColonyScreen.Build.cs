@@ -13,7 +13,9 @@ namespace WardensReckoning.UI;
 /// - walls, doors and roads: drag a straight line (a click is one tile);
 /// - floors, stockpiles and gathering places (step 25d): drag a box;
 /// - the well and the small house: click where its top left corner goes; R turns the house, F mirrors it;
-/// - take down: drag over what to take down.
+/// - take down: drag over what to take down;
+/// - fell trees (step 28a): drag a box over the trees to fell (a click is one); leave standing: drag a box over
+///   marked trees to unmark them.
 ///
 /// While dragging, every tile shows whether it may go there (ColonyView.Ghost), and the bar says why not. Without a
 /// mouse: the arrow keys move the cursor, Enter starts a line or a box and Enter again places it (a well or a house
@@ -40,6 +42,8 @@ public partial class ColonyScreen
     const string Stockpile = "stockpile";
     const string GatheringPlace = "gathering place";   // step 25d
     const string TakeDown = "take down";
+    const string FellTrees = "fell trees";          // step 28a
+    const string LeaveTrees = "leave trees";
     const string Target = "target";
 
     /// <summary>Takes a command that needs a tile (Command.RunAt) in hand: the next tile picked is where it goes.</summary>
@@ -63,6 +67,8 @@ public partial class ColonyScreen
         yield return new Tool(Stockpile, "Stockpile", Shape.Box);
         yield return new Tool(GatheringPlace, "Gathering place", Shape.Box);
         yield return new Tool(TakeDown, "Take down", Shape.Line);
+        yield return new Tool(FellTrees, "Fell trees", Shape.Box);
+        yield return new Tool(LeaveTrees, "Leave trees standing", Shape.Box);
     }
 
     /// <summary>Opens or closes the build panel (B): a column of buttons over the map's top left corner, as tall as
@@ -137,6 +143,8 @@ public partial class ColonyScreen
         Shape.Line when t.What == TakeDown => "Drag over what to take down. Esc stops.",
         Shape.Line => "Drag a straight line of " + t.Name.ToLowerInvariant() + " (a click is one). Esc stops.",
         Shape.Box when t.What == Stockpile => "Drag the stockpile's area. Esc stops.",
+        Shape.Box when t.What == FellTrees => "Drag a box over the trees to fell (a click is one). Esc stops.",
+        Shape.Box when t.What == LeaveTrees => "Drag a box over marked trees to leave them standing. Esc stops.",
         Shape.Box when t.What == GatheringPlace => "Drag the gathering place's area: talks happen there more often. Esc stops.",
         Shape.Box => "Drag a box of " + t.Name.ToLowerInvariant() + ". Esc stops.",
         Shape.Template => "Click where its top left corner goes. R turns it, F mirrors it. Esc stops.",
@@ -336,6 +344,15 @@ public partial class ColonyScreen
             return (area.Tiles.Select(p => (p.X, p.Y, check.Ok)).ToList(),
                     check.Ok ? "Gathering place, " + area.Width + " by " + area.Height : "Not here: " + check.Why);
         }
+        if (t.What is FellTrees or LeaveTrees)
+        {
+            // Only the trees count: the other tiles of the box are left out of the ghost, not shown as refused.
+            var trees = Covered().Where(p => Colony.Ground!.ObstacleAt(p.X, p.Y) is string o && Colony.Content!.Trees.ContainsKey(o)).ToList();
+            var tiles = trees.Select(p => (p.X, p.Y, t.What == FellTrees ? work.CheckFell(p.X, p.Y).Ok : Marked(p.X, p.Y) != null)).ToList();
+            int n = tiles.Count(p => p.Item3);
+            string what = t.What == FellTrees ? "Fell " : "Leave standing: ";
+            return (tiles, n == 0 ? (t.What == FellTrees ? "No tree there to mark." : "No marked tree there.") : what + n + (n == 1 ? " tree" : " trees"));
+        }
         if (t.What == TakeDown)
         {
             var tiles = Covered().Select(p => (p.X, p.Y, Inspect.Commands(Colony, p.X, p.Y).Any(c => c.Label == "Take down"))).ToList();
@@ -353,6 +370,17 @@ public partial class ColonyScreen
         if (preview.FirstOrDefault(p => p.Placement.Ok && p.Placement.Warning != null) is Preview warned)
             says += " " + warned.Placement.Warning;
         return (preview.Select(p => (p.X, p.Y, p.Placement.Ok)).ToList(), says);
+    }
+
+    // The felling marked on a tile (not yet felled), or null.
+    Project? Marked(int x, int y) =>
+        Colony.Work!.Projects.FirstOrDefault(p => p.Felling && !p.Cancelled && p.X == x && p.Y == y);
+
+    // Unmarks a tree (it stays standing).
+    bool Unmark(Project p)
+    {
+        Colony.Work!.CancelBuild(p.Id);
+        return true;
     }
 
     void UpdateGhost()
@@ -397,6 +425,15 @@ public partial class ColonyScreen
             var from = anchor ?? cursor;
             var (gathering, check) = work.PlaceGathering(Shapes.Box(from.X, from.Y, cursor.X, cursor.Y));
             result = gathering != null ? gathering.Name + " marked." : "Not here: " + check.Why;
+        }
+        else if (t.What is FellTrees or LeaveTrees)
+        {
+            int n = 0;
+            foreach (var (x, y) in Covered())
+                if (t.What == FellTrees ? work.Fell(x, y).Project != null : Marked(x, y) is Project p && Unmark(p))
+                    n++;
+            result = n == 0 ? (t.What == FellTrees ? "No tree there to mark." : "No marked tree there.")
+                : n + (n == 1 ? " tree " : " trees ") + (t.What == FellTrees ? "marked for felling." : "left standing.");
         }
         else if (t.What == TakeDown)
         {

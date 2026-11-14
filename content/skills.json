@@ -2,14 +2,15 @@
   "version": 1,
   "skills": [
     { "id": "construction", "name": "Construction", "used_for": [ "build" ] },
-    { "id": "food_preparation", "name": "Food preparation", "used_for": [ "quern", "boil" ] }
+    { "id": "food_preparation", "name": "Food preparation", "used_for": [ "quern", "boil" ] },
+    { "id": "forestry", "name": "Forestry", "used_for": [ "fell" ] }
   ],
   "ranks": [ [ 0, "Untrained" ], [ 10, "Novice" ], [ 25, "Apprentice" ], [ 40, "Journeyman" ], [ 60, "Adept" ], [ 75, "Expert" ], [ 90, "Master" ] ],
   "speed": [ [ 0, 0.5 ], [ 40, 1.0 ], [ 100, 1.5 ] ],
   "standard": 40,
   "challenge": {
     "road": 5, "ice_hole": 10, "floor": 15, "wall": 25, "wash_basin": 30, "water_barrel": 35, "door": 40, "well": 55,
-    "grind_wheat": 20, "boil": 15
+    "grind_wheat": 20, "boil": 15, "tree": 20
   },
   "learning": {
     "points_per_hour": 1.0,

@@ -65,7 +65,9 @@ public static class ColonySave
     // null) and "worked_at" ([x, y], or null); an outing's "between"; "reconsider" in "work". An outing's activity may
     // be "idle".
     // 22: gathering places (step 25d): "gatherings" in "work", each { id, name, area: [x, y, width, height] }.
-    public const int Version = 22;
+    // 23: felling (step 28a, library Review 44): a project's "felling" (its "piece" is then the kind of tree); the
+    // forestry skill and the "fell" kind of work.
+    public const int Version = 23;
 
     /// <summary>The colony as JSON.</summary>
     public static JsonObject Write(Colony colony) => new()
@@ -176,7 +178,7 @@ public static class ColonySave
             ["projects"] = new JsonArray(work.Projects.Select(p => (JsonNode?)new JsonObject
             {
                 ["id"] = p.Id.Value, ["piece"] = p.Piece, ["x"] = p.X, ["y"] = p.Y, ["stock"] = p.Stock.Value,
-                ["paused"] = p.Paused, ["cancelled"] = p.Cancelled, ["removing"] = p.Removing,
+                ["paused"] = p.Paused, ["cancelled"] = p.Cancelled, ["removing"] = p.Removing, ["felling"] = p.Felling,
             }).ToArray()),
             ["sites"] = new JsonArray(work.Sites.Select(s => (JsonNode?)new JsonObject
             {
@@ -448,25 +450,31 @@ public static class ColonySave
             if (sites.Contains(id) || !projects.Add(id))
                 throw new ColonySaveException(at + ".id " + id + " is given twice");
             string piece = Text(o, "piece", at);
-            if (!content.Pieces.ContainsKey(piece))
-                throw new ColonySaveException(at + ".piece \"" + piece + "\" is not in the content");
-            int x = (int)Id(o, "x", at), y = (int)Id(o, "y", at);
             bool Flag(string key) => o[key] is JsonValue fv && fv.TryGetValue(out bool f) ? f : throw new ColonySaveException(at + "." + key + " is not true or false");
-            bool removing = Flag("removing"), cancelled = Flag("cancelled");
-            var kind = content.Pieces[piece];
+            bool removing = Flag("removing"), cancelled = Flag("cancelled"), felling = Flag("felling");
+            // A felling's piece is a kind of tree (step 28a); anything else's, a piece.
+            if (felling ? !content.Trees.ContainsKey(piece) : !content.Pieces.ContainsKey(piece))
+                throw new ColonySaveException(at + ".piece \"" + piece + "\" is not " + (felling ? "a tree " : "") + "in the content");
+            if (felling && removing)
+                throw new ColonySaveException(at + " is both a felling and a taking down");
+            int x = (int)Id(o, "x", at), y = (int)Id(o, "y", at);
+            var kind = felling ? null : content.Pieces[piece];
             bool fits = colony.Ground is Ground ground
-                && (removing
+                && (felling
+                    // A felling not yet done: the tree still stands there (once felled, it only carries away what it gave).
+                    ? cancelled || ground.ObstacleAt(x, y) == piece
+                    : removing
                     // A taking down not yet done: the piece is still there.
                     ? cancelled || ground.PieceAt(x, y) == piece
                     // A building: every tile of it free.
-                    : Enumerable.Range(y, kind.Height).All(ty => Enumerable.Range(x, kind.Width).All(tx =>
+                    : Enumerable.Range(y, kind!.Height).All(ty => Enumerable.Range(x, kind.Width).All(tx =>
                         ground.Inside(tx, ty) && ground.ObstacleAt(tx, ty) == null && ground.PieceAt(tx, ty) == null)));
             if (!fits)
                 throw new ColonySaveException(at + " is planned where it cannot be (" + x + ", " + y + ")");
             var stock = Inv(o, "stock", at);
             if (stocks[stock].Holder != Holder.Construction)
                 throw new ColonySaveException(at + ".stock is not a building site's inventory");
-            colony.Work!.Put(new Project(new BuildingId(id), piece, x, y, stock) { Paused = Flag("paused"), Cancelled = cancelled, Removing = removing });
+            colony.Work!.Put(new Project(new BuildingId(id), piece, x, y, stock) { Paused = Flag("paused"), Cancelled = cancelled, Removing = removing, Felling = felling });
         }
         var claimsNow = new HashSet<long>(stocks.Reservations.Select(r => r.Id.Value));
         var jobIds = new HashSet<long>();

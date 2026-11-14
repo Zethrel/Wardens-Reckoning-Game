@@ -24,11 +24,11 @@ public sealed partial class Work
     public const string CareWork = "care";
 
     /// <summary>The kinds of work there are: hauling, care, and each workshop.</summary>
-    public IEnumerable<string> Kinds => new[] { BuildWork, CareWork, HaulWork }.Concat(content.Workshops.Keys);
+    public IEnumerable<string> Kinds => new[] { BuildWork, CareWork, FellWork, HaulWork }.Concat(content.Workshops.Keys);
 
     /// <summary>The kind of a job.</summary>
     public string KindOf(Job job) =>
-        job.Kind == JobKind.Build ? BuildWork
+        job.Kind == JobKind.Build ? (projects[job.Site!.Value.Value].Felling ? FellWork : BuildWork)
         : job.Kind == JobKind.Craft ? sites[job.Site!.Value.Value].Workshop
         : workers.Values.Any(w => w.Arms == job.To) ? CareWork : HaulWork;
 
@@ -77,6 +77,7 @@ public sealed partial class Work
     string Words(string kind) => kind switch
     {
         BuildWork => "build",
+        FellWork => "fell trees",
         HaulWork => "carry goods",
         CareWork => "bring food or water to the fallen",
         _ => "work the " + content.Workshops[kind].Name.ToLowerInvariant(),

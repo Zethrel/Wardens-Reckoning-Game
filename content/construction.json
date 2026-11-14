@@ -28,6 +28,9 @@
     { "id": "ice_hole", "name": "Ice hole", "materials": {}, "work_minutes": 20, "blocks": false, "encloses": false,
       "speed": null, "size": [1, 1], "access": null, "water_per_day": 0, "holds_litres": 0, "wash_place": false, "opens_ice": true }
   ],
+  "trees": [
+    { "id": "tree", "name": "Tree", "yield": { "timber": 4 }, "work_minutes": 30 }
+  ],
   "templates": [
     {
       "id": "small_house",

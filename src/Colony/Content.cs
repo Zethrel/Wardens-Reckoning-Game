@@ -179,6 +179,14 @@ public sealed record PieceKind(string Id, string Name, IReadOnlyDictionary<strin
     public bool OpensIce { get; init; }
 }
 
+/// <summary>
+/// A kind of tree that can be felled (step 28a, library Review 44 D2; construction.json "trees"): its `Id` is the
+/// obstacle's kind on the ground ("tree"), its `Yield` the goods a felled one leaves where it stood (4 timber), and
+/// `WorkMinutes` the work of felling it at the usual pace. A record per kind of tree, so a later kind (a conifer, a
+/// young tree) can give and take something else without a change to the code.
+/// </summary>
+public sealed record TreeKind(string Id, string Name, IReadOnlyDictionary<string, int> Yield, int WorkMinutes);
+
 /// <summary>What the ground is (construction.json): grass, rough ground, a road. Walking on it goes at `Speed` of
 /// a road's speed (1 = 100%).</summary>
 public sealed record Surface(string Id, string Name, double Speed)
@@ -330,6 +338,8 @@ public sealed class Content
     /// <summary>The construction pieces, by id (step 15a).</summary>
     public IReadOnlyDictionary<string, PieceKind> Pieces { get; private init; } = new Dictionary<string, PieceKind>();
     public TestGround TestGround { get; private init; } = new(1, 1, Array.Empty<Obstacle>());
+    /// <summary>The kinds of tree that can be felled, by the obstacle's kind (step 28a).</summary>
+    public IReadOnlyDictionary<string, TreeKind> Trees { get; private init; } = new Dictionary<string, TreeKind>();
     /// <summary>
     /// A fingerprint of all the content (step 16): the SHA-256 of every file's JSON in a fixed form (spacing and
     /// line endings do not count, so a file checked out with Windows line endings has the same fingerprint). A save
@@ -644,7 +654,8 @@ public sealed class Content
         TestGround? testGround = null;
         var templates = new SortedDictionary<string, Template>(StringComparer.Ordinal);
         var surfaces = new SortedDictionary<string, Surface>(StringComparer.Ordinal);
-        if (Open("construction.json", "surfaces", "pieces", "templates", "test_ground") is JsonObject k)
+        var trees = new SortedDictionary<string, TreeKind>(StringComparer.Ordinal);
+        if (Open("construction.json", "surfaces", "pieces", "trees", "templates", "test_ground") is JsonObject k)
         {
             foreach (var (item, at) in check.List(k, "construction.json", "surfaces"))
             {
@@ -764,6 +775,24 @@ public sealed class Content
                 else if (name != null && rowsOk)
                     problems.Add(at + ".rows: no pieces at all");
             }
+            // The kinds of tree that can be felled (step 28a): an id (the obstacle's kind), a name, what one gives
+            // and the minutes of work it takes.
+            foreach (var (item, at) in check.List(k, "construction.json", "trees"))
+            {
+                check.Keys(item, at, "id", "name", "yield", "work_minutes");
+                string? id = check.Id(item, at, IdShape);
+                string? name = check.Text(item, at, "name");
+                var yields = check.Amounts(item, at, "yield", goods, emptyAllowed: true);
+                int? minutes = check.Int(item, at, "work_minutes", 1);
+                if (id == null)
+                    continue;
+                if (trees.ContainsKey(id))
+                    problems.Add(at + ": a second tree with the id \"" + id + "\"");
+                else if (pieces.ContainsKey(id))
+                    problems.Add(at + ": \"" + id + "\" is already a piece's id (a tree and a piece are told apart by it)");
+                else if (name != null && yields != null && minutes != null)
+                    trees[id] = new TreeKind(id, name, yields, minutes.Value);
+            }
             if (k["test_ground"] is JsonObject tg)
             {
                 const string at = "construction.json.test_ground";
@@ -826,7 +855,7 @@ public sealed class Content
         if (Open("skills.json", "skills", "ranks", "speed", "standard", "challenge", "learning") is JsonObject sk)
         {
             // The work a skill can be used for: building, boiling, or any workshop.
-            var work = new[] { Work.BuildWork, Work.BoilWork }.Concat(workshops.Keys).ToList();
+            var work = new[] { Work.BuildWork, Work.BoilWork, Work.FellWork }.Concat(workshops.Keys).ToList();
             foreach (var (item, at) in check.List(sk, "skills.json", "skills"))
             {
                 check.Keys(item, at, "id", "name", "used_for");
@@ -897,15 +926,16 @@ public sealed class Content
                 problems.Add("skills.json.speed: should be a list of at least two points, from proficiency 0 to 100");
             standard = sk["standard"] is JsonValue stv && stv.TryGetValue(out double sd) && sd >= 0 && sd <= 100 ? sd
                 : sk.ContainsKey("standard") ? Bad<double?>("skills.json.standard: should be a number from 0 to 100") : null;
-            // How challenging each piece of work is (step 23b): every piece, every recipe, and boiling.
+            // How challenging each piece of work is (step 23b): every piece, every recipe, boiling, and felling each
+            // kind of tree (step 28a).
             if (sk["challenge"] is JsonObject ch)
             {
-                var items = pieces.Keys.Concat(recipes.Keys).Append(Work.BoilWork).ToList();
+                var items = pieces.Keys.Concat(recipes.Keys).Append(Work.BoilWork).Concat(trees.Keys).ToList();
                 foreach (var (item, value) in ch)
                 {
                     string at = "skills.json.challenge." + item;
                     if (!items.Contains(item))
-                        problems.Add(at + ": no piece, recipe or \"boil\" called \"" + item + "\"");
+                        problems.Add(at + ": no piece, recipe, tree or \"boil\" called \"" + item + "\"");
                     else if (value is JsonValue cv && cv.TryGetValue(out double hard) && hard >= 0 && hard <= 100)
                         challenge[item] = hard;
                     else
@@ -1342,7 +1372,7 @@ public sealed class Content
         return new Content(goods, workshops, recipes, carry, walk, pickup, drop)
         {
             Needs = needs, Eat = eat!, Drink = drink!, Wash = wash!, Water = waterRules!, Sanitation = sanitation!, UpsetStomach = stomach!, BedrollPerHour = bedroll, GroundPerHour = ground, SpringPerDay = spring,
-            Schedules = schedules, DefaultSchedule = defaultSchedule!, Pieces = pieces, TestGround = testGround!,
+            Schedules = schedules, DefaultSchedule = defaultSchedule!, Pieces = pieces, Trees = trees, TestGround = testGround!,
             Templates = templates, Founding = founding!, Surfaces = surfaces,
             ThinkFrom = think!.Value.Item1, ThinkTo = think.Value.Item2,
             Skills = skills, SkillFor = skillFor, Ranks = ranks, SkillSpeed = paces, StandardProficiency = standard!.Value,

@@ -24,6 +24,9 @@ public sealed class Project(BuildingId id, string piece, int x, int y, Inventory
     /// <summary>A taking down (step 15c), not a building: the piece on the tile is worked off, and half its
     /// materials (rounded down) come back.</summary>
     public bool Removing { get; init; }
+    /// <summary>A felling (step 28a), not a building: `Piece` is the kind of tree on the tile (construction.json
+    /// "trees"). Felled, the tree is gone and what it gives lies on the tile, to be carried to a store.</summary>
+    public bool Felling { get; init; }
     /// <summary>Why it is waiting, for the player, and what they could do about it (null: it is not).</summary>
     public string? Blocked { get; internal set; }
     public string? NextStep { get; internal set; }
@@ -55,11 +58,35 @@ public sealed partial class Work
     public const string BuildWork = "build";
     /// <summary>Boiling water, as the skills name it (step 23a; as a kind of work allowed or forbidden it is carrying).</summary>
     public const string BoilWork = "boil";
+    /// <summary>Felling trees (step 28a, library Review 44 D3: the Forestry skill), as a kind of work and as the
+    /// skills name it.</summary>
+    public const string FellWork = "fell";
 
     readonly SortedDictionary<long, Project> projects = new();
 
     public IReadOnlyCollection<Project> Projects => projects.Values;
     public Project? Project(BuildingId id) => projects.GetValueOrDefault(id.Value);
+
+    // A felled tree's kind, as a piece (made once a kind of tree): no materials, the tree's minutes, one tile.
+    readonly Dictionary<string, PieceKind> treePieces = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// What a project works on, as a piece: the piece it builds or takes down, or, for a felling (step 28a), the tree
+    /// as a piece of one tile that needs no materials and takes the tree's minutes. So everything that asks a project
+    /// its size, its name or its minutes asks this, and need not know about trees.
+    /// </summary>
+    public PieceKind KindOf(Project p)
+    {
+        if (!p.Felling)
+            return content.Pieces[p.Piece];
+        if (!treePieces.TryGetValue(p.Piece, out var kind))
+        {
+            var tree = content.Trees[p.Piece];
+            kind = new PieceKind(tree.Id, tree.Name, new Dictionary<string, int>(), tree.WorkMinutes, Blocks: true);
+            treePieces[p.Piece] = kind;
+        }
+        return kind;
+    }
 
     Ground? Ground => colony.Ground;
 
@@ -83,17 +110,19 @@ public sealed partial class Work
             if (ground.PieceAt(tx, ty) is string built)
                 return new Placement(false, at + "There is already " + Article(content.Pieces[built].Name) + " there.");
             if (projects.Values.FirstOrDefault(p => Covers(p, tx, ty)) is Project planned)
-                return new Placement(false, at + Article(content.Pieces[planned.Piece].Name, capital: true) + " is already planned there.");
+                return new Placement(false, at + (planned.Felling
+                    ? "What a felled tree gave still lies there, to be carried to a store."
+                    : Article(KindOf(planned).Name, capital: true) + " is already planned there."));
             if (kind.Blocks && StandsOn(tx, ty) is string thing)
                 return new Placement(false, at + thing + " there: " + Article(kind.Name) + " would block it.");
             if (kind.Blocks && projects.Values.FirstOrDefault(p => AccessOf(p) == (tx, ty)) is Project used)
-                return new Placement(false, at + "The planned " + content.Pieces[used.Piece].Name.ToLowerInvariant() + " is to be used from there.");
+                return new Placement(false, at + "The planned " + KindOf(used).Name.ToLowerInvariant() + " is to be used from there.");
         }
         // A structure is built and used from its access tile: that tile must be open and stay so.
         if (kind.Access is var (dx, dy))
         {
             int ax = x + dx, ay = y + dy;
-            if (!ground.Open(ax, ay) || projects.Values.Any(p => Covers(p, ax, ay) && content.Pieces[p.Piece].Blocks))
+            if (!ground.Open(ax, ay) || projects.Values.Any(p => Covers(p, ax, ay) && KindOf(p).Blocks && !p.Felling))
                 return new Placement(false, "It is used from (" + ax + ", " + ay + "), which must be open ground.");
         }
         string? warning = null;
@@ -109,12 +138,12 @@ public sealed partial class Work
 
     bool Covers(Project p, int x, int y)
     {
-        var kind = content.Pieces[p.Piece];
+        var kind = KindOf(p);
         return x >= p.X && y >= p.Y && x < p.X + kind.Width && y < p.Y + kind.Height;
     }
 
     (int X, int Y)? AccessOf(Project p) =>
-        content.Pieces[p.Piece].Access is var (dx, dy) && !p.Removing ? (p.X + dx, p.Y + dy) : null;
+        KindOf(p).Access is var (dx, dy) && !p.Removing ? (p.X + dx, p.Y + dy) : null;
 
     /// <summary>Where a piece on (x, y) is worked from and its materials are put down: a structure's access tile,
     /// or the tile itself.</summary>
@@ -123,7 +152,7 @@ public sealed partial class Work
 
     /// <summary>The minutes of work a project takes: a piece's own; taking one down, half of that (at least 1).</summary>
     int Minutes(Project p) =>
-        p.Removing ? Math.Max(1, content.Pieces[p.Piece].WorkMinutes / 2) : content.Pieces[p.Piece].WorkMinutes;
+        p.Removing ? Math.Max(1, KindOf(p).WorkMinutes / 2) : KindOf(p).WorkMinutes;
 
     /// <summary>What stands on a tile and must stay reachable (for the player), or null.</summary>
     string? StandsOn(int x, int y)
@@ -225,6 +254,43 @@ public sealed partial class Work
         return (project, new Placement(true));
     }
 
+    /// <summary>Whether the tree on tile (x, y) may be marked for felling (step 28a, library Review 44 D1): a kind of
+    /// tree the content knows stands there, and it is not marked already.</summary>
+    public Placement CheckFell(int x, int y)
+    {
+        var ground = Ground ?? throw new InvalidOperationException("the colony has no ground");
+        if (ground.ObstacleAt(x, y) is not string obstacle || !content.Trees.ContainsKey(obstacle))
+            return new Placement(false, "There is no tree there to fell.");
+        if (projects.Values.Any(p => p.Felling && p.X == x && p.Y == y))
+            return new Placement(false, "It is already marked for felling.");
+        string? warning = null;
+        var (cx, cy) = Ground.Centre(x, y);
+        if (workers.Count > 0 && workers.Values.All(w => double.IsPositiveInfinity(Far(w.X, w.Y, cx, cy))))
+            warning = "No colonist can reach it now; it waits until there is a way.";
+        return new Placement(true, Warning: warning);
+    }
+
+    /// <summary>
+    /// Marks the tree on tile (x, y) for felling (step 28a, library Review 44): a project like a building, of the
+    /// tree's minutes, with no materials to bring, worked from beside the tree by a colonist allowed to fell trees
+    /// (Forestry). When it is done the tree is gone, the tile is open ground, and what the tree gives (4 timber) lies
+    /// there to be carried to a store. Unmarking it (cancelling) before then leaves the tree standing; a felling put
+    /// down part-way keeps its progress, as building does.
+    /// </summary>
+    public (Project? Project, Placement Placement) Fell(int x, int y)
+    {
+        var placement = CheckFell(x, y);
+        if (!placement.Ok)
+            return (null, placement);
+        string tree = Ground!.ObstacleAt(x, y)!;
+        var (cx, cy) = Ground.Centre(x, y);
+        var stock = Stocks.Open(content.Trees[tree].Name + " at (" + x + ", " + y + ") (felling)", Holder.Construction, cx, cy);
+        var project = new Project(colony.Ids.Next<BuildingId>(), tree, x, y, stock.Id) { Felling = true };
+        projects[project.Id.Value] = project;
+        Supply(project);
+        return (project, placement);
+    }
+
     /// <summary>What taking a piece down gives back: half of each material, rounded down (library Review 33).</summary>
     public static IReadOnlyDictionary<string, int> Recovered(PieceKind kind) =>
         kind.Materials.Where(m => m.Value / 2 > 0).ToDictionary(m => m.Key, m => m.Value / 2);
@@ -265,7 +331,7 @@ public sealed partial class Work
     void Supply(Project project)
     {
         (project.Blocked, project.NextStep) = (null, null);
-        var kind = content.Pieces[project.Piece];
+        var kind = KindOf(project);
         var (cx, cy) = (Stocks[project.Stock].X, Stocks[project.Stock].Y);
         if (project.Cancelled)
         {
@@ -277,10 +343,11 @@ public sealed partial class Work
                 var store = NearestStore(good, cx, cy);
                 if (store == null)
                 {
-                    (project.Blocked, project.NextStep) = ("no store takes " + Lower(good) + " back", "Let a store take " + Lower(good) + ".");
+                    (project.Blocked, project.NextStep) = ("no store takes " + Lower(good) + (project.Felling ? "" : " back"), "Let a store take " + Lower(good) + ".");
                     continue;
                 }
-                NewHaul(project.Stock, store.Id, good, Math.Min(free, CarryUnits(good)), "take " + Lower(good) + " back to a store");
+                NewHaul(project.Stock, store.Id, good, Math.Min(free, CarryUnits(good)),
+                        project.Felling ? "carry felled " + Lower(good) + " to a store" : "take " + Lower(good) + " back to a store");
             }
             if (Stocks[project.Stock].Goods.Count == 0 && !jobs.Values.Any(j => j.From == project.Stock || j.To == project.Stock))
             {
@@ -296,7 +363,8 @@ public sealed partial class Work
         }
         if (BuildJob(project) != null)
             return;
-        // Nobody can get to it (walled in): nothing is brought until there is a way.
+        // Nobody can get to it (walled in): nothing is brought until there is a way. (A tree stands on its tile; the
+        // way to a tile that blocks ends beside it, so a tree is reached as a wall is.)
         if (workers.Count > 0 && workers.Values.All(w => double.IsPositiveInfinity(Far(w.X, w.Y, cx, cy))))
         {
             (project.Blocked, project.NextStep) = ("no colonist can reach it", "Open a way to it: leave a gap or put a door in the wall.");
@@ -311,7 +379,7 @@ public sealed partial class Work
                 Id = colony.Ids.Next<TaskId>(), Kind = JobKind.Build, Site = project.Id, Claims = claims,
                 First = colony.Ids.Next<OperationId>(), Second = colony.Ids.Next<OperationId>(),
                 From = project.Stock, To = project.Stock,
-                Purpose = (project.Removing ? "take down " : "build ") + Article(kind.Name) + " at (" + project.X + ", " + project.Y + ")",
+                Purpose = (project.Felling ? "fell " : project.Removing ? "take down " : "build ") + Article(kind.Name) + " at (" + project.X + ", " + project.Y + ")",
             };
             jobs[job.Id.Value] = job;
             Reconsider = true;                            // a new job: those between jobs may take it (step 25c)
@@ -328,7 +396,23 @@ public sealed partial class Work
     void Complete(Job job, long now)
     {
         var project = projects[job.Site!.Value.Value];
-        var kind = content.Pieces[project.Piece];
+        var kind = KindOf(project);
+        if (project.Felling)
+        {
+            // Felled (step 28a): the tree is gone, the tile is open ground, and what it gives lies there (an operation
+            // of the ledger, made once), to be carried to a store as a cancelled project's materials are.
+            var tree = content.Trees[project.Piece];
+            Ground!.RemoveObstacle(project.X, project.Y);
+            if (tree.Yield.Count > 0)
+                Stocks.Make(job.First, now, Array.Empty<ReservationId>(), project.Stock, tree.Yield);
+            project.Cancelled = true;
+            if (tree.Yield.Count == 0)
+            {
+                projects.Remove(project.Id.Value);
+                Stocks.Close(project.Stock);
+            }
+            return;
+        }
         if (project.Removing)
         {
             // Taken down: the tile is bare again, and what can be used again is left there to be carried away.
@@ -374,7 +458,8 @@ public sealed partial class Work
     {
         if (!projects.TryGetValue(id.Value, out var project))
             return null;
-        string name = (project.Removing ? "Taking down " + Article(content.Pieces[project.Piece].Name) : Article(content.Pieces[project.Piece].Name, capital: true))
+        var kind = KindOf(project);
+        string name = (project.Felling ? "Felling " + Article(kind.Name) : project.Removing ? "Taking down " + Article(kind.Name) : Article(kind.Name, capital: true))
                       + " at (" + project.X + ", " + project.Y + ")";
         string trace = "project " + id.Value + " (" + project.Piece + " at " + project.X + "," + project.Y + ") at tick "
                        + colony.Now.Tick.ToString(CultureInfo.InvariantCulture) + ": ";
@@ -386,7 +471,7 @@ public sealed partial class Work
         if (project.Blocked != null)
             return new Explanation(name + " is waiting: " + project.Blocked + ".", project.NextStep ?? "",
                                    trace + (project.Cancelled ? "cancelled; " : "") + (project.Paused ? "paused; " : "")
-                                   + string.Join(", ", content.Pieces[project.Piece].Materials.Select(m => m.Key + " " + Stocks[project.Stock].Count(m.Key) + "/" + m.Value)));
+                                   + string.Join(", ", kind.Materials.Select(m => m.Key + " " + Stocks[project.Stock].Count(m.Key) + "/" + m.Value)));
         return new Explanation(name + " is waiting for its materials to be carried there.", "Wait: they are on their way.",
                                trace + "hauls " + jobs.Values.Count(j => j.To == project.Stock));
     }

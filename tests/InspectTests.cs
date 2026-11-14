@@ -25,7 +25,7 @@ public class InspectTests
         ada.Interests.Clear();                                   // (broad interests add a line: FreeTimeTests)
         var shown = Inspect.Worker(colony, ada.Id);
         Assert.Equal(ada.Name, shown.Title);
-        Assert.Equal(new[] { "Doing", "Where", "Fatigue", "Hunger", "Hygiene", "Thirst", "Recreation", "Social", "Schedule", "Construction", "Food preparation", "Carrying" },
+        Assert.Equal(new[] { "Doing", "Where", "Fatigue", "Hunger", "Hygiene", "Thirst", "Recreation", "Social", "Schedule", "Construction", "Food preparation", "Forestry", "Carrying" },
                      shown.Lines.Select(l => l.Label));
         Assert.Equal(colony.Work.Doing(ada.Id), Text(shown, "Doing"));
         var (x, y) = Ground.TileOf(ada.X, ada.Y);

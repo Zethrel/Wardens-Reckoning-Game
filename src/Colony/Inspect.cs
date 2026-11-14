@@ -213,7 +213,7 @@ public static class Inspect
         {
             var first = group.OrderBy(p => p.Id.Value).First();
             int n = group.Count();
-            string what = n == 1 ? content.Pieces[first.Piece].Name + " at (" + first.X + ", " + first.Y + ") waits" : n + " buildings wait";
+            string what = n == 1 ? work.KindOf(first).Name + " at (" + first.X + ", " + first.Y + ") waits" : n + " buildings wait";
             alerts.Add(new Alert("waits:" + group.Key, 1, what + ": " + group.Key, Where: (first.X, first.Y)));
         }
         return alerts.OrderByDescending(a => a.Severity).ThenBy(a => a.Key, StringComparer.Ordinal).ToList();
@@ -287,10 +287,11 @@ public static class Inspect
         var work = colony.Work;
         foreach (var p in work?.Projects ?? Array.Empty<Project>())
         {
-            var size = Rules(colony).Pieces[p.Piece];
+            var size = work!.KindOf(p);
             if (x < p.X || y < p.Y || x >= p.X + Math.Max(1, size.Width) || y >= p.Y + Math.Max(1, size.Height))
                 continue;
-            string what = (p.Removing ? "Taking down: " : "Building: ") + size.Name;
+            string what = p.Felling ? (p.Cancelled ? "Felled: " + size.Name.ToLowerInvariant() + ", carried away" : "Felling: " + size.Name)
+                : (p.Removing ? "Taking down: " : "Building: ") + size.Name;
             lines.Add(new Line("Project", what + (p.Paused ? " (paused)" : "")));
             if (work!.WhyBuild(p.Id) is Explanation why)
             {
@@ -350,11 +351,20 @@ public static class Inspect
         bool underWay = false;
         foreach (var p in work.Projects.Where(p => !p.Cancelled))
         {
-            var size = Rules(colony).Pieces[p.Piece];
+            var size = work.KindOf(p);
             if (x < p.X || y < p.Y || x >= p.X + Math.Max(1, size.Width) || y >= p.Y + Math.Max(1, size.Height))
                 continue;
             underWay = true;
             var id = p.Id;
+            if (p.Felling)
+            {
+                // A tree marked for felling (step 28a): pause it, or unmark it (the tree stays).
+                commands.Add(p.Paused
+                    ? new Command("Resume", 'P', "Go on felling this tree", () => work.Pause(id, false))
+                    : new Command("Pause", 'P', "Stop felling this tree for now; it keeps its progress", () => work.Pause(id, true)));
+                commands.Add(new Command("Leave standing", 'X', "Do not fell this tree", () => work.CancelBuild(id)));
+                continue;
+            }
             commands.Add(p.Paused
                 ? new Command("Resume", 'P', "Go on with this " + size.Name.ToLowerInvariant(), () => work.Pause(id, false))
                 : new Command("Pause", 'P', "Stop work on this " + size.Name.ToLowerInvariant() + " for now; it keeps its progress", () => work.Pause(id, true)));
@@ -362,6 +372,10 @@ public static class Inspect
                 p.Removing ? "Stop taking it down" : "Give up this " + size.Name.ToLowerInvariant() + "; what was brought is carried back",
                 () => work.CancelBuild(id)));
         }
+        // A tree that can be felled (step 28a, library Review 44 D1).
+        if (!underWay && work.CheckFell(x, y).Ok)
+            commands.Add(new Command("Fell", 'F', "Mark this tree for felling: someone allowed to fell trees cuts it down, and its timber is carried to a store",
+                () => work.Fell(x, y)));
         if (!underWay && ground.PieceAt(x, y) is string piece)
         {
             var kind = Rules(colony).Pieces[piece];
@@ -430,7 +444,7 @@ public static class Inspect
         var list = new List<Waiting>();
         foreach (var p in colony.Work?.Projects ?? Array.Empty<Project>())
             if (colony.Work!.WhyBuild(p.Id) is Explanation why)
-                list.Add(new Waiting(p.X, p.Y, (p.Removing ? "Taking down: " : "") + Rules(colony).Pieces[p.Piece].Name, why));
+                list.Add(new Waiting(p.X, p.Y, (p.Felling ? "Felling: " : p.Removing ? "Taking down: " : "") + colony.Work!.KindOf(p).Name, why));
         return list;
     }
 

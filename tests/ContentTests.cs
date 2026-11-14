@@ -207,7 +207,7 @@ public class ContentTests
         yield return Case("skills.json", r => r["speed"] = new JsonArray(new JsonArray(0, 1)), "skills.json.speed: should be a list of at least two points");
         yield return Case("skills.json", r => r["standard"] = 120, "skills.json.standard: should be a number from 0 to 100");
         // Learning (step 23b).
-        yield return Case("skills.json", r => r["challenge"]!["anvil"] = 5, "skills.json.challenge.anvil: no piece, recipe or \"boil\" called \"anvil\"");
+        yield return Case("skills.json", r => r["challenge"]!["anvil"] = 5, "skills.json.challenge.anvil: no piece, recipe, tree or \"boil\" called \"anvil\"");
         yield return Case("skills.json", r => r["challenge"]!.AsObject().Remove("well"), "skills.json.challenge: no challenge for \"well\"");
         yield return Case("skills.json", r => r["challenge"]!.AsObject().Remove("boil"), "skills.json.challenge: no challenge for \"boil\"");
         yield return Case("skills.json", r => r["challenge"]!["wall"] = 101, "skills.json.challenge.wall: should be a number from 0 to 100");

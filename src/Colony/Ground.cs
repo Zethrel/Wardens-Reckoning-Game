@@ -200,12 +200,28 @@ public sealed class Ground
     public IEnumerable<(string Piece, int X, int Y)> Pieces =>
         Enumerable.Range(0, Width * Height).Where(i => pieces[i] != null).Select(i => (pieces[i]!, i % Width, i / Width));
 
+    /// <summary>How many times an obstacle was put on or taken off a tile (step 28a): the screen paints its ground
+    /// picture again when this changes, after a tree is felled.</summary>
+    public int ObstacleChanges { get; private set; }
+
     internal void AddObstacle(string kind, int x, int y)
     {
         if (!Inside(x, y))
             throw new ArgumentOutOfRangeException(nameof(x), "(" + x + ", " + y + ") is not on the ground");
         obstacles[Index(x, y)] = kind;
+        ObstacleChanges++;
         Reblock(Index(x, y));
+        ways.Clear();
+        rooms = null;
+    }
+
+    /// <summary>Takes the obstacle off a tile (step 28a: a felled tree): the tile is open ground from then on.</summary>
+    internal void RemoveObstacle(int x, int y)
+    {
+        int i = Index(x, y);
+        obstacles[i] = null;
+        ObstacleChanges++;
+        Reblock(i);
         ways.Clear();
         rooms = null;
     }

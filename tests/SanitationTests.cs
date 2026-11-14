@@ -29,8 +29,8 @@ public class SanitationTests
             .Replace("\"lasts_hours\": [24, 48]", "\"lasts_hours\": [" + ill + ", " + ill + "]");
         // Founders all at the usual proficiency (step 23a), so that work takes its usual time here.
         files["founding.json"] = files["founding.json"]!
-            .Replace("\"skills\": { \"construction\": [ 5, 65 ], \"food_preparation\": [ 5, 65 ] }",
-                     "\"skills\": { \"construction\": [ 40, 40 ], \"food_preparation\": [ 40, 40 ] }");
+            .Replace("\"skills\": { \"construction\": [ 5, 65 ], \"food_preparation\": [ 5, 65 ], \"forestry\": [ 5, 65 ] }",
+                     "\"skills\": { \"construction\": [ 40, 40 ], \"food_preparation\": [ 40, 40 ], \"forestry\": [ 40, 40 ] }");
         Assert.Contains("[ 40, 40 ]", files["founding.json"]);
         return Content.Read(TestContent.NotLearning(files));      // and learning nothing (step 23b)
     }
