@@ -5,8 +5,7 @@ namespace WardensReckoning.UI;
 
 /// <summary>
 /// A test bench for the first pictures (asset prototype v0.2, `res://assets/prototype/`; and the trees of the
-/// vegetation prototypes v0.3, v0.4 and v0.5, `res://assets/prototype-v0.3/`, `prototype-v0.4/` and `prototype-v0.5/`,
-/// as more sets to compare),
+/// vegetation prototypes v0.3 to v0.6, `res://assets/prototype-v0.3/` to `prototype-v0.6/`, as more sets to compare),
 /// on its own: no colony, no
 /// simulation, nothing of the game is loaded or changed. Run it alone (src/UI/AssetPreview.tscn: in the editor, open
 /// it and press F6; or `godot --path . res://src/UI/AssetPreview.tscn`).
@@ -20,16 +19,15 @@ namespace WardensReckoning.UI;
 ///
 /// Keys: 1–4 zoom to 16, 32, 40 or 64 pixels a tile; the mouse wheel zooms in the game's steps (×1.15); the right
 /// mouse button or the arrows move; F nearest or smooth filtering; P snapping to whole pixels; A the anchor points;
-/// G a tile grid; [ and ] the walker's speed; Space stops or starts the walker; T the trees of v0.2, v0.3, v0.4 or v0.5;
+/// G a tile grid; [ and ] the walker's speed; Space stops or starts the walker; T the trees of v0.2 to v0.6;
 /// with v0.3, V the variant (green, green 2, autumn, winter; the conifer's 1 or 2) and Y the age (mature, young,
-/// sapling). A tree's foot is the middle of its picture's bottom edge (v0.4's and v0.5's READMEs: (32, 95) and (16, 95)).
+/// sapling). A tree's foot is the middle of its picture's bottom edge (the READMEs from v0.4 on: (32, 95) and (16, 95)).
 /// </summary>
 public partial class AssetPreview : Node2D
 {
     const string Folder = "res://assets/prototype/";
     const string Vegetation = "res://assets/prototype-v0.3/vegetation/";
-    const string Vegetation4 = "res://assets/prototype-v0.4/vegetation/";
-    const string Vegetation5 = "res://assets/prototype-v0.5/vegetation/";
+    // The sets from v0.4 on: each has the same two trees, in `res://assets/prototype-<set>/vegetation/`.
     const int Pixels = 32;                         // a picture's pixels a tile
     const int Wide = 12, High = 8;                 // the field, in tiles
     const int Gap = 1;                             // tiles between the two fields
@@ -43,8 +41,8 @@ public partial class AssetPreview : Node2D
     Camera2D? camera;
     Label? info;
     bool anchors, grid, nearest = true, walking = true;
-    int treeSet;                                   // the trees shown (T): 0 v0.2, 1 v0.3, 2 v0.4, 3 v0.5
-    static readonly string[] Sets = { "v0.2", "v0.3", "v0.4", "v0.5" };
+    int treeSet;                                   // the trees shown (T): 0 v0.2, 1 v0.3, 2 v0.4 and on
+    static readonly string[] Sets = { "v0.2", "v0.3", "v0.4", "v0.5", "v0.6" };
     int variant;                                   // v0.3: 0 green, 1 green 2, 2 autumn, 3 winter (V)
     int age;                                       // v0.3: 0 mature, 1 young, 2 sapling (Y)
     static readonly string[] Ages = { "mature", "young", "sapling" };
@@ -76,11 +74,9 @@ public partial class AssetPreview : Node2D
             Load("tree_mature_deciduous_" + name, Vegetation);
         Load("tree_mature_conifer_01", Vegetation);
         Load("tree_mature_conifer_02", Vegetation);
-        foreach (var type in new[] { "deciduous", "conifer" })
-        {
-            LoadAs("v0.4/tree_mature_" + type + "_01", Vegetation4 + "tree_mature_" + type + "_01.png");
-            LoadAs("v0.5/tree_mature_" + type + "_01", Vegetation5 + "tree_mature_" + type + "_01.png");
-        }
+        foreach (var set in Sets.Skip(2))
+            foreach (var type in new[] { "deciduous", "conifer" })
+                LoadAs(set + "/tree_mature_" + type + "_01", "res://assets/prototype-" + set + "/vegetation/tree_mature_" + type + "_01.png");
         foreach (var layer in new[] { "base", "clothing", "hair" })
             Load("colonists/" + layer + "_idle_down");
 
@@ -131,7 +127,7 @@ public partial class AssetPreview : Node2D
                      + "Frame " + frames.Average().ToString("0.0") + " ms average, " + frames.Max().ToString("0.0") + " ms slowest (last 60)"
                      + (missing.Count > 0 ? "\nMissing, drawn as shapes: " + string.Join(", ", missing) : "") + "\n"
                      + "1–4 zoom 16/32/40/64 · wheel ×1.15 · right drag or arrows move · F filter · P snap · A anchors · G grid · [ ] speed · Space walker"
-                     + " · T trees v0.2/v0.3/v0.4/v0.5 · V variant · Y age (v0.3)";
+                     + " · T trees v0.2 to " + Sets[^1] + " · V variant · Y age (v0.3)";
         QueueRedraw();
     }
 

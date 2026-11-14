@@ -148,6 +148,22 @@ return Picture(Sets[treeSet] + "/tree_mature_" + (kind == 1 ? "deciduous" : "con
 pictures were kept under. A fifth set of the same kind would need only its
 folder, its two `LoadAs` lines and its name in `Sets`.
 
+## A fifth set (v0.6), and a loop instead of lines
+
+With v0.6 the sets from v0.4 on are loaded by a loop over their names:
+
+```csharp
+foreach (var set in Sets.Skip(2))
+    foreach (var type in new[] { "deciduous", "conifer" })
+        LoadAs(set + "/tree_mature_" + type + "_01", "res://assets/prototype-" + set + "/vegetation/tree_mature_" + type + "_01.png");
+```
+
+`Sets.Skip(2)` is every name in `Sets` but the first two (v0.2 and v0.3, which
+are laid out differently). A new set of the same kind now needs only its
+folder and its name added to `Sets`: when the same few lines keep being
+copied, a loop says it once. And `Sets[^1]`, used in the panel's help line, is
+the last name in the list (`^1` counts from the end).
+
 ## Exercise
 
 1. Rename `tree_02.png` for a moment and run again: what does the bench show,

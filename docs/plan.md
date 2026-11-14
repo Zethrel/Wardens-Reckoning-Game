@@ -72,6 +72,7 @@ in `docs/lessons/`.
 | A1b | The vegetation prototype v0.3 (14 Nov 2026) in the asset preview as a second tree set, v0.2 kept (`assets/prototype-v0.3/`): T switches the set, V the variant, Y the age; a v0.3 tree's foot at its picture's bottom middle; still nothing of the game touched | |
 | A1c | The vegetation prototype v0.4 (14 Nov 2026) in the asset preview as a third tree set (`assets/prototype-v0.4/`): T cycles v0.2, v0.3 and v0.4; the game untouched | |
 | A1d | The vegetation prototype v0.5 (14 Nov 2026) in the asset preview as a fourth tree set (`assets/prototype-v0.5/`): T cycles v0.2 to v0.5; the game untouched | |
+| A1e | The vegetation prototype v0.6 (14 Nov 2026) in the asset preview as a fifth tree set (`assets/prototype-v0.6/`): T cycles v0.2 to v0.6; the sets from v0.4 on loaded by one loop; the game untouched | |
 | | Then: personality and convictions (with the first fighting or weapon-making); basic healthcare; the colony joins the world's years; the Wardens' war, peace, path and rituals; the legacy number; losing when the Wardens fall | |
 
 For each step, the generator adds what that system carries from year to year
