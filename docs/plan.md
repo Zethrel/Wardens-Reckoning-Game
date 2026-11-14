@@ -76,6 +76,7 @@ in `docs/lessons/`.
 | A1f | The vegetation prototype v0.7 (14 Nov 2026) in the asset preview as a sixth tree set (`assets/prototype-v0.7/`): T cycles v0.2 to v0.7; only its name added to `Sets`; the game untouched | |
 | A1g | The vegetation prototype v0.8 (14 Nov 2026) in the asset preview as a seventh tree set (`assets/prototype-v0.8/`): T cycles v0.2 to v0.8; the game untouched | |
 | A1h | The high-detail vegetation experiment v1 (14 Nov 2026) in the asset preview as a separate option (`assets/prototype-hd-v1/`): T goes on past the sets to it, H shows it at full or half size; v0.8 stays the approved baseline; the game untouched | |
+| A1i | The high-detail vegetation experiment v2 (14 Nov 2026) in the asset preview (`assets/prototype-hd-v2/`): H switches an experiment between its compact pictures (v2) or half size (v1) and full size; W fills a 120 × 68 test wood (every fourth, every other or every tile) and shows the drawing (CPU) and rendering (CPU, GPU) time a frame; v0.8 stays the approved baseline; the game untouched | |
 | | Then: personality and convictions (with the first fighting or weapon-making); basic healthcare; the colony joins the world's years; the Wardens' war, peace, path and rituals; the legacy number; losing when the Wardens fall | |
 
 For each step, the generator adds what that system carries from year to year

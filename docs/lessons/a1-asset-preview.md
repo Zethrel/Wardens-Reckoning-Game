@@ -214,6 +214,54 @@ skipped, so fine detail turns into noise. Compare it with F (smooth). Shrinking
 a picture well is the artist's job, done once when the file is made, not the
 game's on every frame.
 
+## Two sizes, and a test wood (high-detail v2)
+
+v2 comes in two sizes: **compact** pictures (64 × 96 and 32 × 96, the same as
+v0.8's) and **full** ones (128 × 192 and 64 × 192). So an experiment now names
+both ends of its file names, with `""` for "none":
+
+```csharp
+("high-detail v1", "hd-v1", "_hd_01", ""),
+("high-detail v2", "hd-v2", "_hd_v2_full", "_hd_v2_compact"),
+```
+
+**H** sets `small`. For v2 that picks the compact pictures, drawn at their own
+size. v1 has no compact pictures, so for v1 it still shrinks the full ones to
+half while drawing:
+
+```csharp
+string end = small && e.Compact != "" ? e.Compact : e.Full;
+```
+
+`a ? b : c` is C#'s short "if": if `a`, then `b`, else `c`.
+
+**W** fills a wood of 120 × 68 tiles below the fields, which is what a
+1920 × 1080 screen shows at 16 px a tile. `WoodTrees` hands out its trees one at
+a time:
+
+```csharp
+IEnumerable<(int X, int Y, int Kind)> WoodTrees()
+{
+    ...
+                yield return (x, y, (x * 7 + y * 13) % 3 == 0 ? 2 : 1);
+}
+```
+
+`yield return` makes a method that gives its results one by one, as they're
+asked for (like a Python generator). `WoodTrees().Count()` counts them.
+
+How long the drawing takes is measured twice:
+- **Drawing (CPU):** `_Draw` notes `Time.GetTicksUsec()` (microseconds since the
+  game started) at its start and end. That's the time spent handing Godot the
+  pictures to draw.
+- **Rendering (CPU and GPU):** `RenderingServer.ViewportSetMeasureRenderTime`
+  asks Godot to time the rendering, and `ViewportGetMeasuredRenderTimeGpu`
+  reads how long the graphics card took. Bigger pictures cost the graphics card
+  more, so this number is where full and compact sizes can differ.
+
+The frame time in the panel can't go below your screen's refresh (16.7 ms at
+60 Hz) while vsync is on, so read the drawing and rendering times instead.
+
 ## Exercise
 
 1. Rename `tree_02.png` for a moment and run again: what does the bench show,
@@ -222,5 +270,7 @@ game's on every frame.
    do variants matter?
 3. Add a second entry to `Experiments` that points at a folder that doesn't
    exist. What does the panel's "Missing" line show when T reaches it?
-4. Change the walker's loop so it passes *through* a tree's tile. What would the
+4. Make the test wood half as wide (`WoodWide = 60`). How does the drawing time
+   change with a tree on every tile?
+5. Change the walker's loop so it passes *through* a tree's tile. What would the
    game need to stop that (hint: lesson 15a)?

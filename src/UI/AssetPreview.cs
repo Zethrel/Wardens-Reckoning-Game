@@ -5,9 +5,9 @@ namespace WardensReckoning.UI;
 
 /// <summary>
 /// A test bench for the first pictures (asset prototype v0.2, `res://assets/prototype/`; and the trees of the
-/// vegetation prototypes v0.3 to v0.8, `res://assets/prototype-v0.3/` to `prototype-v0.8/`, as more sets to compare),
-/// on its own: no colony, no
-/// simulation, nothing of the game is loaded or changed. Run it alone (src/UI/AssetPreview.tscn: in the editor, open
+/// vegetation prototypes v0.3 to v0.8, `res://assets/prototype-v0.3/` to `prototype-v0.8/`, as more sets to compare;
+/// and the high-detail experiments v1 and v2, `res://assets/prototype-hd-v1/` and `prototype-hd-v2/`), on its own:
+/// no colony, no simulation, nothing of the game is loaded or changed. Run it alone (src/UI/AssetPreview.tscn: in the editor, open
 /// it and press F6; or `godot --path . res://src/UI/AssetPreview.tscn`).
 ///
 /// It draws the same small field twice, side by side: on the left with the pictures, on the right with the shapes the
@@ -22,8 +22,11 @@ namespace WardensReckoning.UI;
 /// G a tile grid; [ and ] the walker's speed; Space stops or starts the walker; T the trees of v0.2 to v0.8;
 /// with v0.3, V the variant (green, green 2, autumn, winter; the conifer's 1 or 2) and Y the age (mature, young,
 /// sapling). A tree's foot is the middle of its picture's bottom edge (the READMEs from v0.4 on: (32, 95) and (16, 95)).
-/// After the sets, T goes on to the experiments (the high-detail trees, 128 × 192 and 64 × 192); H shows an
-/// experiment's trees at half size, so they cover what v0.8's do.
+/// After the sets, T goes on to the experiments (the high-detail trees, 128 × 192 and 64 × 192 at full size); H shows
+/// an experiment's small trees, covering what v0.8's do: its own compact pictures where it has them (v2: 64 × 96 and
+/// 32 × 96), or else its full pictures shrunk to half while drawing (v1). W fills a large wood below the fields, with
+/// a tree on every fourth tile, every other tile or every tile, to see how the trees read and what they cost: the
+/// panel then shows the time spent drawing (CPU) and rendering (GPU) each frame.
 /// </summary>
 public partial class AssetPreview : Node2D
 {
@@ -47,8 +50,18 @@ public partial class AssetPreview : Node2D
     static readonly string[] Sets = { "v0.2", "v0.3", "v0.4", "v0.5", "v0.6", "v0.7", "v0.8" };
     // Experiments: trees of another kind than the sets, each in `res://assets/prototype-<Folder>/vegetation/` with its own
     // end to the file names. T goes on to them after the last set.
-    static readonly (string Name, string Folder, string Suffix)[] Experiments = { ("high-detail v1", "hd-v1", "_hd_01") };
-    bool halfSize;                                 // H: an experiment's trees at half their size
+    // `Full` ends the full-size pictures' names; `Compact` the small ones' ("" when it has none).
+    static readonly (string Name, string Folder, string Full, string Compact)[] Experiments =
+    {
+        ("high-detail v1", "hd-v1", "_hd_01", ""),
+        ("high-detail v2", "hd-v2", "_hd_v2_full", "_hd_v2_compact"),
+    };
+    bool small;                                    // H: an experiment's small trees (compact pictures, or else half size)
+    int wood;                                      // W: the test wood: 0 none, 1 every fourth tile, 2 every other, 3 every tile
+    const int WoodWide = 120, WoodHigh = 68;       // the test wood, in tiles: a 1920 × 1080 screen at 16 px a tile
+    const int WoodTop = High + 2;                  // its first row, below the fields
+    static readonly string[] Woods = { "none", "a tree on every fourth tile", "on every other tile", "on every tile" };
+    double drawMs;                                 // the time _Draw took last frame, in milliseconds (the CPU's part)
     bool Experiment => treeSet >= Sets.Length;     // true when T has gone past the sets
     int variant;                                   // v0.3: 0 green, 1 green 2, 2 autumn, 3 winter (V)
     int age;                                       // v0.3: 0 mature, 1 young, 2 sapling (Y)
@@ -86,12 +99,15 @@ public partial class AssetPreview : Node2D
                 LoadAs(set + "/tree_mature_" + type + "_01", "res://assets/prototype-" + set + "/vegetation/tree_mature_" + type + "_01.png");
         foreach (var e in Experiments)
             foreach (var type in new[] { "deciduous", "conifer" })
-                LoadAs(e.Folder + "/tree_mature_" + type + e.Suffix,
-                       "res://assets/prototype-" + e.Folder + "/vegetation/tree_mature_" + type + e.Suffix + ".png");
+                foreach (var end in new[] { e.Full, e.Compact }.Where(end => end != ""))
+                    LoadAs(e.Folder + "/tree_mature_" + type + end,
+                           "res://assets/prototype-" + e.Folder + "/vegetation/tree_mature_" + type + end + ".png");
         foreach (var layer in new[] { "base", "clothing", "hair" })
             Load("colonists/" + layer + "_idle_down");
 
         TextureFilter = TextureFilterEnum.Nearest;
+        // Ask Godot to measure how long each frame takes to render (read in _Process).
+        RenderingServer.ViewportSetMeasureRenderTime(GetViewport().GetViewportRid(), true);
         camera = new Camera2D { Position = new Vector2(Wide + Gap / 2f, High / 2f) };
         AddChild(camera);
         SetZoom(32);
@@ -134,12 +150,15 @@ public partial class AssetPreview : Node2D
                      + "Zoom " + camera.Zoom.X.ToString("0.#") + " px a tile (×" + (camera.Zoom.X / Pixels).ToString("0.###") + ")"
                      + " · filter " + (nearest ? "nearest" : "smooth") + " · pixel snap " + (GetViewport().Snap2DTransformsToPixel ? "on" : "off")
                      + " · walker " + (walking ? speed.ToString("0.#") + " m/s" : "stopped") + "\n"
-                     + "Trees: " + (Experiment ? Experiments[treeSet - Sets.Length].Name + (halfSize ? ", half size" : ", full size") : Sets[treeSet])
+                     + "Trees: " + (Experiment ? Experiments[treeSet - Sets.Length].Name + ", " + SizeName() : Sets[treeSet])
                      + (treeSet == 1 ? ", " + Ages[age] + (age == 0 ? ", " + Variants[variant].Replace("_01", "").Replace("_02", " 2") : "") : "") + "\n"
                      + "Frame " + frames.Average().ToString("0.0") + " ms average, " + frames.Max().ToString("0.0") + " ms slowest (last 60)"
+                     + (wood > 0 ? "\nWood: " + Woods[wood] + ", " + WoodTrees().Count() + " trees · drawing " + drawMs.ToString("0.0")
+                                   + " ms (CPU) · rendering " + RenderingServer.ViewportGetMeasuredRenderTimeCpu(GetViewport().GetViewportRid()).ToString("0.0")
+                                   + " ms CPU, " + RenderingServer.ViewportGetMeasuredRenderTimeGpu(GetViewport().GetViewportRid()).ToString("0.0") + " ms GPU" : "")
                      + (missing.Count > 0 ? "\nMissing, drawn as shapes: " + string.Join(", ", missing) : "") + "\n"
                      + "1–4 zoom 16/32/40/64 · wheel ×1.15 · right drag or arrows move · F filter · P snap · A anchors · G grid · [ ] speed · Space walker"
-                     + " · T trees v0.2 to " + Sets[^1] + ", then the experiments · H an experiment's size · V variant · Y age (v0.3)";
+                     + " · T trees v0.2 to " + Sets[^1] + ", then the experiments · H an experiment's size · W test wood · V variant · Y age (v0.3)";
         QueueRedraw();
     }
 
@@ -176,7 +195,8 @@ public partial class AssetPreview : Node2D
                     case Key.Bracketright: speed = Math.Min(32, speed * 2); break;
                     case Key.Space: walking = !walking; break;
                     case Key.T: treeSet = (treeSet + 1) % (Sets.Length + Experiments.Length); break;
-                    case Key.H: halfSize = !halfSize; break;
+                    case Key.H: small = !small; break;
+                    case Key.W: wood = (wood + 1) % Woods.Length; break;
                     case Key.V: variant = (variant + 1) % Variants.Length; break;
                     case Key.Y: age = (age + 1) % Ages.Length; break;
                     default: return;
@@ -211,8 +231,45 @@ public partial class AssetPreview : Node2D
 
     public override void _Draw()
     {
+        ulong start = Time.GetTicksUsec();
         DrawField(0, true);
         DrawField(Wide + Gap, false);
+        if (wood > 0)
+            DrawWood();
+        drawMs = (Time.GetTicksUsec() - start) / 1000.0;
+    }
+
+    // The test wood's trees: (x, y, kind) in tiles from its corner. Every fourth tile is every other tile of every other
+    // row; every other tile is a chequerboard. About one tree in three is a conifer, by a hash of the tile.
+    IEnumerable<(int X, int Y, int Kind)> WoodTrees()
+    {
+        for (int y = 0; y < WoodHigh; y++)
+            for (int x = 0; x < WoodWide; x++)
+                if (wood == 3 || (wood == 2 && (x + y) % 2 == 0) || (wood == 1 && x % 2 == 0 && y % 2 == 0))
+                    yield return (x, y, (x * 7 + y * 13) % 3 == 0 ? 2 : 1);
+    }
+
+    // The test wood below the fields, with pictures: grass, its trees and six colonists standing among them, all in the
+    // order of their feet. Every tree is drawn every frame, whether it's on the screen or not.
+    void DrawWood()
+    {
+        for (int y = 0; y < WoodHigh; y++)
+            for (int x = 0; x < WoodWide; x++)
+                if (Picture("surfaces/grass_0" + Variant(x, y)) is Texture2D grass)
+                    DrawTextureRect(grass, new Rect2(x, WoodTop + y, 1, 1), false);
+        var standing = new List<(float Feet, Action Draw)>();
+        foreach (var (x, y, kind) in WoodTrees())
+        {
+            var foot = new Vector2(x + 0.5f, WoodTop + y + 1);
+            standing.Add((foot.Y, () => DrawTree(foot, kind, true)));
+        }
+        foreach (var (x, y) in new[] { (5, 4), (12, 9), (20, 6), (30, 15), (45, 20), (8, 30) })
+        {
+            var feet = new Vector2(x + 0.5f, WoodTop + y + 0.5f);
+            standing.Add((feet.Y, () => DrawColonist(feet, true)));
+        }
+        foreach (var (_, draw) in standing.OrderBy(s => s.Feet))
+            draw();
     }
 
     // One field, `left` tiles from the origin: with the pictures, or with today's shapes.
@@ -252,6 +309,9 @@ public partial class AssetPreview : Node2D
         }
     }
 
+    // How an experiment's trees are shown: full size; or small, from its compact pictures or shrunk to half while drawing.
+    string SizeName() => !small ? "full size" : Experiments[treeSet - Sets.Length].Compact != "" ? "compact" : "half size (shrunk while drawing)";
+
     // The picture of a tree of `kind` (1 deciduous, 2 conifer) in the set shown: v0.2's, or v0.3's of the chosen age and
     // variant.
     Texture2D? TreePicture(int kind)
@@ -261,7 +321,8 @@ public partial class AssetPreview : Node2D
         if (Experiment)
         {
             var e = Experiments[treeSet - Sets.Length];
-            return Picture(e.Folder + "/tree_mature_" + (kind == 1 ? "deciduous" : "conifer") + e.Suffix);
+            string end = small && e.Compact != "" ? e.Compact : e.Full;
+            return Picture(e.Folder + "/tree_mature_" + (kind == 1 ? "deciduous" : "conifer") + end);
         }
         if (treeSet >= 2)
             return Picture(Sets[treeSet] + "/tree_mature_" + (kind == 1 ? "deciduous" : "conifer") + "_01");
@@ -282,8 +343,9 @@ public partial class AssetPreview : Node2D
     {
         if (withPictures && TreePicture(kind) is Texture2D texture)
         {
-            // Its size in tiles: Pixels picture pixels make a tile; at half size (H, experiments only) twice as many do.
-            float scale = Experiment && halfSize ? 0.5f : 1f;
+            // Its size in tiles: Pixels picture pixels make a tile. An experiment's full pictures shown small (H), when it
+            // has no compact ones, are shrunk to half while drawing.
+            float scale = Experiment && small && Experiments[treeSet - Sets.Length].Compact == "" ? 0.5f : 1f;
             float wide = texture.GetWidth() * scale / Pixels, high = texture.GetHeight() * scale / Pixels;
             DrawTextureRect(texture, new Rect2(foot.X - wide / 2, foot.Y - high, wide, high), false);
         }
