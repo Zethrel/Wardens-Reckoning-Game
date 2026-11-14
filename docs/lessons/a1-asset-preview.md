@@ -121,6 +121,19 @@ Half the picture's width to the left of the foot, its whole height above it.
 For v0.2 (32 × 64) that is exactly what it was before. Press **A**: where a
 v0.3 trunk is not in the middle of its picture, the cross shows it.
 
+## A third set (v0.4)
+
+v0.4's two trees sit in `assets/prototype-v0.4/`, and **T** now goes round
+three sets: v0.2, v0.3, v0.4. Two sets have pictures of the same name
+(`tree_mature_conifer_01`), so each picture is kept under a name of its own:
+
+```csharp
+LoadAs("v0.4/tree_mature_" + type + "_01", Vegetation4 + "tree_mature_" + type + "_01.png");
+```
+
+`LoadAs(name, path)` keeps the picture at `path` under `name`. `Load` is now
+one line that calls it: one way of loading, used two ways.
+
 ## Exercise
 
 1. Rename `tree_02.png` for a moment and run again: what does the bench show,

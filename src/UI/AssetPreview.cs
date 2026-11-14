@@ -5,7 +5,8 @@ namespace WardensReckoning.UI;
 
 /// <summary>
 /// A test bench for the first pictures (asset prototype v0.2, `res://assets/prototype/`; and the trees of the
-/// vegetation prototype v0.3, `res://assets/prototype-v0.3/`, as a second set to compare), on its own: no colony, no
+/// vegetation prototypes v0.3 and v0.4, `res://assets/prototype-v0.3/` and `prototype-v0.4/`, as more sets to compare),
+/// on its own: no colony, no
 /// simulation, nothing of the game is loaded or changed. Run it alone (src/UI/AssetPreview.tscn: in the editor, open
 /// it and press F6; or `godot --path . res://src/UI/AssetPreview.tscn`).
 ///
@@ -18,14 +19,15 @@ namespace WardensReckoning.UI;
 ///
 /// Keys: 1–4 zoom to 16, 32, 40 or 64 pixels a tile; the mouse wheel zooms in the game's steps (×1.15); the right
 /// mouse button or the arrows move; F nearest or smooth filtering; P snapping to whole pixels; A the anchor points;
-/// G a tile grid; [ and ] the walker's speed; Space stops or starts the walker; T the trees of v0.2 or v0.3; with v0.3,
-/// V the variant (green, green 2, autumn, winter; the conifer's 1 or 2) and Y the age (mature, young, sapling). A v0.3
-/// tree's foot is taken to be the middle of its picture's bottom edge, as its README assumes (not checked by it).
+/// G a tile grid; [ and ] the walker's speed; Space stops or starts the walker; T the trees of v0.2, v0.3 or v0.4;
+/// with v0.3, V the variant (green, green 2, autumn, winter; the conifer's 1 or 2) and Y the age (mature, young,
+/// sapling). A tree's foot is the middle of its picture's bottom edge (v0.4's README: (32, 95) and (16, 95)).
 /// </summary>
 public partial class AssetPreview : Node2D
 {
     const string Folder = "res://assets/prototype/";
     const string Vegetation = "res://assets/prototype-v0.3/vegetation/";
+    const string Vegetation4 = "res://assets/prototype-v0.4/vegetation/";
     const int Pixels = 32;                         // a picture's pixels a tile
     const int Wide = 12, High = 8;                 // the field, in tiles
     const int Gap = 1;                             // tiles between the two fields
@@ -39,7 +41,8 @@ public partial class AssetPreview : Node2D
     Camera2D? camera;
     Label? info;
     bool anchors, grid, nearest = true, walking = true;
-    bool v03;                                      // the trees of v0.3 (T)
+    int treeSet;                                   // the trees shown (T): 0 v0.2, 1 v0.3, 2 v0.4
+    static readonly string[] Sets = { "v0.2", "v0.3", "v0.4" };
     int variant;                                   // v0.3: 0 green, 1 green 2, 2 autumn, 3 winter (V)
     int age;                                       // v0.3: 0 mature, 1 young, 2 sapling (Y)
     static readonly string[] Ages = { "mature", "young", "sapling" };
@@ -71,6 +74,8 @@ public partial class AssetPreview : Node2D
             Load("tree_mature_deciduous_" + name, Vegetation);
         Load("tree_mature_conifer_01", Vegetation);
         Load("tree_mature_conifer_02", Vegetation);
+        foreach (var type in new[] { "deciduous", "conifer" })
+            LoadAs("v0.4/tree_mature_" + type + "_01", Vegetation4 + "tree_mature_" + type + "_01.png");
         foreach (var layer in new[] { "base", "clothing", "hair" })
             Load("colonists/" + layer + "_idle_down");
 
@@ -89,9 +94,11 @@ public partial class AssetPreview : Node2D
         panel.AddChild(info);
     }
 
-    void Load(string name, string folder = Folder)
+    void Load(string name, string folder = Folder) => LoadAs(name, folder + name + ".png");
+
+    // A picture under the name `name`, from `path`.
+    void LoadAs(string name, string path)
     {
-        string path = folder + name + ".png";
         Texture2D? texture = ResourceLoader.Exists(path) ? GD.Load<Texture2D>(path) : null;
         if (texture == null)
             missing.Add(name);
@@ -115,11 +122,11 @@ public partial class AssetPreview : Node2D
                      + "Zoom " + camera.Zoom.X.ToString("0.#") + " px a tile (×" + (camera.Zoom.X / Pixels).ToString("0.###") + ")"
                      + " · filter " + (nearest ? "nearest" : "smooth") + " · pixel snap " + (GetViewport().Snap2DTransformsToPixel ? "on" : "off")
                      + " · walker " + (walking ? speed.ToString("0.#") + " m/s" : "stopped") + "\n"
-                     + "Trees: " + (v03 ? "v0.3, " + Ages[age] + (age == 0 ? ", " + Variants[variant].Replace("_01", "").Replace("_02", " 2") : "") : "v0.2") + "\n"
+                     + "Trees: " + Sets[treeSet] + (treeSet == 1 ? ", " + Ages[age] + (age == 0 ? ", " + Variants[variant].Replace("_01", "").Replace("_02", " 2") : "") : "") + "\n"
                      + "Frame " + frames.Average().ToString("0.0") + " ms average, " + frames.Max().ToString("0.0") + " ms slowest (last 60)"
                      + (missing.Count > 0 ? "\nMissing, drawn as shapes: " + string.Join(", ", missing) : "") + "\n"
                      + "1–4 zoom 16/32/40/64 · wheel ×1.15 · right drag or arrows move · F filter · P snap · A anchors · G grid · [ ] speed · Space walker"
-                     + " · T trees v0.2/v0.3 · V variant · Y age";
+                     + " · T trees v0.2/v0.3/v0.4 · V variant · Y age (v0.3)";
         QueueRedraw();
     }
 
@@ -155,7 +162,7 @@ public partial class AssetPreview : Node2D
                     case Key.Bracketleft: speed = Math.Max(0.5, speed / 2); break;
                     case Key.Bracketright: speed = Math.Min(32, speed * 2); break;
                     case Key.Space: walking = !walking; break;
-                    case Key.T: v03 = !v03; break;
+                    case Key.T: treeSet = (treeSet + 1) % Sets.Length; break;
                     case Key.V: variant = (variant + 1) % Variants.Length; break;
                     case Key.Y: age = (age + 1) % Ages.Length; break;
                     default: return;
@@ -235,8 +242,10 @@ public partial class AssetPreview : Node2D
     // variant.
     Texture2D? TreePicture(int kind)
     {
-        if (!v03)
+        if (treeSet == 0)
             return Picture("things/tree_0" + kind);
+        if (treeSet == 2)
+            return Picture("v0.4/tree_mature_" + (kind == 1 ? "deciduous" : "conifer") + "_01");
         string type = kind == 1 ? "deciduous" : "conifer";
         string name = age switch
         {
