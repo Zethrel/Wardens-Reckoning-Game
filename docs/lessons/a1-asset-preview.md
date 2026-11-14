@@ -102,6 +102,25 @@ simulation can never be changed by how the ground looks.
 5. **The scale:** trees about 1.75 m next to a 1.1 m colonist. Too small?
 6. **The frame time** in the panel.
 
+## A second set of trees (v0.3)
+
+The vegetation prototype v0.3 sits beside v0.2 in `assets/prototype-v0.3/`,
+and **T** switches between them. Nothing of v0.2 is replaced, so the two can be
+compared on the same field. **V** steps through the variants (green, a second
+green, autumn, winter; the conifer has two), **Y** through the ages (mature,
+young, sapling).
+
+The pictures are of different sizes (64 × 96, 32 × 96, 32 × 64, 32 × 32), so
+the code no longer says "16" for a tree's middle. It works it out:
+
+```csharp
+new Rect2(foot.X - texture.GetWidth() / 2f / Pixels, foot.Y - texture.GetHeight() / (float)Pixels, ...)
+```
+
+Half the picture's width to the left of the foot, its whole height above it.
+For v0.2 (32 × 64) that is exactly what it was before. Press **A**: where a
+v0.3 trunk is not in the middle of its picture, the cross shows it.
+
 ## Exercise
 
 1. Rename `tree_02.png` for a moment and run again: what does the bench show,

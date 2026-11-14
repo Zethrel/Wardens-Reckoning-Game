@@ -4,7 +4,8 @@ using Godot;
 namespace WardensReckoning.UI;
 
 /// <summary>
-/// A test bench for the first pictures (asset prototype v0.2, `res://assets/prototype/`), on its own: no colony, no
+/// A test bench for the first pictures (asset prototype v0.2, `res://assets/prototype/`; and the trees of the
+/// vegetation prototype v0.3, `res://assets/prototype-v0.3/`, as a second set to compare), on its own: no colony, no
 /// simulation, nothing of the game is loaded or changed. Run it alone (src/UI/AssetPreview.tscn: in the editor, open
 /// it and press F6; or `godot --path . res://src/UI/AssetPreview.tscn`).
 ///
@@ -17,11 +18,14 @@ namespace WardensReckoning.UI;
 ///
 /// Keys: 1–4 zoom to 16, 32, 40 or 64 pixels a tile; the mouse wheel zooms in the game's steps (×1.15); the right
 /// mouse button or the arrows move; F nearest or smooth filtering; P snapping to whole pixels; A the anchor points;
-/// G a tile grid; [ and ] the walker's speed; Space stops or starts the walker.
+/// G a tile grid; [ and ] the walker's speed; Space stops or starts the walker; T the trees of v0.2 or v0.3; with v0.3,
+/// V the variant (green, green 2, autumn, winter; the conifer's 1 or 2) and Y the age (mature, young, sapling). A v0.3
+/// tree's foot is taken to be the middle of its picture's bottom edge, as its README assumes (not checked by it).
 /// </summary>
 public partial class AssetPreview : Node2D
 {
     const string Folder = "res://assets/prototype/";
+    const string Vegetation = "res://assets/prototype-v0.3/vegetation/";
     const int Pixels = 32;                         // a picture's pixels a tile
     const int Wide = 12, High = 8;                 // the field, in tiles
     const int Gap = 1;                             // tiles between the two fields
@@ -35,6 +39,11 @@ public partial class AssetPreview : Node2D
     Camera2D? camera;
     Label? info;
     bool anchors, grid, nearest = true, walking = true;
+    bool v03;                                      // the trees of v0.3 (T)
+    int variant;                                   // v0.3: 0 green, 1 green 2, 2 autumn, 3 winter (V)
+    int age;                                       // v0.3: 0 mature, 1 young, 2 sapling (Y)
+    static readonly string[] Ages = { "mature", "young", "sapling" };
+    static readonly string[] Variants = { "green_01", "green_02", "autumn_01", "winter_01" };
     double speed = 2;                              // metres a second of the walker
     double walked;                                 // metres along the loop
     readonly Queue<double> frames = new();
@@ -55,6 +64,13 @@ public partial class AssetPreview : Node2D
             Load("surfaces/" + name);
         Load("things/tree_01");
         Load("things/tree_02");
+        foreach (var type in new[] { "deciduous", "conifer" })
+            foreach (var young in new[] { "young", "sapling" })
+                Load("tree_" + young + "_" + type + "_01", Vegetation);
+        foreach (var name in Variants)
+            Load("tree_mature_deciduous_" + name, Vegetation);
+        Load("tree_mature_conifer_01", Vegetation);
+        Load("tree_mature_conifer_02", Vegetation);
         foreach (var layer in new[] { "base", "clothing", "hair" })
             Load("colonists/" + layer + "_idle_down");
 
@@ -73,9 +89,9 @@ public partial class AssetPreview : Node2D
         panel.AddChild(info);
     }
 
-    void Load(string name)
+    void Load(string name, string folder = Folder)
     {
-        string path = Folder + name + ".png";
+        string path = folder + name + ".png";
         Texture2D? texture = ResourceLoader.Exists(path) ? GD.Load<Texture2D>(path) : null;
         if (texture == null)
             missing.Add(name);
@@ -99,9 +115,11 @@ public partial class AssetPreview : Node2D
                      + "Zoom " + camera.Zoom.X.ToString("0.#") + " px a tile (×" + (camera.Zoom.X / Pixels).ToString("0.###") + ")"
                      + " · filter " + (nearest ? "nearest" : "smooth") + " · pixel snap " + (GetViewport().Snap2DTransformsToPixel ? "on" : "off")
                      + " · walker " + (walking ? speed.ToString("0.#") + " m/s" : "stopped") + "\n"
+                     + "Trees: " + (v03 ? "v0.3, " + Ages[age] + (age == 0 ? ", " + Variants[variant].Replace("_01", "").Replace("_02", " 2") : "") : "v0.2") + "\n"
                      + "Frame " + frames.Average().ToString("0.0") + " ms average, " + frames.Max().ToString("0.0") + " ms slowest (last 60)"
                      + (missing.Count > 0 ? "\nMissing, drawn as shapes: " + string.Join(", ", missing) : "") + "\n"
-                     + "1–4 zoom 16/32/40/64 · wheel ×1.15 · right drag or arrows move · F filter · P snap · A anchors · G grid · [ ] speed · Space walker";
+                     + "1–4 zoom 16/32/40/64 · wheel ×1.15 · right drag or arrows move · F filter · P snap · A anchors · G grid · [ ] speed · Space walker"
+                     + " · T trees v0.2/v0.3 · V variant · Y age";
         QueueRedraw();
     }
 
@@ -137,6 +155,9 @@ public partial class AssetPreview : Node2D
                     case Key.Bracketleft: speed = Math.Max(0.5, speed / 2); break;
                     case Key.Bracketright: speed = Math.Min(32, speed * 2); break;
                     case Key.Space: walking = !walking; break;
+                    case Key.T: v03 = !v03; break;
+                    case Key.V: variant = (variant + 1) % Variants.Length; break;
+                    case Key.Y: age = (age + 1) % Ages.Length; break;
                     default: return;
                 }
                 break;
@@ -210,12 +231,30 @@ public partial class AssetPreview : Node2D
         }
     }
 
-    // A tree, its trunk's foot (picture pixel 16, 63) on `foot`; or today's triangle on its tile.
+    // The picture of a tree of `kind` (1 deciduous, 2 conifer) in the set shown: v0.2's, or v0.3's of the chosen age and
+    // variant.
+    Texture2D? TreePicture(int kind)
+    {
+        if (!v03)
+            return Picture("things/tree_0" + kind);
+        string type = kind == 1 ? "deciduous" : "conifer";
+        string name = age switch
+        {
+            0 when kind == 1 => "tree_mature_deciduous_" + Variants[variant],
+            0 => "tree_mature_conifer_0" + (variant % 2 + 1),
+            1 => "tree_young_" + type + "_01",
+            _ => "tree_sapling_" + type + "_01",
+        };
+        return Picture(name);
+    }
+
+    // A tree, its foot on `foot` (v0.2: the trunk's foot, picture pixel 16, 64; v0.3: the middle of the picture's bottom
+    // edge); or today's triangle on its tile.
     void DrawTree(Vector2 foot, int kind, bool withPictures)
     {
-        if (withPictures && Picture("things/tree_0" + kind) is Texture2D texture)
-            DrawTextureRect(texture, new Rect2(foot.X - 16f / Pixels, foot.Y - 64f / Pixels, texture.GetWidth() / (float)Pixels,
-                                               texture.GetHeight() / (float)Pixels), false);
+        if (withPictures && TreePicture(kind) is Texture2D texture)
+            DrawTextureRect(texture, new Rect2(foot.X - texture.GetWidth() / 2f / Pixels, foot.Y - texture.GetHeight() / (float)Pixels,
+                                               texture.GetWidth() / (float)Pixels, texture.GetHeight() / (float)Pixels), false);
         else
         {
             var at = new Vector2(foot.X - 0.5f, foot.Y - 1);
