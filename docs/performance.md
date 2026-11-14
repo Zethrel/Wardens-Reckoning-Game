@@ -617,6 +617,60 @@ NVIDIA GeForce RTX 3080, Vulkan, Godot 4.7.2, window 1280 × 720, 16 px a tile:
   If one is needed, the CPU side is where to save, for instance by drawing
   trees in batches.
 
+### Drawing the colony: the forest benchmark (steps 27b and 27c), the maintainer's PC, 14 November 2026
+
+The budget for drawing is 60 frames a second, 16.7 ms a frame, in the densest
+forest view at 1080p on the maintainer's PC (the maintainer, 14 November 2026).
+The colony's benchmark founds world 7's site 1 and pauses it. It then finds the
+view with the most trees at 16 px a tile and measures it with vsync off: as it
+is, with every crown see-through (the Trees button), and closer in at 32 and
+40 px a tile. Each setting is 60 frames to settle, then 300 measured.
+
+```powershell
+# PowerShell, in D:\Zethrel-Github-Projects\Wardens-Reckoning-game
+& "D:\Zethrel-Github-Projects\_Needed stuff\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64_console.exe" --path . --resolution 1920x1080 -- --world "D:\Zethrel-Github-Projects\Wardens-Reckoning\output\world-7\h7\export" --found 1 --bench bench-colony-forest.md
+```
+
+NVIDIA GeForce RTX 3080, Vulkan, Godot 4.7.2, window 1920 × 1080 (the map
+1920 × 1032). The densest view is centred on (170, 221.5), with 1,117 tree
+tiles in it.
+
+**After step 27b** (16:45), which missed the budget at 16 px:
+
+| Px a tile | See-through | Trees drawn | _Draw (CPU) ms | Map rendering GPU ms | Frame ms | Slowest frame ms | Frames a second | Within budget |
+|---:|---|---:|---:|---:|---:|---:|---:|---|
+| 16 | off | 921 | 16.91 | 0.57 | 25.58 | 43.15 | 39 | no |
+| 16 | on | 0 | 16.55 | 0.67 | 24.73 | 41.26 | 40 | no |
+| 32 | off | 0 | 0.56 | 0.02 | 1.06 | 2.73 | 943 | yes |
+| 40 | off | 227 | 5.24 | 0.15 | 8.42 | 67.86 | 119 | yes |
+
+**After step 27c** (17:12):
+
+| Px a tile | See-through | Trees drawn | _Draw (CPU) ms | Map rendering GPU ms | Frame ms | Slowest frame ms | Frames a second | Within budget |
+|---:|---|---:|---:|---:|---:|---:|---:|---|
+| 16 | off | 1173 | 1.41 | 0.07 | 2.02 | 3.44 | 495 | yes |
+| 16 | on | 1173 | 1.39 | 0.07 | 2.13 | 8.23 | 470 | yes |
+| 32 | off | 337 | 0.48 | 0.04 | 0.96 | 12.46 | 1046 | yes |
+| 40 | off | 221 | 0.34 | 0.03 | 0.67 | 1.53 | 1492 | yes |
+
+- **What was slow:** timing each pass of `_Draw` (in the cloud, on the same
+  site) showed the ground's symbols took about 10 of its 11 ms at 16 px a
+  tile. The specks on rough ground were drawn as circles, and a forest on rough
+  ground is thousands of them. The trees and colonists took 0.7 ms.
+- **The fix (27c):** the specks of rough ground, sand and salt water are small
+  squares. `_Draw` went from 16.9 to 1.4 ms at 16 px a tile, and the frame from
+  25.6 to 2.0 ms.
+- **The "Trees drawn: 0" rows** after 27b were a bug, not empty views: the
+  camera's zoom came out a hair under the threshold (15.99999 for 16), which
+  switched the tree pictures off. 27c rounds the zoom first.
+- **Canopy fading costs nothing measurable:** with every crown see-through,
+  the numbers are within run-to-run noise.
+- **What this site doesn't cover:** world 7's site 1 has 1,117 tree tiles in
+  its densest view, about one tile in seven on screen. A view with a tree on every
+  tile has been measured only in the asset preview (above: 70 frames a second
+  with all 8,160 drawn every frame). The colony draws only what's on screen, so
+  it should do at least as well, but that hasn't been measured in the colony.
+
 ## Assessment
 
 **Everyday play is far within its time.** A colony at rest or hauling takes a
