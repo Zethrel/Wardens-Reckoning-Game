@@ -134,6 +134,20 @@ LoadAs("v0.4/tree_mature_" + type + "_01", Vegetation4 + "tree_mature_" + type +
 `LoadAs(name, path)` keeps the picture at `path` under `name`. `Load` is now
 one line that calls it: one way of loading, used two ways.
 
+## A fourth set (v0.5)
+
+v0.5 revises v0.4's two trees, and sits beside them in
+`assets/prototype-v0.5/`. **T** goes round four sets now. Sets from v0.4 on
+have the same two file names, so they share one line of code:
+
+```csharp
+return Picture(Sets[treeSet] + "/tree_mature_" + (kind == 1 ? "deciduous" : "conifer") + "_01");
+```
+
+`Sets[treeSet]` is the set's name ("v0.4", "v0.5"), which is also the name the
+pictures were kept under. A fifth set of the same kind would need only its
+folder, its two `LoadAs` lines and its name in `Sets`.
+
 ## Exercise
 
 1. Rename `tree_02.png` for a moment and run again: what does the bench show,
