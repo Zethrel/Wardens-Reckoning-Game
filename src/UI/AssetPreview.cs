@@ -5,7 +5,7 @@ namespace WardensReckoning.UI;
 
 /// <summary>
 /// A test bench for the first pictures (asset prototype v0.2, `res://assets/prototype/`; and the trees of the
-/// vegetation prototypes v0.3 to v0.7, `res://assets/prototype-v0.3/` to `prototype-v0.7/`, as more sets to compare),
+/// vegetation prototypes v0.3 to v0.8, `res://assets/prototype-v0.3/` to `prototype-v0.8/`, as more sets to compare),
 /// on its own: no colony, no
 /// simulation, nothing of the game is loaded or changed. Run it alone (src/UI/AssetPreview.tscn: in the editor, open
 /// it and press F6; or `godot --path . res://src/UI/AssetPreview.tscn`).
@@ -19,7 +19,7 @@ namespace WardensReckoning.UI;
 ///
 /// Keys: 1–4 zoom to 16, 32, 40 or 64 pixels a tile; the mouse wheel zooms in the game's steps (×1.15); the right
 /// mouse button or the arrows move; F nearest or smooth filtering; P snapping to whole pixels; A the anchor points;
-/// G a tile grid; [ and ] the walker's speed; Space stops or starts the walker; T the trees of v0.2 to v0.7;
+/// G a tile grid; [ and ] the walker's speed; Space stops or starts the walker; T the trees of v0.2 to v0.8;
 /// with v0.3, V the variant (green, green 2, autumn, winter; the conifer's 1 or 2) and Y the age (mature, young,
 /// sapling). A tree's foot is the middle of its picture's bottom edge (the READMEs from v0.4 on: (32, 95) and (16, 95)).
 /// </summary>
@@ -42,7 +42,7 @@ public partial class AssetPreview : Node2D
     Label? info;
     bool anchors, grid, nearest = true, walking = true;
     int treeSet;                                   // the trees shown (T): 0 v0.2, 1 v0.3, 2 v0.4 and on
-    static readonly string[] Sets = { "v0.2", "v0.3", "v0.4", "v0.5", "v0.6", "v0.7" };
+    static readonly string[] Sets = { "v0.2", "v0.3", "v0.4", "v0.5", "v0.6", "v0.7", "v0.8" };
     int variant;                                   // v0.3: 0 green, 1 green 2, 2 autumn, 3 winter (V)
     int age;                                       // v0.3: 0 mature, 1 young, 2 sapling (Y)
     static readonly string[] Ages = { "mature", "young", "sapling" };

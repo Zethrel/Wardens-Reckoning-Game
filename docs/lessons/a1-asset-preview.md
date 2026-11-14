@@ -176,6 +176,8 @@ static readonly string[] Sets = { "v0.2", "v0.3", "v0.4", "v0.5", "v0.6", "v0.7"
 Nothing else changed. The loop loads its two trees, **T** goes round six sets,
 and the help line reads "v0.2 to v0.7" by itself, since it shows `Sets[^1]`.
 
+v0.8 came the same way: its folder, and `"v0.8"` at the end of `Sets`.
+
 ## Exercise
 
 1. Rename `tree_02.png` for a moment and run again: what does the bench show,
