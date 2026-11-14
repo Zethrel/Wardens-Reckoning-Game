@@ -6,7 +6,7 @@ namespace WardensReckoning.UI;
 /// <summary>
 /// A test bench for the first pictures (asset prototype v0.2, `res://assets/prototype/`; and the trees of the
 /// vegetation prototypes v0.3 to v0.8, `res://assets/prototype-v0.3/` to `prototype-v0.8/`, as more sets to compare;
-/// and the high-detail experiments v1 and v2, `res://assets/prototype-hd-v1/` and `prototype-hd-v2/`), on its own:
+/// and the high-detail experiments v1 to v3, `res://assets/prototype-hd-v1/` to `prototype-hd-v3/`), on its own:
 /// no colony, no simulation, nothing of the game is loaded or changed. Run it alone (src/UI/AssetPreview.tscn: in the editor, open
 /// it and press F6; or `godot --path . res://src/UI/AssetPreview.tscn`).
 ///
@@ -55,6 +55,7 @@ public partial class AssetPreview : Node2D
     {
         ("high-detail v1", "hd-v1", "_hd_01", ""),
         ("high-detail v2", "hd-v2", "_hd_v2_full", "_hd_v2_compact"),
+        ("high-detail v3", "hd-v3", "_hd_v3_full", "_hd_v3_compact"),
     };
     bool small;                                    // H: an experiment's small trees (compact pictures, or else half size)
     int wood;                                      // W: the test wood: 0 none, 1 every fourth tile, 2 every other, 3 every tile

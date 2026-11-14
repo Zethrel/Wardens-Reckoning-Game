@@ -250,6 +250,12 @@ IEnumerable<(int X, int Y, int Kind)> WoodTrees()
 `yield return` makes a method that gives its results one by one, as they're
 asked for (like a Python generator). `WoodTrees().Count()` counts them.
 
+v3 came as one more line in `Experiments`, since it has the same two sizes as v2:
+
+```csharp
+("high-detail v3", "hd-v3", "_hd_v3_full", "_hd_v3_compact"),
+```
+
 How long the drawing takes is measured twice:
 - **Drawing (CPU):** `_Draw` notes `Time.GetTicksUsec()` (microseconds since the
   game started) at its start and end. That's the time spent handing Godot the
