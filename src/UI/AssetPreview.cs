@@ -22,6 +22,8 @@ namespace WardensReckoning.UI;
 /// G a tile grid; [ and ] the walker's speed; Space stops or starts the walker; T the trees of v0.2 to v0.8;
 /// with v0.3, V the variant (green, green 2, autumn, winter; the conifer's 1 or 2) and Y the age (mature, young,
 /// sapling). A tree's foot is the middle of its picture's bottom edge (the READMEs from v0.4 on: (32, 95) and (16, 95)).
+/// After the sets, T goes on to the experiments (the high-detail trees, 128 × 192 and 64 × 192); H shows an
+/// experiment's trees at half size, so they cover what v0.8's do.
 /// </summary>
 public partial class AssetPreview : Node2D
 {
@@ -43,6 +45,11 @@ public partial class AssetPreview : Node2D
     bool anchors, grid, nearest = true, walking = true;
     int treeSet;                                   // the trees shown (T): 0 v0.2, 1 v0.3, 2 v0.4 and on
     static readonly string[] Sets = { "v0.2", "v0.3", "v0.4", "v0.5", "v0.6", "v0.7", "v0.8" };
+    // Experiments: trees of another kind than the sets, each in `res://assets/prototype-<Folder>/vegetation/` with its own
+    // end to the file names. T goes on to them after the last set.
+    static readonly (string Name, string Folder, string Suffix)[] Experiments = { ("high-detail v1", "hd-v1", "_hd_01") };
+    bool halfSize;                                 // H: an experiment's trees at half their size
+    bool Experiment => treeSet >= Sets.Length;     // true when T has gone past the sets
     int variant;                                   // v0.3: 0 green, 1 green 2, 2 autumn, 3 winter (V)
     int age;                                       // v0.3: 0 mature, 1 young, 2 sapling (Y)
     static readonly string[] Ages = { "mature", "young", "sapling" };
@@ -77,6 +84,10 @@ public partial class AssetPreview : Node2D
         foreach (var set in Sets.Skip(2))
             foreach (var type in new[] { "deciduous", "conifer" })
                 LoadAs(set + "/tree_mature_" + type + "_01", "res://assets/prototype-" + set + "/vegetation/tree_mature_" + type + "_01.png");
+        foreach (var e in Experiments)
+            foreach (var type in new[] { "deciduous", "conifer" })
+                LoadAs(e.Folder + "/tree_mature_" + type + e.Suffix,
+                       "res://assets/prototype-" + e.Folder + "/vegetation/tree_mature_" + type + e.Suffix + ".png");
         foreach (var layer in new[] { "base", "clothing", "hair" })
             Load("colonists/" + layer + "_idle_down");
 
@@ -123,11 +134,12 @@ public partial class AssetPreview : Node2D
                      + "Zoom " + camera.Zoom.X.ToString("0.#") + " px a tile (×" + (camera.Zoom.X / Pixels).ToString("0.###") + ")"
                      + " · filter " + (nearest ? "nearest" : "smooth") + " · pixel snap " + (GetViewport().Snap2DTransformsToPixel ? "on" : "off")
                      + " · walker " + (walking ? speed.ToString("0.#") + " m/s" : "stopped") + "\n"
-                     + "Trees: " + Sets[treeSet] + (treeSet == 1 ? ", " + Ages[age] + (age == 0 ? ", " + Variants[variant].Replace("_01", "").Replace("_02", " 2") : "") : "") + "\n"
+                     + "Trees: " + (Experiment ? Experiments[treeSet - Sets.Length].Name + (halfSize ? ", half size" : ", full size") : Sets[treeSet])
+                     + (treeSet == 1 ? ", " + Ages[age] + (age == 0 ? ", " + Variants[variant].Replace("_01", "").Replace("_02", " 2") : "") : "") + "\n"
                      + "Frame " + frames.Average().ToString("0.0") + " ms average, " + frames.Max().ToString("0.0") + " ms slowest (last 60)"
                      + (missing.Count > 0 ? "\nMissing, drawn as shapes: " + string.Join(", ", missing) : "") + "\n"
                      + "1–4 zoom 16/32/40/64 · wheel ×1.15 · right drag or arrows move · F filter · P snap · A anchors · G grid · [ ] speed · Space walker"
-                     + " · T trees v0.2 to " + Sets[^1] + " · V variant · Y age (v0.3)";
+                     + " · T trees v0.2 to " + Sets[^1] + ", then the experiments · H an experiment's size · V variant · Y age (v0.3)";
         QueueRedraw();
     }
 
@@ -163,7 +175,8 @@ public partial class AssetPreview : Node2D
                     case Key.Bracketleft: speed = Math.Max(0.5, speed / 2); break;
                     case Key.Bracketright: speed = Math.Min(32, speed * 2); break;
                     case Key.Space: walking = !walking; break;
-                    case Key.T: treeSet = (treeSet + 1) % Sets.Length; break;
+                    case Key.T: treeSet = (treeSet + 1) % (Sets.Length + Experiments.Length); break;
+                    case Key.H: halfSize = !halfSize; break;
                     case Key.V: variant = (variant + 1) % Variants.Length; break;
                     case Key.Y: age = (age + 1) % Ages.Length; break;
                     default: return;
@@ -245,6 +258,11 @@ public partial class AssetPreview : Node2D
     {
         if (treeSet == 0)
             return Picture("things/tree_0" + kind);
+        if (Experiment)
+        {
+            var e = Experiments[treeSet - Sets.Length];
+            return Picture(e.Folder + "/tree_mature_" + (kind == 1 ? "deciduous" : "conifer") + e.Suffix);
+        }
         if (treeSet >= 2)
             return Picture(Sets[treeSet] + "/tree_mature_" + (kind == 1 ? "deciduous" : "conifer") + "_01");
         string type = kind == 1 ? "deciduous" : "conifer";
@@ -263,8 +281,12 @@ public partial class AssetPreview : Node2D
     void DrawTree(Vector2 foot, int kind, bool withPictures)
     {
         if (withPictures && TreePicture(kind) is Texture2D texture)
-            DrawTextureRect(texture, new Rect2(foot.X - texture.GetWidth() / 2f / Pixels, foot.Y - texture.GetHeight() / (float)Pixels,
-                                               texture.GetWidth() / (float)Pixels, texture.GetHeight() / (float)Pixels), false);
+        {
+            // Its size in tiles: Pixels picture pixels make a tile; at half size (H, experiments only) twice as many do.
+            float scale = Experiment && halfSize ? 0.5f : 1f;
+            float wide = texture.GetWidth() * scale / Pixels, high = texture.GetHeight() * scale / Pixels;
+            DrawTextureRect(texture, new Rect2(foot.X - wide / 2, foot.Y - high, wide, high), false);
+        }
         else
         {
             var at = new Vector2(foot.X - 0.5f, foot.Y - 1);

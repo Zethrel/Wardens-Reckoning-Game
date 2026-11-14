@@ -178,11 +178,49 @@ and the help line reads "v0.2 to v0.7" by itself, since it shows `Sets[^1]`.
 
 v0.8 came the same way: its folder, and `"v0.8"` at the end of `Sets`.
 
+## An experiment beside the sets (high-detail v1)
+
+The high-detail trees aren't another version of v0.8. Their files end in
+`_hd_01`, and they are twice the size (128 × 192 and 64 × 192). So they get a
+list of their own, beside `Sets`:
+
+```csharp
+static readonly (string Name, string Folder, string Suffix)[] Experiments = { ("high-detail v1", "hd-v1", "_hd_01") };
+```
+
+Each entry is a **tuple**: three values in one, with names (`e.Name`,
+`e.Folder`, `e.Suffix`). **T** now counts on past the last set:
+`treeSet` 0 to 6 are the sets, 7 is the first experiment. `Experiment` says
+which:
+
+```csharp
+bool Experiment => treeSet >= Sets.Length;
+```
+
+`=>` here makes a **property** that is worked out each time it is read, like a
+small method without brackets.
+
+The size comes from the picture itself: `Pixels` (32) picture pixels make a
+tile, so a 128-pixel-wide tree covers 4 tiles. **H** halves that for the
+experiment, so its trees cover what v0.8's do:
+
+```csharp
+float scale = Experiment && halfSize ? 0.5f : 1f;
+float wide = texture.GetWidth() * scale / Pixels, high = texture.GetHeight() * scale / Pixels;
+```
+
+At half size with nearest filtering, every other picture pixel is simply
+skipped, so fine detail turns into noise. Compare it with F (smooth). Shrinking
+a picture well is the artist's job, done once when the file is made, not the
+game's on every frame.
+
 ## Exercise
 
 1. Rename `tree_02.png` for a moment and run again: what does the bench show,
    and what does the panel say? (Name it back.)
 2. In `Variant`, return `1` always. What does the grass look like now, and why
    do variants matter?
-3. Change the walker's loop so it passes *through* a tree's tile. What would the
+3. Add a second entry to `Experiments` that points at a folder that doesn't
+   exist. What does the panel's "Missing" line show when T reaches it?
+4. Change the walker's loop so it passes *through* a tree's tile. What would the
    game need to stop that (hint: lesson 15a)?
