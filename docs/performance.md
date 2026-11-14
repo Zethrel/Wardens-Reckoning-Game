@@ -564,6 +564,59 @@ processors, .NET 8.0.33, Release build; own map): **every threshold met.**
 Step 26a changes only the screen (the simulation's code is untouched but for
 the inspector's words), so it was not profiled again.
 
+### Drawing the trees: the asset preview's test wood (step A2b), the maintainer's PC, 14 November 2026
+
+Not a simulation scenario: what drawing the trees costs, with and without canopy
+fading (the Forest Visibility and Canopy Occlusion specification v1.3, Stage 4).
+The asset preview's benchmark draws its test wood, 120 × 68 tiles, empty and with
+a tree on every fourth, every other and every tile. Every tree is drawn every
+frame, on screen or not. For each setting, it lets 60 frames settle and then
+measures 300, with vsync off. With fading on, the wood's six colonists are
+picked and their fades have finished (Reduced Motion).
+
+```powershell
+# PowerShell, in D:\Zethrel-Github-Projects\Wardens-Reckoning-game
+& "D:\Zethrel-Github-Projects\_Needed stuff\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64_console.exe" --path . res://src/UI/AssetPreview.tscn -- --bench
+```
+
+NVIDIA GeForce RTX 3080, Vulkan, Godot 4.7.2, window 1280 × 720, 16 px a tile:
+
+| Trees | Wood | Fading | Trees drawn | _Draw (CPU) ms | Rendering CPU ms | Rendering GPU ms | Frame ms | Slowest frame ms | Frames a second |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|
+| v0.8 | none | – | 0 | 0.10 | 0.02 | 0.01 | 0.49 | 1.90 | 2041 |
+| v0.8 | a tree on every fourth tile | – | 2040 | 1.47 | 2.78 | 0.23 | 5.39 | 6.57 | 186 |
+| v0.8 | on every other tile | – | 4080 | 1.98 | 3.30 | 0.28 | 6.79 | 19.97 | 147 |
+| v0.8 | on every tile | – | 8160 | 3.08 | 4.28 | 0.66 | 9.24 | 21.56 | 108 |
+| colony's (v3) | none | – | 0 | 0.09 | 0.02 | 0.02 | 2.10 | 17.47 | 477 |
+| colony's (v3) | a tree on every fourth tile | off | 2040 | 1.65 | 2.77 | 0.25 | 7.86 | 59.35 | 127 |
+| colony's (v3) | a tree on every fourth tile | on | 2040 | 1.70 | 2.80 | 0.25 | 7.68 | 22.73 | 130 |
+| colony's (v3) | on every other tile | off | 4080 | 2.35 | 3.31 | 0.30 | 8.15 | 19.46 | 123 |
+| colony's (v3) | on every other tile | on | 4080 | 2.42 | 3.34 | 0.31 | 8.00 | 31.28 | 125 |
+| colony's (v3) | on every tile | off | 8160 | 3.86 | 4.53 | 4.81 | 14.26 | 25.26 | 70 |
+| colony's (v3) | on every tile | on | 8160 | 3.90 | 4.48 | 4.57 | 13.75 | 28.72 | 73 |
+
+- **Fading has no measurable cost:** with fading on and off the numbers are
+  within run-to-run noise at every density.
+- **The worst case**, 8,160 v3 trees drawn every frame, runs at a 14 ms frame
+  (70 a second).
+- **The GPU is not the limit.** It takes 0.3 ms or less up to every other tile.
+  With a tree on every tile it takes 4.6–4.8 ms, against 0.7 ms for v0.8: the
+  v3 crowns are fuller, so far more pixels are drawn over one another. The jump
+  from every other tile to every tile is larger than the change in tree count;
+  one run can't explain it.
+- **Most of the frame is CPU work:** building the drawing commands (`_Draw`,
+  about 4 ms) and Godot's rendering on the CPU (about 4.5 ms). Much of the rest
+  is the preview's own panel text, which counts the wood's trees again every
+  frame; the game doesn't do that.
+- **The slowest single frames** are 20–60 ms: one-off spikes in a 300-frame run,
+  of unknown cause (not investigated).
+- **The colony draws only what is on screen.** A full forest at 16 px a tile on
+  a 1920 × 1080 screen is about 8,000 tiles, so this worst case is close to the
+  colony's own; that's an estimate from the preview, not measured in the game.
+- No frame budget is set yet (the specification lists it as "to determine").
+  If one is needed, the CPU side is where to save, for instance by drawing
+  trees in batches.
+
 ## Assessment
 
 **Everyday play is far within its time.** A colony at rest or hauling takes a
