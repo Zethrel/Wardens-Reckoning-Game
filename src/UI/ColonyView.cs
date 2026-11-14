@@ -14,6 +14,9 @@ namespace WardensReckoning.UI;
 ///
 /// - each surface also has a symbol (water ripples, rough ground's specks...), so no surface is told apart by colour
 ///   alone (FP-11); trees, rocks and the symbols are drawn only when zoomed in far enough to see them;
+/// - trees (step 27a): from `TreePictures` screen pixels a tile up, the adopted v3 pictures
+///   (`res://assets/vegetation/`, Vegetation Art Standard v1.1), about one in three a conifer by a fixed sum of the
+///   tile's numbers (TreeArts.KindAt); further out, or if the pictures can't be loaded, a dark green triangle;
 /// - walls, doors, floors and roads as squares; buildings under way as outlines with their progress;
 /// - stores (the carts, stockpiles), the drinking place and bedrolls as shapes with a letter;
 /// - the colonists as circles with their names.
@@ -42,6 +45,14 @@ public partial class ColonyView : Node2D
 
     Func<Colony.Colony> colony;
     Sprite2D? groundPicture;
+
+    /// <summary>From this many screen pixels a tile up, trees are drawn as pictures (step 27a). At 16 a picture is
+    /// drawn at half its size; closer than that the triangles are clearer.</summary>
+    public const float TreePictures = 16;
+
+    // The tree pictures by kind ("deciduous", "conifer"), with what the manifest says about each; empty if they
+    // couldn't be loaded (then trees are triangles at every zoom).
+    readonly Dictionary<string, (TreeArt Art, Texture2D Picture)> treePictures = new();
 
     /// <summary>The tile picked in the inspector, outlined (or null).</summary>
     public (int X, int Y)? SelectedTile { get; set; }
@@ -94,6 +105,24 @@ public partial class ColonyView : Node2D
         groundPicture = new Sprite2D { Centered = false, TextureFilter = TextureFilterEnum.Nearest, ShowBehindParent = true };
         AddChild(groundPicture);
         PaintGround();
+        // The tree pictures are pixel art: drawn with crisp pixels, not smoothed.
+        TextureFilter = TextureFilterEnum.Nearest;
+        LoadTreePictures();
+    }
+
+    /// <summary>
+    /// Loads the tree pictures and their manifest (step 27a). The manifest is read with Godot's FileAccess, which
+    /// finds `res://` files in the editor and, once the export settings include `*.json` files, in an exported game
+    /// too. Anything missing is skipped, and the trees it would have drawn stay triangles.
+    /// </summary>
+    void LoadTreePictures()
+    {
+        const string folder = "res://assets/vegetation/";
+        if (!Godot.FileAccess.FileExists(folder + "manifest.json"))
+            return;
+        foreach (var art in TreeArts.Read(Godot.FileAccess.GetFileAsString(folder + "manifest.json")))
+            if (ResourceLoader.Exists(folder + art.File) && GD.Load<Texture2D>(folder + art.File) is Texture2D picture)
+                treePictures[art.Kind] = (art, picture);
     }
 
     static readonly Color TreeColour = new(0.13f, 0.33f, 0.16f);
@@ -169,19 +198,33 @@ public partial class ColonyView : Node2D
         float pixels = GetViewport().GetCanvasTransform().Scale.X;      // screen pixels a tile
         bool close = pixels >= 6;           // trees and rocks are worth drawing
         bool closer = pixels >= 14;         // and the surfaces' symbols
+        bool pictures = pixels >= TreePictures && treePictures.Count > 0;   // trees as pictures (step 27a)
         var font = ThemeDB.FallbackFont;
 
-        for (int y = top; y <= bottom; y++)
-            for (int x = left; x <= right; x++)
+        // A tree's picture reaches up to 3 tiles above its tile and half a tile to each side, so trees just below
+        // and beside the view are drawn too, or their crowns would be cut off at the screen's edge.
+        int treeLeft = pictures ? Math.Max(0, left - 1) : left, treeRight = pictures ? Math.Min(ground.Width - 1, right + 1) : right;
+        int treeBottom = pictures ? Math.Min(ground.Height - 1, bottom + 3) : bottom;
+        // Row by row, from the top: first each tile's ground (under a tree, its surface's colour over the tree's dark
+        // pixel), symbol and piece, then the row's trees and rocks. A tree's picture then covers what is behind it
+        // (the rows above), and nothing of its own row is painted over it afterwards.
+        for (int y = top; y <= treeBottom; y++)
+        {
+            for (int x = treeLeft; x <= treeRight; x++)
             {
                 var at = new Vector2(x, y);
-                if (closer)
+                bool inView = x >= left && x <= right && y <= bottom;
+                if (close && ground.ObstacleAt(x, y) is string thing && thing is "tree" or "rock")
+                    DrawRect(new Rect2(at, Vector2.One), ColourOf(ground.SurfaceAt(x, y).Id));
+                if (closer && inView)
                     DrawSymbol(ground.SurfaceAt(x, y).Id, at);
-                if (ground.PieceAt(x, y) is string piece)
+                if (inView && ground.PieceAt(x, y) is string piece)
                     DrawPiece(piece, at);
-                if (close && ground.ObstacleAt(x, y) is string thing)
-                    DrawThing(thing, at);
             }
+            for (int x = treeLeft; x <= treeRight; x++)
+                if (close && ground.ObstacleAt(x, y) is string thing && (pictures || (x >= left && x <= right && y <= bottom)))
+                    DrawThing(thing, new Vector2(x, y), pictures);
+        }
 
         var work = c.Work!;
         // Buildings under way: an outline of their size, and how far along they are.
@@ -346,19 +389,22 @@ public partial class ColonyView : Node2D
         }
     }
 
-    // A tree: a dark green triangle; a rock: a grey round stone with an outline; anything else: a cross.
-    void DrawThing(string thing, Vector2 at)
+    // A tree: its picture (`pictures`, step 27a), its foot on the middle of the tile's bottom edge, or else a dark
+    // green triangle; a rock: a grey round stone with an outline; anything else: a cross. The ground's colour under
+    // trees and rocks is painted before (in _Draw), over their dark pixel in the ground picture.
+    void DrawThing(string thing, Vector2 at, bool pictures)
     {
         switch (thing)
         {
+            case "tree" when pictures && treePictures.TryGetValue(TreeArts.KindAt((int)at.X, (int)at.Y), out var tree):
+                var box = tree.Art.Picture(at.X + 0.5, at.Y + 1);
+                DrawTextureRect(tree.Picture, new Rect2((float)box.X, (float)box.Y, (float)box.Width, (float)box.Height), false);
+                break;
             case "tree":
-                // Over the tree's dark pixel: the ground's colour, then the tree, so its shape shows up close.
-                DrawRect(new Rect2(at, Vector2.One), ColourOf(colony().Ground!.SurfaceAt((int)at.X, (int)at.Y).Id));
                 DrawColoredPolygon(new[] { at + new Vector2(0.5f, 0.08f), at + new Vector2(0.9f, 0.85f), at + new Vector2(0.1f, 0.85f) }, TreeColour);
                 DrawPolyline(new[] { at + new Vector2(0.5f, 0.08f), at + new Vector2(0.9f, 0.85f), at + new Vector2(0.1f, 0.85f), at + new Vector2(0.5f, 0.08f) }, Ink, 0.05f);
                 break;
             case "rock":
-                DrawRect(new Rect2(at, Vector2.One), ColourOf(colony().Ground!.SurfaceAt((int)at.X, (int)at.Y).Id));
                 DrawCircle(at + new Vector2(0.5f, 0.55f), 0.36f, RockColour);
                 DrawArc(at + new Vector2(0.5f, 0.55f), 0.36f, 0, Mathf.Tau, 16, Ink, 0.05f);
                 break;

@@ -23,5 +23,7 @@
     <None Include="fixtures/**" Exclude="fixtures/*.py" CopyToOutputDirectory="PreserveNewest" />
     <!-- The colony's content files, so the tests check the real ones. -->
     <None Include="../content/*.json" Link="content/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The tree pictures' manifest (step 27a), so the tests read the real one. -->
+    <None Include="../assets/vegetation/manifest.json" Link="assets/vegetation/manifest.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

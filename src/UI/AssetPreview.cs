@@ -22,7 +22,9 @@ namespace WardensReckoning.UI;
 /// G a tile grid; [ and ] the walker's speed; Space stops or starts the walker; T the trees of v0.2 to v0.8;
 /// with v0.3, V the variant (green, green 2, autumn, winter; the conifer's 1 or 2) and Y the age (mature, young,
 /// sapling). A tree's foot is the middle of its picture's bottom edge (the READMEs from v0.4 on: (32, 95) and (16, 95)).
-/// After the sets, T goes on to the experiments (the high-detail trees, 128 × 192 and 64 × 192 at full size); H shows
+/// After the sets, T goes on to the experiments (the high-detail trees, 128 × 192 and 64 × 192 at full size), and last
+/// to the colony's own trees (`res://assets/vegetation/`, step 27a), where the preview starts and where canopy fading
+/// can be tried (AssetPreview.Canopy.cs, step A2: hover or click a colonist, O, M, N, R, - =, 9 0, Esc); H shows
 /// an experiment's small trees, covering what v0.8's do: its own compact pictures where it has them (v2: 64 × 96 and
 /// 32 × 96), or else its full pictures shrunk to half while drawing (v1). W fills a large wood below the fields, with
 /// a tree on every fourth tile, every other tile or every tile, to see how the trees read and what they cost: the
@@ -63,7 +65,7 @@ public partial class AssetPreview : Node2D
     const int WoodTop = High + 2;                  // its first row, below the fields
     static readonly string[] Woods = { "none", "a tree on every fourth tile", "on every other tile", "on every tile" };
     double drawMs;                                 // the time _Draw took last frame, in milliseconds (the CPU's part)
-    bool Experiment => treeSet >= Sets.Length;     // true when T has gone past the sets
+    bool Experiment => treeSet >= Sets.Length && treeSet < Sets.Length + Experiments.Length;   // T on an experiment
     int variant;                                   // v0.3: 0 green, 1 green 2, 2 autumn, 3 winter (V)
     int age;                                       // v0.3: 0 mature, 1 young, 2 sapling (Y)
     static readonly string[] Ages = { "mature", "young", "sapling" };
@@ -105,6 +107,8 @@ public partial class AssetPreview : Node2D
                            "res://assets/prototype-" + e.Folder + "/vegetation/tree_mature_" + type + end + ".png");
         foreach (var layer in new[] { "base", "clothing", "hair" })
             Load("colonists/" + layer + "_idle_down");
+        LoadColonyTrees();
+        treeSet = Sets.Length + Experiments.Length;      // start on the colony's own trees
 
         TextureFilter = TextureFilterEnum.Nearest;
         // Ask Godot to measure how long each frame takes to render (read in _Process).
@@ -142,29 +146,37 @@ public partial class AssetPreview : Node2D
     {
         if (walking)
             walked += speed * delta;
+        UpdateCanopy(delta);
         frames.Enqueue(delta * 1000);
         while (frames.Count > 60)
             frames.Dequeue();
         var move = Input.GetVector("ui_left", "ui_right", "ui_up", "ui_down");
         camera!.Position += move * 600 * (float)delta / camera.Zoom.X;
-        info!.Text = "Asset preview: prototype v0.2. Pictures on the left, today's shapes on the right.\n"
+        info!.Text = "Asset preview. Pictures on the left, today's shapes on the right.\n"
                      + "Zoom " + camera.Zoom.X.ToString("0.#") + " px a tile (×" + (camera.Zoom.X / Pixels).ToString("0.###") + ")"
                      + " · filter " + (nearest ? "nearest" : "smooth") + " · pixel snap " + (GetViewport().Snap2DTransformsToPixel ? "on" : "off")
                      + " · walker " + (walking ? speed.ToString("0.#") + " m/s" : "stopped") + "\n"
-                     + "Trees: " + (Experiment ? Experiments[treeSet - Sets.Length].Name + ", " + SizeName() : Sets[treeSet])
+                     + "Trees: " + (ColonyTrees ? "the colony's trees (v3 compact, res://assets/vegetation/)"
+                                    : Experiment ? Experiments[treeSet - Sets.Length].Name + ", " + SizeName() : Sets[treeSet])
                      + (treeSet == 1 ? ", " + Ages[age] + (age == 0 ? ", " + Variants[variant].Replace("_01", "").Replace("_02", " 2") : "") : "") + "\n"
                      + "Frame " + frames.Average().ToString("0.0") + " ms average, " + frames.Max().ToString("0.0") + " ms slowest (last 60)"
                      + (wood > 0 ? "\nWood: " + Woods[wood] + ", " + WoodTrees().Count() + " trees · drawing " + drawMs.ToString("0.0")
                                    + " ms (CPU) · rendering " + RenderingServer.ViewportGetMeasuredRenderTimeCpu(GetViewport().GetViewportRid()).ToString("0.0")
                                    + " ms CPU, " + RenderingServer.ViewportGetMeasuredRenderTimeGpu(GetViewport().GetViewportRid()).ToString("0.0") + " ms GPU" : "")
+                     + "\n" + CanopyLine()
                      + (missing.Count > 0 ? "\nMissing, drawn as shapes: " + string.Join(", ", missing) : "") + "\n"
                      + "1–4 zoom 16/32/40/64 · wheel ×1.15 · right drag or arrows move · F filter · P snap · A anchors · G grid · [ ] speed · Space walker"
-                     + " · T trees v0.2 to " + Sets[^1] + ", then the experiments · H an experiment's size · W test wood · V variant · Y age (v0.3)";
+                     + " · T trees v0.2 to " + Sets[^1] + ", the experiments, the colony's · H an experiment's size · W test wood · V variant · Y age (v0.3)";
         QueueRedraw();
     }
 
     public override void _UnhandledInput(InputEvent @event)
     {
+        if (CanopyInput(@event))
+        {
+            GetViewport().SetInputAsHandled();
+            return;
+        }
         switch (@event)
         {
             case InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.WheelUp }:
@@ -195,7 +207,7 @@ public partial class AssetPreview : Node2D
                     case Key.Bracketleft: speed = Math.Max(0.5, speed / 2); break;
                     case Key.Bracketright: speed = Math.Min(32, speed * 2); break;
                     case Key.Space: walking = !walking; break;
-                    case Key.T: treeSet = (treeSet + 1) % (Sets.Length + Experiments.Length); break;
+                    case Key.T: treeSet = (treeSet + 1) % (Sets.Length + Experiments.Length + 1); break;
                     case Key.H: small = !small; break;
                     case Key.W: wood = (wood + 1) % Woods.Length; break;
                     case Key.V: variant = (variant + 1) % Variants.Length; break;
@@ -237,6 +249,7 @@ public partial class AssetPreview : Node2D
         DrawField(Wide + Gap, false);
         if (wood > 0)
             DrawWood();
+        DrawMarks();
         drawMs = (Time.GetTicksUsec() - start) / 1000.0;
     }
 
@@ -246,9 +259,15 @@ public partial class AssetPreview : Node2D
     {
         for (int y = 0; y < WoodHigh; y++)
             for (int x = 0; x < WoodWide; x++)
-                if (wood == 3 || (wood == 2 && (x + y) % 2 == 0) || (wood == 1 && x % 2 == 0 && y % 2 == 0))
-                    yield return (x, y, (x * 7 + y * 13) % 3 == 0 ? 2 : 1);
+                if (WoodKind(x, y) is int kind)
+                    yield return (x, y, kind);
     }
+
+    // The kind of tree on the test wood's tile (x, y) (1 deciduous, 2 conifer), or null for none.
+    int? WoodKind(int x, int y) =>
+        wood == 3 || (wood == 2 && (x + y) % 2 == 0) || (wood == 1 && x % 2 == 0 && y % 2 == 0)
+            ? (x * 7 + y * 13) % 3 == 0 ? 2 : 1
+            : null;
 
     // The test wood below the fields, with pictures: grass, its trees and six colonists standing among them, all in the
     // order of their feet. Every tree is drawn every frame, whether it's on the screen or not.
@@ -262,9 +281,10 @@ public partial class AssetPreview : Node2D
         foreach (var (x, y, kind) in WoodTrees())
         {
             var foot = new Vector2(x + 0.5f, WoodTop + y + 1);
-            standing.Add((foot.Y, () => DrawTree(foot, kind, true)));
+            int crown = WoodCrown(x, y);
+            standing.Add((foot.Y, () => DrawTree(foot, kind, true, crown)));
         }
-        foreach (var (x, y) in new[] { (5, 4), (12, 9), (20, 6), (30, 15), (45, 20), (8, 30) })
+        foreach (var (x, y) in WoodColonists)
         {
             var feet = new Vector2(x + 0.5f, WoodTop + y + 0.5f);
             standing.Add((feet.Y, () => DrawColonist(feet, true)));
@@ -288,10 +308,12 @@ public partial class AssetPreview : Node2D
             }
         // Trees and colonists, by where their feet are: top first, so the lower stands in front.
         var standing = new List<(float Feet, Action Draw)>();
-        foreach (var (tx, ty, kind) in Trees)
+        for (int i = 0; i < Trees.Length; i++)
         {
+            var (tx, ty, kind) = Trees[i];
             var foot = new Vector2(left + tx + 0.5f, ty + 1);     // the middle of the tile's bottom edge
-            standing.Add((foot.Y, () => DrawTree(foot, kind, withPictures)));
+            int crown = i;
+            standing.Add((foot.Y, () => DrawTree(foot, kind, withPictures, crown)));
         }
         foreach (var at in new[] { Standing, Walker() })
         {
@@ -340,9 +362,13 @@ public partial class AssetPreview : Node2D
 
     // A tree, its foot on `foot` (v0.2: the trunk's foot, picture pixel 16, 64; v0.3: the middle of the picture's bottom
     // edge); or today's triangle on its tile.
-    void DrawTree(Vector2 foot, int kind, bool withPictures)
+    void DrawTree(Vector2 foot, int kind, bool withPictures, int crown = -1)
     {
-        if (withPictures && TreePicture(kind) is Texture2D texture)
+        if (withPictures && ColonyTrees && DrawColonyTree(foot, kind, crown))
+        {
+            // The colony's trees: crown and trunk apart, the crown at its fade (AssetPreview.Canopy.cs).
+        }
+        else if (withPictures && TreePicture(kind) is Texture2D texture)
         {
             // Its size in tiles: Pixels picture pixels make a tile. An experiment's full pictures shown small (H), when it
             // has no compact ones, are shrunk to half while drawing.

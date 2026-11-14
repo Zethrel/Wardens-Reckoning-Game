@@ -1,0 +1,29 @@
+{
+  "version": "v3 compact (Vegetation Art Standard v1.1, adopted 14-11-2026)",
+  "source": "Wardens_Reckoning_High_Detail_Vegetation_Experiment_v3_14-11-2026.zip: tree_mature_*_hd_v3_compact.png",
+  "notes": "Pixel coordinates in the picture, (0, 0) at its top left. foot: the point placed on the middle of the tree tile's bottom edge. crown_line: the first row of the trunk; the rows above it are the crown, which fades (Forest Visibility specification v1.3, O3). crown_bounds: [x, y, width, height] of the crown, used to find which crowns cover a colonist (O9, O11).",
+  "assets": [
+    {
+      "kind": "deciduous",
+      "file": "tree_mature_deciduous_01.png",
+      "width": 64,
+      "height": 96,
+      "mode": "RGBA",
+      "sha256": "bb300bbae9bc7a399c686b2ee0afe1e021e955becd5403aacb01775916a9f74d",
+      "foot": [32, 95],
+      "crown_line": 76,
+      "crown_bounds": [1, 12, 62, 64]
+    },
+    {
+      "kind": "conifer",
+      "file": "tree_mature_conifer_01.png",
+      "width": 32,
+      "height": 96,
+      "mode": "RGBA",
+      "sha256": "7f3a8f85937d45fd7c7f1609622491a23c7fe384aff2779f54dd2e10757db8df",
+      "foot": [16, 95],
+      "crown_line": 89,
+      "crown_bounds": [1, 7, 30, 82]
+    }
+  ]
+}
