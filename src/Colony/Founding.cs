@@ -142,6 +142,13 @@ public static class Founding
                 work.AddBedroll(bx + 0.5, by + 0.5, founder.Id);
             }
         }
+        // The workplaces they brought (step 28b: a sawhorse), set up on the open tiles nearest two steps east of the
+        // carts, out of the way of the founders and their bedrolls.
+        foreach (string workshop in content.Founding.Workplaces)
+        {
+            var (wx, wy) = OpenNear(ground, x + 2, y, used);
+            work.AddSite(workshop, wx + 0.5, wy + 0.5);
+        }
         work.Note("arrived", "");                          // the journey here: something to talk about (step 25b)
         return (colony, carts, used);
     }

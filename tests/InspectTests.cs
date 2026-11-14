@@ -25,7 +25,7 @@ public class InspectTests
         ada.Interests.Clear();                                   // (broad interests add a line: FreeTimeTests)
         var shown = Inspect.Worker(colony, ada.Id);
         Assert.Equal(ada.Name, shown.Title);
-        Assert.Equal(new[] { "Doing", "Where", "Fatigue", "Hunger", "Hygiene", "Thirst", "Recreation", "Social", "Schedule", "Construction", "Food preparation", "Forestry", "Carrying" },
+        Assert.Equal(new[] { "Doing", "Where", "Fatigue", "Hunger", "Hygiene", "Thirst", "Recreation", "Social", "Schedule", "Carpentry", "Construction", "Food preparation", "Forestry", "Carrying" },
                      shown.Lines.Select(l => l.Label));
         Assert.Equal(colony.Work.Doing(ada.Id), Text(shown, "Doing"));
         var (x, y) = Ground.TileOf(ada.X, ada.Y);
@@ -55,7 +55,7 @@ public class InspectTests
         var shown = Inspect.Tile(colony, cx, cy);
         Assert.Equal("Tile (24, 20)", shown.Title);
         Assert.Equal("Grass, walked at 80%", Text(shown, "Ground"));
-        Assert.Equal(carts.Name + ": 30 Travel ration, 60 Timber, 60 Water, 50 Wheat", Text(shown, "Store"));   // by the goods' ids
+        Assert.Equal(carts.Name + ": 20 Lumber, 30 Travel ration, 50 Timber, 60 Water, 50 Wheat", Text(shown, "Store"));   // by the goods' ids
         Assert.Equal("outdoors", Text(shown, "Shelter"));
         var ada = colony.Work!.Workers.First();
         var (ax, ay) = Ground.TileOf(ada.X, ada.Y);

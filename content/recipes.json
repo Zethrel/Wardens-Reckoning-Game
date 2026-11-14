@@ -1,10 +1,13 @@
 {
   "version": 1,
   "workshops": [
-    { "id": "quern", "name": "Hand quern" }
+    { "id": "quern", "name": "Hand quern" },
+    { "id": "sawhorse", "name": "Sawhorse" }
   ],
   "recipes": [
     { "id": "grind_wheat", "name": "Grind wheat", "workshop": "quern",
-      "inputs": { "wheat": 5 }, "outputs": { "flour": 4 }, "work_minutes": 180 }
+      "inputs": { "wheat": 5 }, "outputs": { "flour": 4 }, "work_minutes": 180 },
+    { "id": "saw_timber", "name": "Saw timber into lumber", "workshop": "sawhorse",
+      "inputs": { "timber": 1 }, "outputs": { "lumber": 2 }, "work_minutes": 20 }
   ]
 }

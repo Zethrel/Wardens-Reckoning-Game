@@ -88,7 +88,9 @@ what is wrong, before anything runs.
 
 - `founding.json`: who founds the colony: how many `founders`, the `names`
   they are drawn from (by the colony's dice; at least as many names as
-  founders), the `supplies` they bring (good id to whole units), whether
+  founders), the `supplies` they bring (good id to whole units), the
+  `workplaces` they set up beside the carts (workshops of `recipes.json`:
+  the sawhorse, step 28b), whether
   each brings a bedroll (`bedroll_each`), and for every skill the range
   `[from, to]` a founder's proficiency is drawn from (`skills`, step 23a);
   `interests` (step 23c): the chance, for each founder and each skill, that

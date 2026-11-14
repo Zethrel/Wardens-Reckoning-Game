@@ -36,6 +36,12 @@
       "name": "Timber",
       "mass_kg": 10.0,
       "volume_l": 15.0
+    },
+    {
+      "id": "lumber",
+      "name": "Lumber",
+      "mass_kg": 3.0,
+      "volume_l": 4.0
     }
   ]
 }

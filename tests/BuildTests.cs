@@ -26,13 +26,15 @@ public class BuildTests
         public readonly Site Quern;
         public readonly List<Worker> People = new();
 
-        public Camp(int timber = 40, int people = 2, Ground? ground = null)
+        public Camp(int timber = 40, int people = 2, Ground? ground = null, int lumber = 20)
         {
             Colony = new ColonyState(42, Nine, Real);
             Colony.Lay(ground ?? Ground.Test(Real));
             Carts = Stocks.Open("The founders' carts", Holder.Store, 2.5, 2.5);
             if (timber > 0)
                 Stocks.Arrive(Colony.Ids.Next<OperationId>(), Colony.Now.Tick, Carts.Id, "timber", timber);
+            if (lumber > 0)                                   // doors and floors are lumber (step 28b)
+                Stocks.Arrive(Colony.Ids.Next<OperationId>(), Colony.Now.Tick, Carts.Id, "lumber", lumber);
             Stocks.Arrive(Colony.Ids.Next<OperationId>(), Colony.Now.Tick, Carts.Id, "ration", 30);
             Work.AddSpring(3.5, 9.5);
             Quern = Work.AddSite("quern", 9.5, 2.5);
@@ -284,7 +286,7 @@ public class BuildTests
         Assert.Equal("A store (The founders' carts) is there: a timber wall would block it.", Why("wall", 2, 2));
         Assert.True(camp.Work.Check("floor", 2, 2).Ok);                          // a floor under the carts is fine
         camp.Plan("door", 20, 20);
-        Assert.Equal("A timber door is already planned there.", Why("wall", 20, 20));
+        Assert.Equal("A plank door is already planned there.", Why("wall", 20, 20));
         Assert.True(camp.Work.Check("wall", 20, 21).Ok);                         // the tile below is free
         Assert.True(camp.Work.Check("wall", 19, 20).Ok);
         camp.Ground.AddPiece("wall", true, 21, 20);
@@ -328,7 +330,7 @@ public class BuildTests
     [Fact]
     public void FP04_a_build_nobody_can_get_to_is_explained()
     {
-        // A ring with a gap at (6, 4); the timber is already at the site inside. Both colonists are stopped while
+        // A ring with a gap at (6, 4); the lumber is already at the site inside. Both colonists are stopped while
         // the build job is made, then the gap is walled up.
         var ground = new Ground(12, 12);
         for (int i = 4; i <= 8; i++)
@@ -337,7 +339,7 @@ public class BuildTests
                     ground.AddPiece("wall", true, x, y);
         var camp = new Camp(ground: ground);
         var inside = camp.Plan("floor", 6, 6);
-        TestContent.Deliver(camp.Colony, inside, "timber", 1);
+        TestContent.Deliver(camp.Colony, inside, "lumber", 2);
         foreach (var w in camp.People)
             camp.Work.Stop(w.Id);
         camp.RunMinutes(1);
@@ -452,7 +454,7 @@ public class BuildTests
     {
         var camp = new Camp(people: 1, ground: RingedFar());
         var floor = camp.Plan("floor", 152, 152);
-        TestContent.Deliver(camp.Colony, floor, "timber", 1);
+        TestContent.Deliver(camp.Colony, floor, "lumber", 2);
         camp.RunMinutes(1);
         var ada = camp.People[0];
         Assert.Equal(Step.Going, camp.Build(floor)!.Step);

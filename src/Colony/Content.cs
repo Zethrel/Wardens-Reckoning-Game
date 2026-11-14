@@ -210,6 +210,9 @@ public sealed record FoundingRules(int Founders, IReadOnlyList<string> Names, IR
     /// <summary>The chance, for each founder and each skill, that they enjoy that work, and that they dislike it
     /// (step 23c; founding.json "interests"). Otherwise neither. The two together are at most 1.</summary>
     public (double Enjoys, double Dislikes) Interests { get; init; }
+    /// <summary>The workplaces the founders bring and set up beside their carts (step 28b, library Review 44 D8: a
+    /// sawhorse), by workshop id.</summary>
+    public IReadOnlyList<string> Workplaces { get; init; } = Array.Empty<string>();
 }
 
 /// <summary>
@@ -1206,7 +1209,7 @@ public sealed class Content
 
         // Who founds the colony.
         FoundingRules? founding = null;
-        if (Open("founding.json", "founders", "names", "supplies", "bedroll_each", "skills", "interests") is JsonObject f)
+        if (Open("founding.json", "founders", "names", "supplies", "workplaces", "bedroll_each", "skills", "interests") is JsonObject f)
         {
             int? founders = check.Int(f, "founding.json", "founders", 1);
             var names = new List<string>();
@@ -1225,6 +1228,16 @@ public sealed class Content
             if (founders != null && names.Count < founders)
                 problems.Add("founding.json.names: " + names.Count + " names for " + founders + " founders; there should be at least as many names");
             var supplies = check.Amounts(f, "founding.json", "supplies", goods);
+            // The workplaces they bring (step 28b): each a workshop of recipes.json.
+            var workplaces = new List<string>();
+            if (f["workplaces"] is JsonArray wl)
+                for (int i = 0; i < wl.Count; i++)
+                    if (wl[i] is JsonValue wv && wv.TryGetValue(out string? place) && workshops.ContainsKey(place))
+                        workplaces.Add(place);
+                    else
+                        problems.Add("founding.json.workplaces[" + i + "]: should be a workshop of recipes.json (there are: " + string.Join(", ", workshops.Keys) + ")");
+            else if (f.ContainsKey("workplaces"))
+                problems.Add("founding.json.workplaces: should be a list of workshops");
             bool? each = check.Bool(f, "founding.json", "bedroll_each");
             // A founder's proficiency in each skill is drawn from its range (step 23a); every skill has one.
             var drawn = new SortedDictionary<string, (int, int)>(StringComparer.Ordinal);
@@ -1267,7 +1280,7 @@ public sealed class Content
             else if (f.ContainsKey("interests"))
                 problems.Add("founding.json.interests: should be a table with \"enjoys\" and \"dislikes\"");
             if (founders != null && supplies != null && each != null)
-                founding = new FoundingRules(founders.Value, names, supplies, each.Value) { Skills = drawn, Interests = interests };
+                founding = new FoundingRules(founders.Value, names, supplies, each.Value) { Skills = drawn, Interests = interests, Workplaces = workplaces };
         }
 
         // The ice hole named by the water rules is a piece that opens ice; the wash's good is the drink's.

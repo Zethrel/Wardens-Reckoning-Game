@@ -167,6 +167,7 @@ public class FreeTimeTests
                 w.NotBefore[activity.Id] = long.MaxValue;
         }
         keen.Interests["food_preparation"] = Interest.Enjoys;
+        keen.Skills["food_preparation"].Proficiency = 10;   // a beginner, whom the quern's easy work still teaches
         double skill = keen.Skills["food_preparation"].Proficiency;
         var seen = Watch(colony, 2 * Calendar.TicksPerHour);
         Assert.Contains(seen, s => s.Who == keen.Name && s.Activity == "practice");

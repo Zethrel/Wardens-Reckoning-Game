@@ -17,13 +17,15 @@ public class MovementTests
 
     /// <summary>A colony on `ground` with one colonist at (x, y) and the founders' carts at (1.5, 1.5) with some
     /// timber and rations.</summary>
-    static (ColonyState Colony, Worker Ada, Inventory Carts) Camp(Ground ground, double x, double y, int timber = 20)
+    static (ColonyState Colony, Worker Ada, Inventory Carts) Camp(Ground ground, double x, double y, int timber = 20, int lumber = 20)
     {
         var colony = new ColonyState(42, Nine, Real);
         colony.Lay(ground);
         var carts = colony.Stocks.Open("Carts", Holder.Store, 1.5, 1.5);
         if (timber > 0)
             colony.Stocks.Arrive(colony.Ids.Next<OperationId>(), colony.Now.Tick, carts.Id, "timber", timber);
+        if (lumber > 0)
+            colony.Stocks.Arrive(colony.Ids.Next<OperationId>(), colony.Now.Tick, carts.Id, "lumber", lumber);
         colony.Stocks.Arrive(colony.Ids.Next<OperationId>(), colony.Now.Tick, carts.Id, "ration", 10);
         var ada = colony.Work!.AddWorker("Ada", x, y);
         return (colony, ada, carts);
@@ -129,8 +131,8 @@ public class MovementTests
         Assert.Equal(0.8, colony.Ground.Speed(23, 20));                         // the grass beside them
         Assert.Null(work.Project(road.Id));
         Assert.Null(work.Project(floor.Id));
-        // The road used nothing: the only ledger lines since are the floor's one timber, brought and used.
-        Assert.Equal(19, carts.Count("timber"));
+        // The road used nothing: the only ledger lines since are the floor's two lumber, brought and used.
+        Assert.Equal((20, 18), (carts.Count("timber"), carts.Count("lumber")));
         Assert.Single(colony.Stocks.Ledger.Skip(ledger), e => e.Change == Change.Used);
     }
 
@@ -272,8 +274,9 @@ public class MovementTests
         Assert.Null(work.Project(road.Id));
         Assert.Equal(0, carts.Count("timber"));
         Assert.DoesNotContain(colony.Stocks.Ledger, e => e.Change == Change.Made);
-        Assert.Equal(1, Work.Recovered(Real.Pieces["door"])["timber"]);         // 3 / 2, rounded down
-        Assert.Empty(Work.Recovered(Real.Pieces["floor"]));                     // 1 / 2 rounds to nothing
+        Assert.Equal(3, Work.Recovered(Real.Pieces["door"])["lumber"]);         // 6 / 2
+        Assert.Equal(1, Work.Recovered(Real.Pieces["wall"])["timber"]);         // 2 / 2
+        Assert.Equal(2, Work.Recovered(Real.Pieces["wash_basin"])["lumber"]);   // 4 / 2
     }
 
     [Fact]
@@ -287,7 +290,7 @@ public class MovementTests
         work.TakeDown(27, 22);
         colony.RunMinutes(4 * 60);
         Assert.Empty(colony.Ground.Rooms);
-        Assert.Equal(61, colony.Stocks[carts.Id].Count("timber"));
+        Assert.Equal(51, colony.Stocks[carts.Id].Count("timber"));
     }
 
     // ---- Two workplaces on their own ----------------------------------------------------------------------------

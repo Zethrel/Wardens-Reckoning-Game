@@ -32,7 +32,7 @@ public class ContentTests
     public void The_real_content_loads()
     {
         var content = Content.Load(Folder);
-        Assert.Equal(new[] { "flour", "foul_water", "ration", "timber", "water", "wheat" }, content.Goods.Keys);
+        Assert.Equal(new[] { "flour", "foul_water", "lumber", "ration", "timber", "water", "wheat" }, content.Goods.Keys);
         var grind = content.Recipes["grind_wheat"];
         Assert.Equal("quern", grind.Workshop);
         Assert.Equal(5, grind.Inputs["wheat"]);
@@ -64,7 +64,7 @@ public class ContentTests
         Assert.Contains(new Obstacle("rock", 30, 8), content.TestGround.Obstacles);
         Assert.True(content.Pieces["door"].Encloses);
         Assert.False(content.Pieces["floor"].Encloses);
-        Assert.Equal((3, 60, true), (content.Founding.Founders, content.Founding.Supplies["timber"], content.Founding.BedrollEach));
+        Assert.Equal((3, 50, 20, true), (content.Founding.Founders, content.Founding.Supplies["timber"], content.Founding.Supplies["lumber"], content.Founding.BedrollEach));
     }
 
     public static IEnumerable<object[]> Broken()
@@ -76,9 +76,9 @@ public class ContentTests
         // Duplicate identifiers.
         yield return Case("goods.json", r => Good(r, 1)["id"] = "wheat", "goods.json.goods[1]: a second good with the id \"wheat\"");
         yield return Case("recipes.json", r => r["workshops"]!.AsArray().Add(new JsonObject { ["id"] = "quern", ["name"] = "Q" }),
-                          "recipes.json.workshops[1]: a second workshop with the id \"quern\"");
+                          "recipes.json.workshops[2]: a second workshop with the id \"quern\"");
         yield return Case("recipes.json", r => r["recipes"]!.AsArray().Add(Recipe(r).DeepClone()),
-                          "recipes.json.recipes[1]: a second recipe with the id \"grind_wheat\"");
+                          "recipes.json.recipes[2]: a second recipe with the id \"grind_wheat\"");
         // Missing references.
         yield return Case("recipes.json", r => Recipe(r)["inputs"] = new JsonObject { ["barley"] = 5 },
                           "recipes.json.recipes[0].inputs.barley: no good \"barley\"");
@@ -112,7 +112,7 @@ public class ContentTests
         yield return Case("goods.json", r => Good(r, 0)["id"] = "Wheat Grain", "should be lowercase letters, digits and _");
         yield return Case("goods.json", r => Good(r, 0)["name"] = " ", "goods.json.goods[0].name: should be text that is not empty");
         yield return Case("goods.json", r => r["goods"] = 3, "goods.json.goods: should be a list");
-        yield return Case("goods.json", r => r["goods"]!.AsArray().Add(7), "goods.json.goods[6]: should be an object");
+        yield return Case("goods.json", r => r["goods"]!.AsArray().Add(7), "goods.json.goods[7]: should be an object");
         yield return Case("goods.json", r => r["version"] = 2, "goods.json: version 2; this game reads version 1");
         yield return Case("recipes.json", r => r["version"] = 0, "recipes.json: version 0; this game reads version 1");
         // Needs and schedules.

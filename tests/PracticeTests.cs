@@ -173,6 +173,7 @@ public class PracticeTests
     {
         var (colony, work, ada, wall) = WithJob("wall");
         var state = ada.Skills["construction"];
+        ada.Interests.Remove("construction");               // neither enjoyed nor disliked: the line ends with aptitude
         state.Proficiency = 0;
         state.Aptitude = 1.4;
         string Line() => Inspect.Worker(colony, ada.Id).Lines.Single(l => l.Label == "Construction").Text;

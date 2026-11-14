@@ -229,11 +229,11 @@ public static class Inspect
         if (ground == null || !ground.Inside(x, y))
             return null;
         var parts = Tile(colony, x, y).Lines
-            .Where(l => l.Label is "In the way" or "Built" or "Project" or "Store" or "Water" or "Gathering" or "Bedroll")
+            .Where(l => l.Label is "In the way" or "Built" or "Project" or "Store" or "Water" or "Gathering" or "Bedroll" or "Workplace")
             .Select(l => l.Label switch
             {
                 "In the way" or "Built" => l.Text,
-                "Store" or "Water" or "Gathering" => l.Text.Split(':')[0],
+                "Store" or "Water" or "Gathering" or "Workplace" => l.Text.Split(':')[0],
                 "Bedroll" => "Bedroll, " + l.Text,
                 _ => l.Text,
             }).ToList();
@@ -319,6 +319,19 @@ public static class Inspect
             if (trace && spring && work!.SourceOf(inventory.Id) is { FouledUntil: long until } fouled)
                 lines.Add(new Line("Trace", "fouled until " + new Moment(until) + (fouled.Sign is string s ? "; sign: " + s + (fouled.SignSeen ? " (seen)" : "") : "; no sign")));
         }
+        // A workplace (step 28b: the sawhorse): its order, what it has at hand and has made, and why it waits.
+        foreach (var site in work?.Sites.Where(s => Ground.TileOf(s.X, s.Y) == (x, y)) ?? Array.Empty<Site>())
+        {
+            var rules = Rules(colony);
+            string order = site.Recipe is string r ? rules.Recipes[r].Name.ToLowerInvariant() + ", " + site.Batches + " more" : "no order";
+            lines.Add(new Line("Workplace", rules.Workshops[site.Workshop].Name + ": " + order));
+            if (colony.Stocks[site.Input].Goods.Count > 0)
+                lines.Add(new Line("At hand", Goods(colony, colony.Stocks[site.Input].Goods, trace)));
+            if (colony.Stocks[site.Output].Goods.Count > 0)
+                lines.Add(new Line("Made", Goods(colony, colony.Stocks[site.Output].Goods, trace)));
+            if (site.Recipe != null && site.Blocked != null)
+                lines.Add(new Line("Waiting", site.Blocked));
+        }
         foreach (var bed in work?.Bedrolls ?? Array.Empty<Bedroll>())
             if (Ground.TileOf(bed.X, bed.Y) == (x, y))
             {
@@ -382,6 +395,19 @@ public static class Inspect
             if (kind.Width <= 1 && kind.Height <= 1 && kind.HoldsLitres == 0)
                 commands.Add(new Command("Take down", 'X', "Take down this " + kind.Name.ToLowerInvariant() + "; half its materials come back",
                     () => work.TakeDown(x, y)));
+        }
+        // A workplace's order (step 28b): five more of its recipe (the first recipe, the only one so far), or none.
+        foreach (var site in work.Sites.Where(s => Ground.TileOf(s.X, s.Y) == (x, y)).ToList())
+        {
+            var id = site.Id;
+            var rules = Rules(colony);
+            var recipe = rules.Recipes.Values.First(r => r.Workshop == site.Workshop);
+            int more = (site.Recipe == recipe.Id ? site.Batches : 0) + 5;
+            commands.Add(new Command("Order 5 more", 'O', recipe.Name + " at the " + rules.Workshops[site.Workshop].Name.ToLowerInvariant() + ", 5 more times",
+                () => work.Order(id, recipe.Id, more)));
+            if (site.Recipe is string ordered)
+                commands.Add(new Command("Stop order", 'S', "No more " + rules.Recipes[ordered].Name.ToLowerInvariant() + " after the one under way",
+                    () => work.Order(id, ordered, 0)));
         }
         foreach (var bed in work.Bedrolls.Where(b => Ground.TileOf(b.X, b.Y) == (x, y)).ToList())
         {

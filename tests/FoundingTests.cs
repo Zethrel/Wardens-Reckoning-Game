@@ -25,8 +25,8 @@ public class FoundingTests(ITestOutputHelper output)
         Assert.Equal(3, work.Workers.Count);
         Assert.Equal(3, work.Workers.Select(w => w.Name).Distinct().Count());
         Assert.All(work.Workers, w => Assert.Contains(w.Name, Real.Founding.Names));
-        Assert.Equal((60, 30, 50, 60), (carts.Count("timber"), carts.Count("ration"), carts.Count("wheat"), carts.Count("water")));
-        Assert.Equal(4, colony.Stocks.Ledger.Count(e => e.Change == Change.Arrived && e.To == carts.Id));
+        Assert.Equal((50, 20, 30, 50, 60), (carts.Count("timber"), carts.Count("lumber"), carts.Count("ration"), carts.Count("wheat"), carts.Count("water")));
+        Assert.Equal(5, colony.Stocks.Ledger.Count(e => e.Change == Change.Arrived && e.To == carts.Id));
         Assert.Equal(work.Workers.Select(w => w.Id).OrderBy(i => i.Value), work.Bedrolls.Select(b => b.Owner!.Value).OrderBy(i => i.Value));
         var tiles = work.Workers.Select(w => Ground.TileOf(w.X, w.Y)).Concat(work.Bedrolls.Select(b => Ground.TileOf(b.X, b.Y))).ToList();
         Assert.Equal(tiles.Count, tiles.Distinct().Count());                     // nobody on top of another
@@ -199,7 +199,7 @@ public class FoundingTests(ITestOutputHelper output)
             Assert.Equal(colony.Stocks.Accounted("ration"), colony.Stocks.Total("ration"));
         });
         Assert.Empty(colony.Stocks[carts.Id].Goods);
-        Assert.Equal(60, pile.Count("timber"));
+        Assert.Equal(50, pile.Count("timber"));
         Assert.Equal(colony.Stocks.Total("ration"), pile.Count("ration"));
     }
 
@@ -258,7 +258,8 @@ public class FoundingTests(ITestOutputHelper output)
         Assert.All(work.Bedrolls, b => Assert.True(ground.Indoors(Ground.TileOf(b.X, b.Y).X, Ground.TileOf(b.X, b.Y).Y)));
         Assert.All(pile.Area!.Tiles, t => Assert.True(ground.Indoors(t.X, t.Y)));
         Assert.Empty(colony.Stocks[carts.Id].Goods);
-        Assert.Equal((60 - 41, 50), (pile.Count("timber"), pile.Count("wheat")));
+        // 19 walls of 2 timber, and the door of 6 lumber (step 28b, library Review 44 D7, D8).
+        Assert.Equal((50 - 38, 20 - 6, 50), (pile.Count("timber"), pile.Count("lumber"), pile.Count("wheat")));
         Assert.Equal(colony.Stocks.Total("ration"), pile.Count("ration"));
         output.WriteLine("Rations left: " + pile.Count("ration") + "; the day ended at " + colony.Now + ".");
     }

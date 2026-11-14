@@ -2,8 +2,9 @@
   "version": 1,
   "founders": 3,
   "names": [ "Ada", "Bram", "Cael", "Dagny", "Eirik", "Freya", "Gunnar", "Hild", "Ivar", "Jorunn", "Kari", "Leif" ],
-  "supplies": { "timber": 60, "ration": 30, "wheat": 50, "water": 60 },
+  "supplies": { "timber": 50, "lumber": 20, "ration": 30, "wheat": 50, "water": 60 },
+  "workplaces": [ "sawhorse" ],
   "bedroll_each": true,
-  "skills": { "construction": [ 5, 65 ], "food_preparation": [ 5, 65 ], "forestry": [ 5, 65 ] },
+  "skills": { "construction": [ 5, 65 ], "food_preparation": [ 5, 65 ], "forestry": [ 5, 65 ], "carpentry": [ 5, 65 ] },
   "interests": { "enjoys": 0.3, "dislikes": 0.15 }
 }

@@ -341,6 +341,20 @@ public partial class ColonyView : Node2D
                 Letter(font, Initial(inventory.Name), middle, pixels);
             }
         }
+        // Workplaces (step 28b): a sawhorse as two crossed legs under a beam; any other as a box with its first letter.
+        foreach (var site in work.Sites)
+        {
+            var middle = new Vector2((float)site.X, (float)site.Y);
+            if (site.Workshop == "sawhorse")
+                DrawSawhorse(middle);
+            else
+            {
+                var box = new Rect2(middle - new Vector2(0.4f, 0.4f), new Vector2(0.8f, 0.8f));
+                DrawRect(box, new Color(0.55f, 0.5f, 0.42f));
+                DrawRect(box, Ink, false, 0.06f);
+                Letter(font, Initial(c.Content!.Workshops[site.Workshop].Name), middle, pixels);
+            }
+        }
         // Goods lying on the ground (step 28a): a felled tree's timber, or materials brought to a building, as a
         // stand-in pile until the pile pictures exist (Review 45).
         foreach (var lying in c.Stocks.Inventories.Where(i => i.Holder == Holder.Construction && i.Goods.Count > 0))
@@ -476,6 +490,17 @@ public partial class ColonyView : Node2D
         var bag = new Rect2(middle - new Vector2(0.2f, 0.1f), new Vector2(0.4f, 0.4f));
         DrawRect(bag, Sack);
         DrawRect(bag, Ink, false, 0.04f);
+    }
+
+    // A sawhorse (step 28b), side on: a beam on two pairs of splayed legs.
+    void DrawSawhorse(Vector2 middle)
+    {
+        var legs = new[] { (-0.3f, -0.42f), (-0.3f, -0.12f), (0.3f, 0.12f), (0.3f, 0.42f) };
+        foreach (var (top, foot) in legs)
+            DrawLine(middle + new Vector2(top, -0.1f), middle + new Vector2(foot, 0.38f), Bark, 0.07f);
+        var beam = new Rect2(middle + new Vector2(-0.42f, -0.2f), new Vector2(0.84f, 0.13f));
+        DrawRect(beam, Plank);
+        DrawRect(beam, Ink, false, 0.04f);
     }
 
     // A tree marked for felling (step 28a): a notch, as an axe cuts it, at least 8 screen pixels wide; hollow when

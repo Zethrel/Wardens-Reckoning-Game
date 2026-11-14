@@ -40,7 +40,7 @@ public class SkillTests
         var founders = colony.Work!.Workers.ToList();
         Assert.All(founders, w =>
         {
-            Assert.Equal(new[] { "construction", "food_preparation", "forestry" }, w.Skills.Keys);
+            Assert.Equal(new[] { "carpentry", "construction", "food_preparation", "forestry" }, w.Skills.Keys);
             Assert.All(w.Skills.Values, p => Assert.InRange(p.Proficiency, 5, 65));
         });
         // They differ (library R21-08: at least two colonists observably differ in competence).
