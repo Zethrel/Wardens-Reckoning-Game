@@ -164,6 +164,18 @@ folder and its name added to `Sets`: when the same few lines keep being
 copied, a loop says it once. And `Sets[^1]`, used in the panel's help line, is
 the last name in the list (`^1` counts from the end).
 
+## A sixth set (v0.7): one word
+
+v0.7 is the first set added the way the loop promised: its folder,
+`assets/prototype-v0.7/`, and one more name in `Sets`:
+
+```csharp
+static readonly string[] Sets = { "v0.2", "v0.3", "v0.4", "v0.5", "v0.6", "v0.7" };
+```
+
+Nothing else changed. The loop loads its two trees, **T** goes round six sets,
+and the help line reads "v0.2 to v0.7" by itself, since it shows `Sets[^1]`.
+
 ## Exercise
 
 1. Rename `tree_02.png` for a moment and run again: what does the bench show,
