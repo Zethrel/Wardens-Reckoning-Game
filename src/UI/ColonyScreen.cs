@@ -17,7 +17,8 @@ namespace WardensReckoning.UI;
 /// Keys: Space pauses or plays; 1, 2 and 3 choose the speed; Tab picks the next colonist; B opens the build panel
 /// (ColonyScreen.Build.cs); J lists the buildings that wait, and why (FP-06); F3 shows the developer's trace beside
 /// the player's words; P, X and R do what the picked tile offers (pause, cancel or take down, remove a stockpile);
-/// I hides or shows the inspector, keeping what is picked; M shows more of it, or less (step 26a); Esc stops
+/// I hides or shows the inspector, keeping what is picked; M shows more of it, or less (step 26a); holding V shows the
+/// trees see-through, as the bar's Trees button does while it is on (step 27b); Esc stops
 /// building, or else lets go of what is picked, or else opens the menu. The mouse: a left click inspects the colonist or the tile under it; the
 /// wheel zooms; the right button drags.
 /// </summary>
@@ -168,6 +169,15 @@ public partial class ColonyScreen : Node
         row.AddChild(clock);
         Bar(row, "Build", "Build walls, floors, the house, stockpiles, gathering places (B)", ToggleBuildPanel);
         Bar(row, "Waiting", "What waits, and why (J)", ShowWaiting);
+        // Seeing through the trees (step 27b, B10): every crown faded while it is on; kept in the settings.
+        var trees = Bar(row, "Trees", "See through the trees: every crown faded while this is on (or hold V for a moment)", () => { });
+        trees.ToggleMode = true;
+        trees.ButtonPressed = Settings.SeeThroughTrees;
+        trees.Toggled += on =>
+        {
+            Settings.SeeThroughTrees = on;
+            Settings.Save();
+        };
         foreach (var w in Colony.Work!.Workers)
         {
             var id = w.Id;

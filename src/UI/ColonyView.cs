@@ -19,7 +19,10 @@ namespace WardensReckoning.UI;
 ///   tile's numbers (TreeArts.KindAt); further out, or if the pictures can't be loaded, a dark green triangle;
 /// - walls, doors, floors and roads as squares; buildings under way as outlines with their progress;
 /// - stores (the carts, stockpiles), the drinking place and bedrolls as shapes with a letter;
-/// - the colonists as circles with their names.
+/// - the colonists as circles, sorted with the trees by depth (step 27b): a tree's crown covers a colonist behind it;
+///   the crowns in front of the picked colonist and of the one under the mouse fade, and with the bar's Trees button
+///   on (or V held) every crown does (the Forest Visibility and Canopy Occlusion specification v1.3);
+/// - over everything: the tile marks, the build ghost, and the colonists' rings, names and talk.
 ///
 /// This class only draws: it reads the colony and never changes it (Shared Systems §19.1).
 /// </summary>
@@ -185,9 +188,69 @@ public partial class ColonyView : Node2D
     /// <summary>The build cursor's tile (the mouse's, or moved with the arrows), outlined; null when not building.</summary>
     public (int X, int Y)? Cursor { get; set; }
 
-    public override void _Process(double delta) => QueueRedraw();     // the colonists move: draw again each frame
+    public override void _Process(double delta)
+    {
+        UpdateCanopy(delta);
+        QueueRedraw();                      // the colonists move: draw again each frame
+    }
+
+    // ---- Canopy fading (step 27b; the adopted Forest Visibility and Canopy Occlusion specification v1.3) -----------
+
+    // How far each crown has faded; a crown's number is its tile's, y × width + x.
+    readonly Fader fader = new();
+    // From the last frame drawn: whether trees were pictures, the colonists' radius, and the crowns on screen.
+    bool lastPictures;
+    float lastRadius = 0.38f;
+    readonly List<int> crownsShown = new();
+
+    /// <summary>
+    /// Works out which crowns should fade and moves the fades on by `seconds` of real time (so the game's speed and
+    /// pause don't change them, O5). The crowns in front of the picked colonist and of the one under the mouse fade
+    /// whole (O2), together hiding no more of either than Settings.CanopyOpacity (B4; each crown's share, the smallest
+    /// for a crown in front of both: Canopy.Goals). With the bar's Trees button on, or V held, every crown on screen
+    /// goes to Settings.SeeThroughOpacity, but never above a looked-at colonist's share (B10). Only with tree pictures.
+    /// </summary>
+    void UpdateCanopy(double seconds)
+    {
+        fader.ReducedMotion = Settings.ReducedMotion;
+        var goals = new Dictionary<int, double>();
+        var c = colony();
+        if (lastPictures && c.Ground is Ground ground && c.Work is Work work)
+        {
+            var targets = new List<Canopy.Target>();
+            var near = new Dictionary<int, Canopy.Crown>();
+            foreach (var id in new[] { SelectedWorker, HoverWorker }.Distinct())
+                if (id != null && work.Workers.FirstOrDefault(w => w.Id == id) is Worker w)
+                {
+                    var at = DrawnAt(w);
+                    targets.Add(new Canopy.Target(at.Y, new Box(at.X - lastRadius, at.Y - lastRadius, 2 * lastRadius, 2 * lastRadius)));
+                    // The trees that can be in front: from one column left to one right, from their row to 3 rows below
+                    // (a crown reaches less than 3 tiles up from its foot and one tile to each side).
+                    int fx = (int)Math.Floor(at.X), fy = (int)Math.Floor(at.Y);
+                    for (int y = Math.Max(0, fy); y <= Math.Min(ground.Height - 1, fy + 3); y++)
+                        for (int x = Math.Max(0, fx - 1); x <= Math.Min(ground.Width - 1, fx + 1); x++)
+                            if (ground.ObstacleAt(x, y) == "tree" && treePictures.TryGetValue(TreeArts.KindAt(x, y), out var tree))
+                                near[y * ground.Width + x] = new Canopy.Crown(y * ground.Width + x, y + 1, tree.Art.Crown(x + 0.5, y + 1));
+                }
+            goals = Canopy.Goals(targets, near.Values.ToList(), Settings.CanopyOpacity);
+        }
+        bool through = lastPictures && (Settings.SeeThroughTrees || Input.IsKeyPressed(Key.V));
+        fader.Step(seconds, goals, through ? Settings.SeeThroughOpacity : null, through ? crownsShown : null);
+    }
+
+    /// <summary>For the benchmark (step 27b): how long the last `_Draw` took, in milliseconds, and how many tree
+    /// pictures it drew.</summary>
+    public double DrawMs { get; private set; }
+    public int TreesDrawn => crownsShown.Count;
 
     public override void _Draw()
+    {
+        ulong start = Time.GetTicksUsec();
+        DrawEverything();
+        DrawMs = (Time.GetTicksUsec() - start) / 1000.0;
+    }
+
+    void DrawEverything()
     {
         var c = colony();
         var ground = c.Ground!;
@@ -205,11 +268,15 @@ public partial class ColonyView : Node2D
         // and beside the view are drawn too, or their crowns would be cut off at the screen's edge.
         int treeLeft = pictures ? Math.Max(0, left - 1) : left, treeRight = pictures ? Math.Min(ground.Width - 1, right + 1) : right;
         int treeBottom = pictures ? Math.Min(ground.Height - 1, bottom + 3) : bottom;
-        // Row by row, from the top: first each tile's ground (under a tree, its surface's colour over the tree's dark
-        // pixel), symbol and piece, then the row's trees and rocks. A tree's picture then covers what is behind it
-        // (the rows above), and nothing of its own row is painted over it afterwards.
+        // Drawn in four passes (step 27b):
+        // 1. what lies flat on the ground: each tile's ground (under a tree or rock, its surface's colour over its
+        //    dark pixel in the ground picture), symbol and piece;
+        // 2. the markers on the ground: buildings under way, gathering places, stores, bedrolls;
+        // 3. what stands up, by depth: trees, rocks and colonists, the one whose foot is higher on the screen first,
+        //    so whoever is lower stands in front, and a crown covers a colonist behind it;
+        // 4. over everything, so the leaves never hide them (O4): the tile marks, the build ghost and cursor, and the
+        //    colonists' rings, names and talk.
         for (int y = top; y <= treeBottom; y++)
-        {
             for (int x = treeLeft; x <= treeRight; x++)
             {
                 var at = new Vector2(x, y);
@@ -221,10 +288,6 @@ public partial class ColonyView : Node2D
                 if (inView && ground.PieceAt(x, y) is string piece)
                     DrawPiece(piece, at);
             }
-            for (int x = treeLeft; x <= treeRight; x++)
-                if (close && ground.ObstacleAt(x, y) is string thing && (pictures || (x >= left && x <= right && y <= bottom)))
-                    DrawThing(thing, new Vector2(x, y), pictures);
-        }
 
         var work = c.Work!;
         // Buildings under way: an outline of their size, and how far along they are.
@@ -275,7 +338,26 @@ public partial class ColonyView : Node2D
             DrawRect(new Rect2(middle - new Vector2(0.3f, 0.42f), new Vector2(0.6f, 0.84f)), new Color(0.75f, 0.35f, 0.3f));
             DrawRect(new Rect2(middle - new Vector2(0.3f, 0.42f), new Vector2(0.6f, 0.84f)), Ink, false, 0.05f);
         }
-        // The tile under the mouse, faintly; the picked tile in brass with a dark edge, so it shows on any ground
+        // 3. Trees, rocks and colonists by depth. A thing on row y has its foot at y + 1; a colonist's foot is where
+        // they stand. Row by row, the colonists whose feet are above the row's feet are drawn first.
+        float radius = Math.Max(0.38f, 5f / pixels);
+        var standing = work.Workers.Select(w => (Worker: w, At: DrawnAt(w))).OrderBy(s => s.At.Y).ToList();
+        int nextColonist = 0;
+        crownsShown.Clear();
+        for (int y = top; y <= treeBottom; y++)
+        {
+            for (; nextColonist < standing.Count && standing[nextColonist].At.Y < y + 1; nextColonist++)
+                DrawColonistBody(standing[nextColonist].Worker, standing[nextColonist].At, radius);
+            for (int x = treeLeft; x <= treeRight; x++)
+                if (close && ground.ObstacleAt(x, y) is string thing && (pictures || (x >= left && x <= right && y <= bottom)))
+                    DrawThing(thing, new Vector2(x, y), pictures);
+        }
+        for (; nextColonist < standing.Count; nextColonist++)
+            DrawColonistBody(standing[nextColonist].Worker, standing[nextColonist].At, radius);
+        lastPictures = pictures;
+        lastRadius = radius;
+
+        // 4. The tile under the mouse, faintly; the picked tile in brass with a dark edge, so it shows on any ground
         // (step 26d).
         if (HoverTile is var (hx, hy) && HoverTile != SelectedTile)
             DrawRect(new Rect2(hx + 0.04f, hy + 0.04f, 0.92f, 0.92f), new Color(1, 1, 1, 0.55f), false, 0.06f);
@@ -304,10 +386,9 @@ public partial class ColonyView : Node2D
             DrawRect(new Rect2(kx - 0.05f, ky - 0.05f, 1.1f, 1.1f), Ink, false, 0.14f);
             DrawRect(new Rect2(kx + 0.05f, ky + 0.05f, 0.9f, 0.9f), Paper, false, 0.06f);
         }
-        // The colonists last, on top: a circle (at least 5 screen pixels across, so they show when zoomed out), a ring
-        // when picked, and the name above, on the lowest line not taken by a name of a colonist standing within a
-        // name's width, so names side by side (or of colonists on one spot) do not overlap.
-        float radius = Math.Max(0.38f, 5f / pixels);
+        // The colonists' rings and names, over the leaves: a ring when picked (brass with a dark edge, step 26d) or
+        // under the mouse (faint), and the name above, on the lowest line not taken by a name of a colonist standing
+        // within a name's width, so names side by side (or of colonists on one spot) do not overlap.
         var drawn = new List<(Vector2 At, int Level)>();
         foreach (var w in work.Workers)
         {
@@ -320,9 +401,6 @@ public partial class ColonyView : Node2D
                 level++;
             drawn.Add((at, level));
             var middle = at;
-            DrawCircle(middle, radius, w.Collapsed != null ? new Color(0.6f, 0.6f, 0.6f) : new Color(0.95f, 0.85f, 0.65f));
-            DrawArc(middle, radius, 0, Mathf.Tau, 20, Ink, radius * 0.18f);
-            // Picked: a brass ring with a dark edge (step 26d); under the mouse: a faint one.
             if (SelectedWorker == w.Id)
             {
                 DrawArc(middle, radius * 1.65f, 0, Mathf.Tau, 28, Ink, radius * 0.42f);
@@ -340,6 +418,14 @@ public partial class ColonyView : Node2D
                 int level = drawn.FirstOrDefault(d => d.At == at).Level;
                 DrawBubble(font, words, at - new Vector2(0, radius * 1.6f + (level + 1) * 19f / pixels + 6f / pixels), pixels);
             }
+    }
+
+    // A colonist's body: a circle with an outline, grey while collapsed (at least 5 screen pixels across, so they
+    // show when zoomed out). Drawn by depth among the trees (step 27b); their rings and names come later, on top.
+    void DrawColonistBody(Worker w, Vector2 at, float radius)
+    {
+        DrawCircle(at, radius, w.Collapsed != null ? new Color(0.6f, 0.6f, 0.6f) : new Color(0.95f, 0.85f, 0.65f));
+        DrawArc(at, radius, 0, Mathf.Tau, 20, Ink, radius * 0.18f);
     }
 
     /// <summary>A chat bubble (step 25b): the words on paper with an ink edge and a little tail pointing down to the
@@ -397,8 +483,16 @@ public partial class ColonyView : Node2D
         switch (thing)
         {
             case "tree" when pictures && treePictures.TryGetValue(TreeArts.KindAt((int)at.X, (int)at.Y), out var tree):
-                var box = tree.Art.Picture(at.X + 0.5, at.Y + 1);
-                DrawTextureRect(tree.Picture, new Rect2((float)box.X, (float)box.Y, (float)box.Width, (float)box.Height), false);
+                // The crown (the rows above the crown line) at its fade now (step 27b), then the trunk, always solid.
+                var (art, picture) = tree;
+                var box = art.Picture(at.X + 0.5, at.Y + 1);
+                int crown = (int)at.Y * colony().Ground!.Width + (int)at.X;
+                crownsShown.Add(crown);
+                float split = art.CrownLine / 32f;
+                DrawTextureRectRegion(picture, new Rect2((float)box.X, (float)box.Y, (float)box.Width, split),
+                                      new Rect2(0, 0, art.Width, art.CrownLine), new Color(1, 1, 1, (float)fader.OpacityOf(crown)));
+                DrawTextureRectRegion(picture, new Rect2((float)box.X, (float)box.Y + split, (float)box.Width, (float)box.Height - split),
+                                      new Rect2(0, art.CrownLine, art.Width, art.Height - art.CrownLine));
                 break;
             case "tree":
                 DrawColoredPolygon(new[] { at + new Vector2(0.5f, 0.08f), at + new Vector2(0.9f, 0.85f), at + new Vector2(0.1f, 0.85f) }, TreeColour);

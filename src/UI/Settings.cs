@@ -27,6 +27,21 @@ public static class Settings
     /// scalable text). The maps keep their own zoom.</summary>
     public static double InterfaceSize { get; set; } = 1;
 
+    /// <summary>Canopy fading (step 27b; Forest Visibility specification v1.3, B3): how much the tree crowns in front
+    /// of a colonist you're looking at may hide of them together, from 0.1 to 0.9. The first value is the
+    /// specification's, 0.45.</summary>
+    public static double CanopyOpacity { get; set; } = 0.45;
+
+    /// <summary>Seeing through the trees (B10): every crown's opacity while the bar's Trees button is on or V is
+    /// held, from 0.1 to 1. The first value, 0.6, is a first guess; the specification leaves it open.</summary>
+    public static double SeeThroughOpacity { get; set; } = 0.6;
+
+    /// <summary>Whether the bar's Trees button was left on (B10: a persistent toggle).</summary>
+    public static bool SeeThroughTrees { get; set; }
+
+    /// <summary>Reduced Motion (B5, B17): fades jump instead of gliding.</summary>
+    public static bool ReducedMotion { get; set; }
+
     public static void Load()
     {
         var config = new ConfigFile();
@@ -37,6 +52,10 @@ public static class Settings
         BorderAlpha = Math.Clamp(config.GetValue("map", "border_alpha", 105).AsInt32(), 0, 255);
         YearsPerSecond = Math.Clamp(config.GetValue("game", "years_per_second", 2.0).AsDouble(), 0.5, 20);
         InterfaceSize = Math.Clamp(config.GetValue("display", "interface_size", 1.0).AsDouble(), 0.75, 2);
+        CanopyOpacity = Math.Clamp(config.GetValue("canopy", "fade_opacity", 0.45).AsDouble(), 0.1, 0.9);
+        SeeThroughOpacity = Math.Clamp(config.GetValue("canopy", "see_through_opacity", 0.6).AsDouble(), 0.1, 1);
+        SeeThroughTrees = config.GetValue("canopy", "see_through", false).AsBool();
+        ReducedMotion = config.GetValue("accessibility", "reduced_motion", false).AsBool();
     }
 
     public static void Save()
@@ -47,6 +66,10 @@ public static class Settings
         config.SetValue("map", "border_alpha", BorderAlpha);
         config.SetValue("game", "years_per_second", YearsPerSecond);
         config.SetValue("display", "interface_size", InterfaceSize);
+        config.SetValue("canopy", "fade_opacity", CanopyOpacity);
+        config.SetValue("canopy", "see_through_opacity", SeeThroughOpacity);
+        config.SetValue("canopy", "see_through", SeeThroughTrees);
+        config.SetValue("accessibility", "reduced_motion", ReducedMotion);
         config.Save(File);
     }
 

@@ -61,10 +61,42 @@ public partial class SettingsPanel : Control
         };
         column.AddChild(speed);
 
+        // Canopy fading (step 27b): how much the crowns in front of a colonist you look at may hide of them, and how
+        // see-through every crown is with the bar's Trees button on (or V held).
+        var fadeLabel = new Label { Text = FadeText() };
+        column.AddChild(fadeLabel);
+        var fade = new HSlider { MinValue = 0.1, MaxValue = 0.9, Step = 0.05, Value = Settings.CanopyOpacity,
+                                 CustomMinimumSize = new Vector2(260, 24) };
+        fade.ValueChanged += value =>
+        {
+            Settings.CanopyOpacity = value;
+            fadeLabel.Text = FadeText();
+        };
+        column.AddChild(fade);
+
+        var throughLabel = new Label { Text = ThroughText() };
+        column.AddChild(throughLabel);
+        var through = new HSlider { MinValue = 0.1, MaxValue = 1, Step = 0.05, Value = Settings.SeeThroughOpacity,
+                                    CustomMinimumSize = new Vector2(260, 24) };
+        through.ValueChanged += value =>
+        {
+            Settings.SeeThroughOpacity = value;
+            throughLabel.Text = ThroughText();
+        };
+        column.AddChild(through);
+
+        var motion = new CheckBox { Text = "Reduced Motion (fades jump instead of gliding)", ButtonPressed = Settings.ReducedMotion };
+        motion.Toggled += on => Settings.ReducedMotion = on;
+        column.AddChild(motion);
+
         column.AddChild(Ui.Button("Close", Close));
     }
 
     static string SizeText() => "Interface size: " + Math.Round(Settings.InterfaceSize * 100) + "%";
+
+    static string FadeText() => "Trees in front of a colonist you look at hide at most " + Math.Round(Settings.CanopyOpacity * 100) + "% of them";
+
+    static string ThroughText() => "Seeing through the trees (Trees button, or hold V): crowns at " + Math.Round(Settings.SeeThroughOpacity * 100) + "%";
 
     static string SpeedText() => "Years a second while playing: " + Settings.YearsPerSecond.ToString("0.#");
 

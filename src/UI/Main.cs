@@ -102,6 +102,11 @@ public partial class Main : Node
             }
         if (Array.IndexOf(arguments, "--waiting") >= 0 && screen is ColonyScreen listing)
             listing.ShowWaiting();
+        // `-- --bench [file]` measures the colony's drawing and quits (step 27b, ColonyScreen.Bench.cs; with --found or
+        // --colony).
+        int bench = Array.IndexOf(arguments, "--bench");
+        if (bench >= 0 && screen is ColonyScreen measuring)
+            measuring.Bench(bench + 1 < arguments.Length && !arguments[bench + 1].StartsWith("--") ? arguments[bench + 1] : "bench-colony.md");
         // `-- --screenshot <file.png>` saves what is on screen after a few frames and quits (for testing).
         int shot = Array.IndexOf(arguments, "--screenshot");
         if (shot >= 0 && shot + 1 < arguments.Length)
