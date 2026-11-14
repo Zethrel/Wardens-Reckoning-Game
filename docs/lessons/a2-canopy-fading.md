@@ -104,6 +104,45 @@ all seven crowns on it, so the cap of 45 % is never reached there. The
 crowns are clearer than the cap allows, which the specification permits; your
 eyes will judge whether that's too clear.
 
+## Step A2b: measuring it
+
+Reading the GPU time off the panel for every setting is slow, and the frame
+time can't go below your screen's refresh while vsync is on. So the preview can
+measure itself:
+
+```powershell
+& "D:\Zethrel-Github-Projects\_Needed stuff\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64_console.exe" --path . res://src/UI/AssetPreview.tscn -- --bench
+```
+
+Everything after `--` is for the game, not for Godot. `OS.GetCmdlineUserArgs()`
+returns just those words, and `StartBenchIfAsked` looks for `--bench` among
+them.
+
+`Bench` is an `async void` method. Each time it reaches
+
+```csharp
+await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+```
+
+it pauses until Godot has finished the next frame, and then carries on. The
+game keeps running in between, so one method can step through all the
+settings and wait for frames as it goes. It works like a Python generator
+that Godot resumes once a frame.
+
+For each setting, it:
+1. lets 60 frames go by, so everything has settled;
+2. notes four numbers for each of the next 300 frames: how long `_Draw` took,
+   how long Godot took to render on the CPU and on the GPU, and the time since
+   the frame before;
+3. writes the averages, and the slowest frame, as one row of a table.
+
+`DisplayServer.WindowSetVsyncMode(DisplayServer.VSyncMode.Disabled)` turns
+vsync off for the run, so frames aren't held back to the screen's refresh.
+
+The table is written with `File.WriteAllText`, plain .NET, to `bench-a2b.md`
+in the folder PowerShell is in, unless you give it another name after
+`--bench`.
+
 ## Exercise
 
 1. Press `-` a few times to lower the cap to 20 %, and look at a colonist in
@@ -114,5 +153,8 @@ eyes will judge whether that's too clear.
 3. In `AssetPreview.Canopy.cs`, the corners are drawn in `DrawMarks`, after
    the wood. Move the call to `DrawMarks()` in `_Draw` before `DrawWood()`.
    What happens to the corners of a colonist in the wood, and why?
+
+4. Run the benchmark, then change the 300 in `Bench` to 1000 and run it again.
+   Do the averages change? Which number moves the most from run to run?
 
 Put each change back afterwards.

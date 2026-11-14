@@ -125,6 +125,7 @@ public partial class AssetPreview : Node2D
         info = Ledger.Label("", 13);
         info.AutowrapMode = TextServer.AutowrapMode.Off;
         panel.AddChild(info);
+        StartBenchIfAsked();                             // `-- --bench`: measure and quit (AssetPreview.Bench.cs)
     }
 
     void Load(string name, string folder = Folder) => LoadAs(name, folder + name + ".png");
