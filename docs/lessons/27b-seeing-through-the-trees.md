@@ -100,6 +100,36 @@ Counting each possible view tile by tile would take about 5,000 tiles for
 each of more than 30,000 positions. This way it's one pass over the map, then
 four sums each.
 
+## Step 27c: where the time went
+
+The benchmark's first run on your PC, on a forest site at 1920 × 1080, missed
+the budget at 16 px a tile: 39 frames a second. The GPU needed only 0.6 ms, so
+the time was on the CPU, in `_Draw`. Timing each pass separately showed where:
+
+| Part of `_Draw` | ms a frame (cloud) |
+|---|---:|
+| the ground's symbols | 10.2 |
+| the rest of pass 1 | 0.8 |
+| the trees and colonists (pass 3) | 0.7 |
+
+The trees weren't the problem. Every rough-ground tile has two small specks,
+and they were drawn with `DrawCircle`. Godot makes a circle out of many small
+triangles, worked out each time; a forest on rough ground at 16 px is
+thousands of tiles, so thousands of circles a frame. Drawn as squares
+(`DrawRect`, two triangles each), the symbols took 1.0 ms. At that size a
+square and a circle look nearly the same.
+
+A second thing turned up. The camera's zoom can come out as 15.99999 when 16
+was asked for, so `pixels >= 16` was false and the trees went back to
+triangles. Rounding to a thousandth first fixes that:
+
+```csharp
+float pixels = MathF.Round(GetViewport().GetCanvasTransform().Scale.X * 1000) / 1000;
+```
+
+The lesson: measure before guessing. Here the guess, that the new tree
+pictures were the slow part, would have been wrong.
+
 ## Exercise
 
 1. In Settings, lower "Trees in front of a colonist you look at" to 20 %.

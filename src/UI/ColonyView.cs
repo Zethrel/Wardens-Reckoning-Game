@@ -258,7 +258,9 @@ public partial class ColonyView : Node2D
         var view = GetViewport().GetCanvasTransform().AffineInverse() * GetViewportRect();
         int left = Math.Max(0, (int)Math.Floor(view.Position.X)), top = Math.Max(0, (int)Math.Floor(view.Position.Y));
         int right = Math.Min(ground.Width - 1, (int)Math.Ceiling(view.End.X)), bottom = Math.Min(ground.Height - 1, (int)Math.Ceiling(view.End.Y));
-        float pixels = GetViewport().GetCanvasTransform().Scale.X;      // screen pixels a tile
+        // Screen pixels a tile. The camera's zoom can come out a hair under what was asked (15.99999 for 16), so it is
+        // rounded to a thousandth before it is compared with the thresholds below (step 27c).
+        float pixels = MathF.Round(GetViewport().GetCanvasTransform().Scale.X * 1000) / 1000;
         bool close = pixels >= 6;           // trees and rocks are worth drawing
         bool closer = pixels >= 14;         // and the surfaces' symbols
         bool pictures = pixels >= TreePictures && treePictures.Count > 0;   // trees as pictures (step 27a)
@@ -456,14 +458,16 @@ public partial class ColonyView : Node2D
                 var light = new Color(1, 1, 1, 0.45f);
                 DrawPolyline(new[] { at + new Vector2(0.15f, 0.4f), at + new Vector2(0.35f, 0.3f), at + new Vector2(0.55f, 0.4f), at + new Vector2(0.75f, 0.3f) }, light, 0.05f);
                 if (surface == "salt_water")
-                    DrawCircle(at + new Vector2(0.5f, 0.7f), 0.06f, light);
+                    DrawRect(new Rect2(at + new Vector2(0.44f, 0.64f), new Vector2(0.12f, 0.12f)), light);   // a square speck (step 27c)
                 break;
+            // Specks are small squares, not circles (step 27c): a circle is many points to work out, and a view of rough
+            // ground at 16 px a tile has thousands of specks, which took most of the frame.
             case "rough":
-                DrawCircle(at + new Vector2(0.3f, 0.35f), 0.05f, shade);
-                DrawCircle(at + new Vector2(0.65f, 0.6f), 0.05f, shade);
+                DrawRect(new Rect2(at + new Vector2(0.25f, 0.30f), new Vector2(0.1f, 0.1f)), shade);
+                DrawRect(new Rect2(at + new Vector2(0.60f, 0.55f), new Vector2(0.1f, 0.1f)), shade);
                 break;
             case "sand":
-                DrawCircle(at + new Vector2(0.5f, 0.5f), 0.035f, shade);
+                DrawRect(new Rect2(at + new Vector2(0.465f, 0.465f), new Vector2(0.07f, 0.07f)), shade);
                 break;
             case "mud":
                 DrawLine(at + new Vector2(0.25f, 0.55f), at + new Vector2(0.75f, 0.55f), shade, 0.06f);
