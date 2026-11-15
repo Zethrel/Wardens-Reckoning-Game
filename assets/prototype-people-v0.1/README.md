@@ -46,3 +46,13 @@ tiles (48 and 64 agree within a pixel):
 
 The elf is the tallest, a third taller than the human and taller than the
 orc.
+
+## The 32 × 48 human
+
+`32x48/human.png` is `wardens_reckoning_human_front_32x48.png` (the
+temporary folder's `Assets\people`, 15 Nov 2026), as it came: solid or clear
+already, 15 colours. It is the prototype colonist's canvas, and is drawn the
+same way, at 32 pixels a tile: 1 tile wide and 1.5 high, its feet on its
+bottom row. The figure is 43 pixels high, 1.34 tiles: a third taller than the
+human of batch 1 (1.00 tiles), as tall as batch 1's elf. In the preview it
+stands left of the colonist on each row.

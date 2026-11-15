@@ -14,6 +14,7 @@ namespace WardensReckoning.UI;
 /// lowest pixel of its feet on the middle of its tile's bottom edge, one people to a tile.
 ///
 /// - The first two rows: all eight at 48 and at 64, with the prototype colonist and a v3 tree for scale.
+/// - In the column left of the colonist, on every row but the wood: the 32 × 48 human, at 32 pixels a tile.
 /// - Then the 48 or 64 pictures (Z) on dark ground and on snow, to see their edges.
 /// - Last, a small wood: the peoples standing among trees, behind and in front of them, and next to each other, all
 ///   drawn in the order of where their feet are, as in the colony.
@@ -42,6 +43,18 @@ public partial class AssetPreview
         foreach (var size in new[] { 48, 64 })
             foreach (var p in Peoples)
                 LoadAs("people/" + size + "/" + p, "res://assets/prototype-people-v0.1/" + size + "/" + p + ".png");
+        LoadAs("people/32x48/human", "res://assets/prototype-people-v0.1/32x48/human.png");
+    }
+
+    // The 32 × 48 human (15 Nov 2026): drawn as it is, 32 pixels a tile, so 1 tile wide and 1.5 high, like the
+    // prototype colonist; its feet are on its bottom row (47), so the picture's bottom edge is on `feet`.
+    void DrawHuman32(Vector2 feet)
+    {
+        if (Picture("people/32x48/human") is not Texture2D texture)
+            return;
+        DrawTextureRect(texture, new Rect2(feet.X - 0.5f, feet.Y - 48f / 32, 1, 1.5f), false);
+        if (anchors)
+            Cross(feet);
     }
 
     // Q: to the people's patch and back.
@@ -57,7 +70,7 @@ public partial class AssetPreview
             camera!.Position = back;
     }
 
-    string PeopleLine() => "People (Q): rows at 48 and 64 px, both 1.5 tiles across; lower rows and the wood at " + (large ? "64" : "48") + " (Z)";
+    string PeopleLine() => "People (Q): rows at 48 and 64 px, both 1.5 tiles across; the 32 × 48 human left of the colonist; lower rows and the wood at " + (large ? "64" : "48") + " (Z)";
 
     // One people standing with their feet on `feet`: the picture of `size` pixels, 1.5 tiles across whatever its size.
     void DrawPerson(string name, int size, Vector2 feet)
@@ -106,6 +119,9 @@ public partial class AssetPreview
         }
         // For scale beside the first two rows: the prototype colonist and a v3 tree.
         DrawColonist(new Vector2(PeopleLeft + 17.5f, 3), true);
+        // The 32 × 48 human beside the colonist, beside the tree, and on dark ground and snow.
+        foreach (float bottom in new[] { 3f, 6f, 10f, 13f })
+            DrawHuman32(new Vector2(PeopleLeft + 16.5f, bottom));
         DrawTree(new Vector2(PeopleLeft + 18.5f, 6), 1, true);
 
         // The wood: four trees, the peoples around them, everything in the order of its feet.

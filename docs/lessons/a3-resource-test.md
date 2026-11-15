@@ -169,6 +169,10 @@ foreach (var (_, draw) in standing.OrderBy(s => s.Feet))
 Whatever stands further south is drawn later, so it covers what stands behind
 it. Each `draw` is a lambda kept in the list, called only now.
 
+The 32 × 48 human (step A3f) is drawn as the prototype colonist is: at 32
+pixels a tile, so its rectangle is simply 1 by 1.5 tiles, with its bottom
+edge on the feet (`DrawHuman32`). It stands left of the colonist on each row.
+
 Press **Q** to go to the peoples and back, **Z** to switch the lower rows and
 the wood between 48 and 64, and **A** to see each one's feet.
 
