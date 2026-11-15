@@ -4,9 +4,11 @@ using Godot;
 namespace WardensReckoning.UI;
 
 /// <summary>
-/// The resource test (step A3): the test pictures of piles and containers (resource asset library TEST v0.1,
-/// `res://assets/prototype-resources-v0.1/`), shrunk ahead of time to the game's scale, on a board to the right of the
-/// fields. K goes there and back.
+/// The resource test (steps A3 and A3b): the test pictures of piles and containers (resource asset library TEST v0.1,
+/// batches 1 to 6, `res://assets/prototype-resources-v0.1/`; and the refinements of batches 2 and 3, TEST v0.2,
+/// `res://assets/prototype-resources-v0.2/`), shrunk ahead of time to the game's scale, on a board to the right of the
+/// fields. K goes there and back; L shows the refined pictures (v0.2) of stone, grain, flour, vegetables and fruit in
+/// place of v0.1's.
 ///
 /// Each kind has four pictures, small, medium, large and full, for how full its tile is (library Review 45, D3). Each
 /// stands on its own tile, its bottom edge on the tile's bottom edge, as goods will lie on a stockpile tile. The board
@@ -19,12 +21,16 @@ namespace WardensReckoning.UI;
 /// </summary>
 public partial class AssetPreview
 {
-    // The kinds, in the board's order, two to a row: wood and storage, stone and ore, food.
+    // The kinds, in the board's order, two to a row: wood and storage (batch 1), stone and ore (2), food (3),
+    // building materials (4), metals and tools (5), more storage (6).
     static readonly string[] ResourceKinds =
     {
         "timber", "lumber", "crate", "barrel", "stone", "rubble", "coal", "iron_ore", "copper_ore", "grain", "flour",
-        "harvested_crops", "vegetables", "fruit",
+        "harvested_crops", "vegetables", "fruit", "bricks", "clay", "cut_stone", "mortar", "sand", "copper_ingots",
+        "bronze_ingots", "iron_ingots", "steel_ingots", "tools", "sacks", "baskets", "shelves", "timber_rack",
     };
+    // The kinds that TEST v0.2 drew again (L): loose grain and flour, no sacks; clearer vegetables, fruit and stone.
+    static readonly string[] RefinedKinds = { "stone", "grain", "flour", "vegetables", "fruit" };
     static readonly string[] ResourceStates = { "small", "medium", "large", "full" };
     const string ResourceFolder = "res://assets/prototype-resources-v0.1/";
     const int BoardLeft = 2 * Wide + Gap + 3;             // the board's left edge, in tiles, right of the two fields
@@ -33,6 +39,7 @@ public partial class AssetPreview
 
     bool board;                                           // K: the camera is on the board
     bool fine;                                            // J: the 64-pixel pictures instead of the 32-pixel ones
+    bool refined;                                         // L: TEST v0.2's pictures for the kinds it drew again
     Vector2? fieldCamera;                                 // where the camera was before going to the board
 
     void LoadResources()
@@ -41,6 +48,17 @@ public partial class AssetPreview
             foreach (var kind in ResourceKinds)
                 foreach (var state in ResourceStates)
                     LoadAs(size + "/" + kind + "_" + state, ResourceFolder + size + "/" + kind + "_" + state + ".png");
+        foreach (var size in new[] { "compact", "fine" })
+            foreach (var kind in RefinedKinds)
+                foreach (var state in ResourceStates)
+                    LoadAs("v0.2/" + size + "/" + kind + "_" + state, "res://assets/prototype-resources-v0.2/" + size + "/" + kind + "_" + state + ".png");
+    }
+
+    // The picture of a kind in a state, at the size shown: from v0.2 when L is on and v0.2 drew that kind again.
+    Texture2D? ResourcePicture(string kind, string state)
+    {
+        string name = (fine ? "fine" : "compact") + "/" + kind + "_" + state;
+        return refined && RefinedKinds.Contains(kind) ? Picture("v0.2/" + name) : Picture(name);
     }
 
     // K: to the board and back.
@@ -57,8 +75,9 @@ public partial class AssetPreview
     }
 
     string ResourceLine() =>
-        "Resources (K): " + (fine ? "fine, 64 px a tile" : "compact, 32 px a tile") + " (J) · left on grass, right on dark ground · "
-        + "rows: " + string.Join(", ", ResourceKinds.Select(k => k.Replace('_', ' '))) + " · small, medium, large, full";
+        "Resources (K): " + (fine ? "fine, 64 px a tile" : "compact, 32 px a tile") + " (J) · "
+        + (refined ? "v0.2 for " + string.Join(", ", RefinedKinds) : "all v0.1") + " (L) · left on grass, right on dark ground · "
+        + "each row small, medium, large, full";
 
     // The board: two halves of ground, each kind's four pictures on both, a tree and a colonist for scale, and names.
     void DrawBoard()
@@ -74,7 +93,6 @@ public partial class AssetPreview
                 else
                     DrawRect(tile, x < BoardHalf ? ColonyView.ColourOf("grass") : ColonyView.ColourOf("mud"));
             }
-        string size = fine ? "fine" : "compact";
         float pixels = fine ? 64 : 32;
         var font = ThemeDB.FallbackFont;
         for (int i = 0; i < ResourceKinds.Length; i++)
@@ -85,7 +103,7 @@ public partial class AssetPreview
             {
                 float left = BoardLeft + half + column * 5;
                 for (int s = 0; s < ResourceStates.Length; s++)
-                    if (Picture(size + "/" + ResourceKinds[i] + "_" + ResourceStates[s]) is Texture2D texture)
+                    if (ResourcePicture(ResourceKinds[i], ResourceStates[s]) is Texture2D texture)
                     {
                         float wide = texture.GetWidth() / pixels, tall = texture.GetHeight() / pixels;
                         float middle = left + 1 + s + 0.5f;
@@ -93,7 +111,8 @@ public partial class AssetPreview
                     }
                 // The kind's name under its row, drawn small: 1/32 of a tile a font pixel, 10 pixels high.
                 DrawSetTransform(new Vector2(left + 1, bottom + 0.4f), 0, new Vector2(1 / 32f, 1 / 32f));
-                DrawString(font, Vector2.Zero, ResourceKinds[i].Replace('_', ' '), HorizontalAlignment.Left, -1, 10,
+                string name = ResourceKinds[i].Replace('_', ' ') + (refined && RefinedKinds.Contains(ResourceKinds[i]) ? " (v0.2)" : "");
+                DrawString(font, Vector2.Zero, name, HorizontalAlignment.Left, -1, 10,
                            half == 0 ? Colors.White : new Color(0.9f, 0.85f, 0.7f));
                 DrawSetTransform(Vector2.Zero);
             }

@@ -5,16 +5,26 @@ medium, large and full), for the piles and containers of Review 45. This step
 puts them in the asset preview, so you can judge them beside the trees at the
 game's zoom levels before any of them goes into the game.
 
-Open `src/UI/AssetPreview.tscn` and press F6 in the editor, or run in PowerShell
-in the game's folder:
+Open `src/UI/AssetPreview.tscn` and press F6 in the editor; the editor builds
+the code and imports new pictures for you. Or run in PowerShell in the game's
+folder:
 
 ```powershell
+dotnet build
+& "D:\Zethrel-Github-Projects\_Needed stuff\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64_console.exe" --headless --path . --import
 & "D:\Zethrel-Github-Projects\_Needed stuff\Godot_v4.7.2-stable_mono_win64\Godot_v4.7.2-stable_mono_win64_console.exe" --path . res://src/UI/AssetPreview.tscn
 ```
+
+- **`dotnet build`:** compiles the C#. Started from the command line, Godot
+  runs the last build it finds and doesn't compile anything itself.
+- **`--import`:** brings new pictures into Godot's own folder (`.godot/`).
+- **The last line:** opens the preview.
 
 - **K** goes to the board and back.
 - **J** switches between the compact pictures (32 pixels a tile, like the
   trees) and the fine ones (64).
+- **L** shows the refined pictures (TEST v0.2) of stone, grain, flour,
+  vegetables and fruit in place of the first ones (step A3b).
 - **1** to **4** zoom to 16, 32, 40 or 64 pixels a tile.
 
 ## Why the pictures are shrunk ahead of time
@@ -72,6 +82,24 @@ DrawSetTransform(Vector2.Zero);
    right size for one tile, one metre square?
 5. **Detail:** is 32 pixels a tile enough, or does 64 (J) at the higher zooms
    look worth twice the drawing work?
+
+## Step A3b: more batches, and a second version
+
+Batches 4 to 6 add building materials, metals and tools, and more storage:
+28 kinds in all, two to a row. The refinements of batches 2 and 3 (TEST v0.2)
+redraw five kinds. Rather than replace the first pictures, the board can show
+either, so you can compare them:
+
+```csharp
+Texture2D? ResourcePicture(string kind, string state)
+{
+    string name = (fine ? "fine" : "compact") + "/" + kind + "_" + state;
+    return refined && RefinedKinds.Contains(kind) ? Picture("v0.2/" + name) : Picture(name);
+}
+```
+
+`RefinedKinds.Contains(kind)` asks whether the kind is in the list, as
+`kind in refined_kinds` does in Python.
 
 ## Exercise
 

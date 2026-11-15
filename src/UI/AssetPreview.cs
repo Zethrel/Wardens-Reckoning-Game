@@ -29,7 +29,8 @@ namespace WardensReckoning.UI;
 /// 32 × 96), or else its full pictures shrunk to half while drawing (v1). W fills a large wood below the fields, with
 /// a tree on every fourth tile, every other tile or every tile, to see how the trees read and what they cost: the
 /// panel then shows the time spent drawing (CPU) and rendering (GPU) each frame. K goes to the resource test's board and
-/// back, J switches its pictures between 32 and 64 pixels a tile (AssetPreview.Resources.cs, step A3).
+/// back, J switches its pictures between 32 and 64 pixels a tile, L shows TEST v0.2's refined ones (AssetPreview.Resources.cs,
+/// steps A3 and A3b).
 /// </summary>
 public partial class AssetPreview : Node2D
 {
@@ -169,7 +170,7 @@ public partial class AssetPreview : Node2D
                      + "\n" + CanopyLine() + "\n" + ResourceLine()
                      + (missing.Count > 0 ? "\nMissing, drawn as shapes: " + string.Join(", ", missing) : "") + "\n"
                      + "1–4 zoom 16/32/40/64 · wheel ×1.15 · right drag or arrows move · F filter · P snap · A anchors · G grid · [ ] speed · Space walker"
-                     + " · T trees v0.2 to " + Sets[^1] + ", the experiments, the colony's · H an experiment's size · W test wood · V variant · Y age (v0.3) · K resources · J their size";
+                     + " · T trees v0.2 to " + Sets[^1] + ", the experiments, the colony's · H an experiment's size · W test wood · V variant · Y age (v0.3) · K resources · J their size · L refined v0.2";
         QueueRedraw();
     }
 
@@ -217,6 +218,7 @@ public partial class AssetPreview : Node2D
                     case Key.Y: age = (age + 1) % Ages.Length; break;
                     case Key.K: ToggleBoard(); break;
                     case Key.J: fine = !fine; break;
+                    case Key.L: refined = !refined; break;
                     default: return;
                 }
                 break;
