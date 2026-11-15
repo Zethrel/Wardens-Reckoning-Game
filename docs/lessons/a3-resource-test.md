@@ -169,9 +169,12 @@ foreach (var (_, draw) in standing.OrderBy(s => s.Feet))
 Whatever stands further south is drawn later, so it covers what stands behind
 it. Each `draw` is a lambda kept in the list, called only now.
 
-The 32 × 48 human (step A3f) is drawn as the prototype colonist is: at 32
-pixels a tile, so its rectangle is simply 1 by 1.5 tiles, with its bottom
-edge on the feet (`DrawHuman32`). It stands left of the colonist on each row.
+The single humans (steps A3f and A3g) have canvases of 2 : 3, 32 × 48 or
+48 × 72. `DrawHuman` draws any of them 1 by 1.5 tiles, with the bottom edge
+on the feet, so a 48 × 72 picture is the same size in the world as a 32 × 48
+one. They are listed in `Humans`, an array of pairs (a Python list of
+tuples): the name in the preview and the file. The A3f human stands left of
+the colonist, style C's two right of it.
 
 Press **Q** to go to the peoples and back, **Z** to switch the lower rows and
 the wood between 48 and 64, and **A** to see each one's feet.

@@ -91,6 +91,7 @@ in `docs/lessons/`.
 | A3d | The resource library's release candidate (v1.0 RC) on the board (the maintainer, 15 Nov 2026): its new pictures only (143 of its pictures are the earlier sets'): four sizes of clean mortar, cooler steel, and the containers in three layers (the empty container, the contents, the front piece), with a row without the front to compare; batch 1's names are still swapped in the RC (lesson A3) | |
 | A3e | The first pictures of the peoples (Peoples Batch 1, TEST v0.1; the maintainer, 15 Nov 2026): the eight peoples at 48 × 48 and 64 × 64, both drawn 1.5 tiles across so the 64 shows more detail, not a bigger person; with a v3 tree and the prototype colonist for scale, on grass, dark ground and snow, and among trees (Q, Z; lesson A3) | |
 | A3f | A 32 × 48 human (the maintainer, 15 Nov 2026) in the people patch: drawn at 32 px a tile like the prototype colonist, left of it on each row (lesson A3) | |
+| A3g | Style C's human at 32 × 48 and 48 × 72 (the maintainer, 15 Nov 2026), both 1 × 1.5 tiles, right of the colonist on each row of the people patch (lesson A3) | |
 | | Then: personality and convictions (with the first fighting or weapon-making); basic healthcare; the colony joins the world's years; the Wardens' war, peace, path and rituals; the legacy number; losing when the Wardens fall | |
 
 For each step, the generator adds what that system carries from year to year

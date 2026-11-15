@@ -56,3 +56,14 @@ same way, at 32 pixels a tile: 1 tile wide and 1.5 high, its feet on its
 bottom row. The figure is 43 pixels high, 1.34 tiles: a third taller than the
 human of batch 1 (1.00 tiles), as tall as batch 1's elf. In the preview it
 stands left of the colonist on each row.
+
+## Style C's human, at two sizes
+
+`style-c/human_32x48.png` and `style-c/human_48x72.png` are
+`wardens_human_style_c_32x48.png` and `wardens_human_style_c_48x72.png`
+(the temporary folder's `Assets\people`, 15 Nov 2026), as they came: solid or
+clear already, feet on the bottom row. Both are drawn 1 tile wide and 1.5
+high, so the 48 × 72 is drawn at 48 pixels a tile and shows more detail, not
+a bigger person. The figures are 46 and 70 pixels high, 1.44 and 1.46 tiles.
+They have no dark outline and many colours (544 and 1,270), where the A3f
+human has 15. In the preview they stand right of the colonist on each row.
