@@ -25,8 +25,8 @@ dotnet build
   trees) and the fine ones (64).
 - **L** shows the refined pictures (TEST v0.2) of stone, grain, flour,
   vegetables and fruit in place of the first ones (step A3b).
-- **U** takes the white outline off TEST v0.3's pictures, in the three rows at
-  the bottom of the board (step A3c).
+- **U** takes the white outline off TEST v0.3's pictures, and the release
+  candidate's, in the rows at the bottom of the board (steps A3c and A3d).
 - **1** to **4** zoom to 16, 32, 40 or 64 pixels a tile.
 
 ## Why the pictures are shrunk ahead of time
@@ -119,6 +119,24 @@ What is drawn later covers what was drawn before, as in the colony's four
 passes (lesson 27b). That's why the fruit covers the basket's front rim. A
 true layered picture needs three pieces: the container's back, the contents,
 and the container's front over them.
+
+## Step A3d: three layers
+
+The release candidate adds a front piece for each container, so the game can
+draw a container in three layers, each a picture of the same size at the same
+place:
+
+```csharp
+new[] { l.Container + "_base", l.Container + "_with_" + l.Contents, l.Container + "_front" }
+```
+
+The board draws that list in order, so the front piece covers the bottom of
+the contents, as the basket's rim would. The row under it leaves the front
+out, to compare.
+
+`SelectMany` in the same file turns a list of lists into one list, like a
+nested loop in a Python list comprehension:
+`[p + "_" + s for p in piles for s in states]`.
 
 ## Exercise
 

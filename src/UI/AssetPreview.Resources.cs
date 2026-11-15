@@ -15,6 +15,11 @@ namespace WardensReckoning.UI;
 /// of time without any masking, to see what a front rim that hides part of the contents would need. U takes off the
 /// white outline these pictures came with.
 ///
+/// Last, three rows from the release candidate (v1.0 RC, `res://assets/prototype-resources-rc/`, step A3d): its four
+/// sizes of clean mortar and its cooler steel; the containers drawn in three layers in the game, the empty container,
+/// then the contents, then the container's front piece over them, as the RC's README suggests; and the same without
+/// the front piece, to compare. U takes off the white outline here too.
+///
 /// Each kind has four pictures, small, medium, large and full, for how full its tile is (library Review 45, D3). Each
 /// stands on its own tile, its bottom edge on the tile's bottom edge, as goods will lie on a stockpile tile. The board
 /// shows every kind twice: on grass (left) and on dark ground (right), since the pictures' edges were cut out of a
@@ -56,6 +61,15 @@ public partial class AssetPreview
                 "timber_rack_with_timber", "timber_rack_with_lumber" },
     };
     static readonly string[] V03Names = { "v0.3: empty containers, clean mortar", "v0.3: contents", "v0.3: contents in containers (no masking)" };
+
+    // The release candidate: its new piles, and its containers with their contents, as (container, contents).
+    static readonly string[] RcPiles = { "mortar", "steel_ingots_cool" };
+    static readonly (string Container, string Contents)[] RcLayered =
+    {
+        ("basket", "fruit"), ("basket", "vegetables"), ("sack", "grain"), ("sack", "flour"), ("shelves", "tools"),
+        ("timber_rack", "timber"), ("timber_rack", "lumber"),
+    };
+    static readonly string[] RcNames = { "RC: clean mortar, cooler steel", "RC: in three layers: container, contents, front", "RC: without the front" };
     Vector2? fieldCamera;                                 // where the camera was before going to the board
 
     void LoadResources()
@@ -68,6 +82,16 @@ public partial class AssetPreview
             foreach (var look in new[] { "outlined", "clean" })
                 foreach (var name in V03Rows.SelectMany(r => r))
                     LoadAs("v0.3/" + size + "/" + look + "/" + name, "res://assets/prototype-resources-v0.3/" + size + "/" + look + "/" + name + ".png");
+        foreach (var size in new[] { "compact", "fine" })
+            foreach (var look in new[] { "outlined", "clean" })
+            {
+                string at = "res://assets/prototype-resources-rc/" + size + "/" + look + "/";
+                var names = RcPiles.SelectMany(p => ResourceStates.Select(s => p + "_" + s))
+                    .Concat(RcLayered.SelectMany(l => new[] { l.Container + "_base", l.Container + "_front", l.Container + "_with_" + l.Contents }))
+                    .Distinct();
+                foreach (var name in names)
+                    LoadAs("rc/" + size + "/" + look + "/" + name, at + name + ".png");
+            }
         foreach (var size in new[] { "compact", "fine" })
             foreach (var kind in RefinedKinds)
                 foreach (var state in ResourceStates)
@@ -103,7 +127,7 @@ public partial class AssetPreview
     void DrawBoard()
     {
         int rows = (ResourceKinds.Length + 1) / 2;
-        int high = rows * BoardRow + 6 + V03Rows.Length * BoardRow;
+        int high = rows * BoardRow + 6 + (V03Rows.Length + RcNames.Length) * BoardRow;
         for (int y = 0; y < high; y++)
             for (int x = 0; x < 2 * BoardHalf; x++)
             {
@@ -152,6 +176,32 @@ public partial class AssetPreview
                     }
                 DrawSetTransform(new Vector2(left, bottom + 0.4f), 0, new Vector2(1 / 32f, 1 / 32f));
                 DrawString(font, Vector2.Zero, V03Names[r], HorizontalAlignment.Left, -1, 10, half == 0 ? Colors.White : new Color(0.9f, 0.85f, 0.7f));
+                DrawSetTransform(Vector2.Zero);
+            }
+        }
+        // The release candidate's rows, under v0.3's.
+        string rc = "rc/" + (fine ? "fine" : "compact") + "/" + (outlineOff ? "clean" : "outlined") + "/";
+        for (int r = 0; r < RcNames.Length; r++)
+        {
+            float bottom = 4 + rows * BoardRow + (V03Rows.Length + r) * BoardRow + 1;
+            foreach (int half in new[] { 0, BoardHalf })
+            {
+                float left = BoardLeft + half + 1;
+                // What goes on each tile of the row, in the order it is drawn.
+                var tiles = r == 0
+                    ? RcPiles.SelectMany((p, i) => ResourceStates.Select((s, k) => (Tile: i * 5 + k, Layers: new[] { p + "_" + s }))).ToList()
+                    : RcLayered.Select((l, k) => (Tile: k, Layers: r == 1
+                        ? new[] { l.Container + "_base", l.Container + "_with_" + l.Contents, l.Container + "_front" }
+                        : new[] { l.Container + "_base", l.Container + "_with_" + l.Contents })).ToList();
+                foreach (var (tile, layers) in tiles)
+                    foreach (var layer in layers)
+                        if (Picture(rc + layer) is Texture2D texture)
+                        {
+                            float wide = texture.GetWidth() / pixels, tall = texture.GetHeight() / pixels;
+                            DrawTextureRect(texture, new Rect2(left + tile + 0.5f - wide / 2, bottom - tall, wide, tall), false);
+                        }
+                DrawSetTransform(new Vector2(left, bottom + 0.4f), 0, new Vector2(1 / 32f, 1 / 32f));
+                DrawString(font, Vector2.Zero, RcNames[r], HorizontalAlignment.Left, -1, 10, half == 0 ? Colors.White : new Color(0.9f, 0.85f, 0.7f));
                 DrawSetTransform(Vector2.Zero);
             }
         }
