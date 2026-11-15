@@ -32,7 +32,7 @@ public partial class AssetPreview
         ["goblin_48"] = 39, ["goblin_64"] = 53, ["kobold_48"] = 43, ["kobold_64"] = 59,
     };
     const int PeopleLeft = BoardLeft + 2 * BoardHalf + 3;    // the people's patch, right of the resource board
-    const int PeopleWide = 23, PeopleHigh = 26;
+    const int PeopleWide = 26, PeopleHigh = 26;
     const float WorldCanvas = 1.5f;                            // tiles across either canvas
 
     bool people;                                               // Q: the camera is on the people's patch
@@ -55,6 +55,8 @@ public partial class AssetPreview
         ("human_front_32x48", "32x48/human"),                  // A3f
         ("style_c_32x48", "style-c/human_32x48"),              // A3g: style C at 32 px a tile
         ("style_c_48x72", "style-c/human_48x72"),              // A3g: style C at 48 px a tile, the same size in the world
+        ("trial_32x48", "style-c-trial/human_32x48"),          // A3h: the resolution trial, at most 48 colours
+        ("trial_48x72", "style-c-trial/human_48x72"),          // A3h
     };
 
     // One of `Humans` standing on `feet`: the canvas is 2 : 3, so 1 × 1.5 tiles, the bottom edge on the feet.
@@ -80,7 +82,7 @@ public partial class AssetPreview
             camera!.Position = back;
     }
 
-    string PeopleLine() => "People (Q): rows at 48 and 64 px, both 1.5 tiles across; single humans: 32 × 48 left of the colonist, style C 32 × 48 and 48 × 72 right of it; lower rows and the wood at " + (large ? "64" : "48") + " (Z)";
+    string PeopleLine() => "People (Q): rows at 48 and 64 px, both 1.5 tiles across; single humans: 32 × 48 left of the colonist, style C 32 × 48 and 48 × 72 right of it, then the trial's two; lower rows and the wood at " + (large ? "64" : "48") + " (Z)";
 
     // One people standing with their feet on `feet`: the picture of `size` pixels, 1.5 tiles across whatever its size.
     void DrawPerson(string name, int size, Vector2 feet)
@@ -135,8 +137,10 @@ public partial class AssetPreview
             DrawHuman(Humans[0].Name, new Vector2(PeopleLeft + 16.5f, bottom));
             DrawHuman(Humans[1].Name, new Vector2(PeopleLeft + 18.5f, bottom));
             DrawHuman(Humans[2].Name, new Vector2(PeopleLeft + 19.5f, bottom));
+            DrawHuman(Humans[3].Name, new Vector2(PeopleLeft + 21.5f, bottom));
+            DrawHuman(Humans[4].Name, new Vector2(PeopleLeft + 22.5f, bottom));
         }
-        DrawTree(new Vector2(PeopleLeft + 21.5f, 6), 1, true);
+        DrawTree(new Vector2(PeopleLeft + 24.5f, 6), 1, true);
 
         // The wood: four trees, the peoples around them, everything in the order of its feet.
         int top = 15;

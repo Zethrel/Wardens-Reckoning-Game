@@ -92,6 +92,7 @@ in `docs/lessons/`.
 | A3e | The first pictures of the peoples (Peoples Batch 1, TEST v0.1; the maintainer, 15 Nov 2026): the eight peoples at 48 × 48 and 64 × 64, both drawn 1.5 tiles across so the 64 shows more detail, not a bigger person; with a v3 tree and the prototype colonist for scale, on grass, dark ground and snow, and among trees (Q, Z; lesson A3) | |
 | A3f | A 32 × 48 human (the maintainer, 15 Nov 2026) in the people patch: drawn at 32 px a tile like the prototype colonist, left of it on each row (lesson A3) | |
 | A3g | Style C's human at 32 × 48 and 48 × 72 (the maintainer, 15 Nov 2026), both 1 × 1.5 tiles, right of the colonist on each row of the people patch (lesson A3) | |
+| A3h | The character resolution trial (the maintainer, 15 Nov 2026): style C's human at 32 × 48 and 48 × 72, at most 48 colours, both 1 × 1.5 tiles, after style C's first two in the people patch (lesson A3) | |
 | | Then: personality and convictions (with the first fighting or weapon-making); basic healthcare; the colony joins the world's years; the Wardens' war, peace, path and rituals; the legacy number; losing when the Wardens fall | |
 
 For each step, the generator adds what that system carries from year to year

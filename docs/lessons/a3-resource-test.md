@@ -174,7 +174,9 @@ The single humans (steps A3f and A3g) have canvases of 2 : 3, 32 × 48 or
 on the feet, so a 48 × 72 picture is the same size in the world as a 32 × 48
 one. They are listed in `Humans`, an array of pairs (a Python list of
 tuples): the name in the preview and the file. The A3f human stands left of
-the colonist, style C's two right of it.
+the colonist, style C's two right of it, and the resolution trial's two (step
+A3h) after a gap. A new picture needs only a line in `Humans` and a
+`DrawHuman` call.
 
 Press **Q** to go to the peoples and back, **Z** to switch the lower rows and
 the wood between 48 and 64, and **A** to see each one's feet.

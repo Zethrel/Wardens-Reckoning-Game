@@ -67,3 +67,15 @@ high, so the 48 × 72 is drawn at 48 pixels a tile and shows more detail, not
 a bigger person. The figures are 46 and 70 pixels high, 1.44 and 1.46 tiles.
 They have no dark outline and many colours (544 and 1,270), where the A3f
 human has 15. In the preview they stand right of the colonist on each row.
+
+## The resolution trial
+
+`style-c-trial/human_32x48.png` and `style-c-trial/human_48x72.png` are the
+two sprites of `wardens_character_resolution_trial.zip` (the temporary
+folder's `Assets`, 15 Nov 2026), as they came; their sha256 match the
+package's manifest (f0aa6dcd… and c3613535…). Each is made from its own
+generated source, shrunk offline and reduced to 46 and 47 colours, solid or
+clear, feet on the bottom row (anchors (16, 47) and (24, 71)). The package
+marks them experimental, with a character palette apart from the trees'. In
+the preview they stand after a gap right of style C's first two, both
+1 × 1.5 tiles.
