@@ -10,6 +10,11 @@ namespace WardensReckoning.UI;
 /// fields. K goes there and back; L shows the refined pictures (v0.2) of stone, grain, flour, vegetables and fruit in
 /// place of v0.1's.
 ///
+/// Below them, three rows from TEST v0.3 (`res://assets/prototype-resources-v0.3/`, step A3c): the empty containers
+/// with the cleaned-up mortar; the contents on their own; and the contents laid over the containers, put together ahead
+/// of time without any masking, to see what a front rim that hides part of the contents would need. U takes off the
+/// white outline these pictures came with.
+///
 /// Each kind has four pictures, small, medium, large and full, for how full its tile is (library Review 45, D3). Each
 /// stands on its own tile, its bottom edge on the tile's bottom edge, as goods will lie on a stockpile tile. The board
 /// shows every kind twice: on grass (left) and on dark ground (right), since the pictures' edges were cut out of a
@@ -40,6 +45,17 @@ public partial class AssetPreview
     bool board;                                           // K: the camera is on the board
     bool fine;                                            // J: the 64-pixel pictures instead of the 32-pixel ones
     bool refined;                                         // L: TEST v0.2's pictures for the kinds it drew again
+    bool outlineOff;                                      // U: v0.3's pictures without their white outline
+
+    // TEST v0.3's three rows: the empty containers and the clean mortar; the contents; contents in containers.
+    static readonly string[][] V03Rows =
+    {
+        new[] { "basket_empty", "sack_empty", "shelves_empty", "timber_rack_empty", "mortar" },
+        new[] { "grain", "flour", "timber", "lumber", "vegetables", "fruit", "tools" },
+        new[] { "basket_with_fruit", "basket_with_vegetables", "sack_with_grain", "sack_with_flour", "shelves_with_tools",
+                "timber_rack_with_timber", "timber_rack_with_lumber" },
+    };
+    static readonly string[] V03Names = { "v0.3: empty containers, clean mortar", "v0.3: contents", "v0.3: contents in containers (no masking)" };
     Vector2? fieldCamera;                                 // where the camera was before going to the board
 
     void LoadResources()
@@ -48,6 +64,10 @@ public partial class AssetPreview
             foreach (var kind in ResourceKinds)
                 foreach (var state in ResourceStates)
                     LoadAs(size + "/" + kind + "_" + state, ResourceFolder + size + "/" + kind + "_" + state + ".png");
+        foreach (var size in new[] { "compact", "fine" })
+            foreach (var look in new[] { "outlined", "clean" })
+                foreach (var name in V03Rows.SelectMany(r => r))
+                    LoadAs("v0.3/" + size + "/" + look + "/" + name, "res://assets/prototype-resources-v0.3/" + size + "/" + look + "/" + name + ".png");
         foreach (var size in new[] { "compact", "fine" })
             foreach (var kind in RefinedKinds)
                 foreach (var state in ResourceStates)
@@ -77,13 +97,13 @@ public partial class AssetPreview
     string ResourceLine() =>
         "Resources (K): " + (fine ? "fine, 64 px a tile" : "compact, 32 px a tile") + " (J) · "
         + (refined ? "v0.2 for " + string.Join(", ", RefinedKinds) : "all v0.1") + " (L) · left on grass, right on dark ground · "
-        + "each row small, medium, large, full";
+        + "each row small, medium, large, full · v0.3 below, outline " + (outlineOff ? "off" : "on") + " (U)";
 
     // The board: two halves of ground, each kind's four pictures on both, a tree and a colonist for scale, and names.
     void DrawBoard()
     {
         int rows = (ResourceKinds.Length + 1) / 2;
-        int high = rows * BoardRow + 6;
+        int high = rows * BoardRow + 6 + V03Rows.Length * BoardRow;
         for (int y = 0; y < high; y++)
             for (int x = 0; x < 2 * BoardHalf; x++)
             {
@@ -114,6 +134,24 @@ public partial class AssetPreview
                 string name = ResourceKinds[i].Replace('_', ' ') + (refined && RefinedKinds.Contains(ResourceKinds[i]) ? " (v0.2)" : "");
                 DrawString(font, Vector2.Zero, name, HorizontalAlignment.Left, -1, 10,
                            half == 0 ? Colors.White : new Color(0.9f, 0.85f, 0.7f));
+                DrawSetTransform(Vector2.Zero);
+            }
+        }
+        // TEST v0.3's rows, under the others: one picture a tile, side by side.
+        for (int r = 0; r < V03Rows.Length; r++)
+        {
+            float bottom = 4 + rows * BoardRow + r * BoardRow + 1;
+            foreach (int half in new[] { 0, BoardHalf })
+            {
+                float left = BoardLeft + half + 1;
+                for (int k = 0; k < V03Rows[r].Length; k++)
+                    if (Picture("v0.3/" + (fine ? "fine" : "compact") + "/" + (outlineOff ? "clean" : "outlined") + "/" + V03Rows[r][k]) is Texture2D texture)
+                    {
+                        float wide = texture.GetWidth() / pixels, tall = texture.GetHeight() / pixels;
+                        DrawTextureRect(texture, new Rect2(left + k + 0.5f - wide / 2, bottom - tall, wide, tall), false);
+                    }
+                DrawSetTransform(new Vector2(left, bottom + 0.4f), 0, new Vector2(1 / 32f, 1 / 32f));
+                DrawString(font, Vector2.Zero, V03Names[r], HorizontalAlignment.Left, -1, 10, half == 0 ? Colors.White : new Color(0.9f, 0.85f, 0.7f));
                 DrawSetTransform(Vector2.Zero);
             }
         }

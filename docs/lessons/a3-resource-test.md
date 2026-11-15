@@ -25,6 +25,8 @@ dotnet build
   trees) and the fine ones (64).
 - **L** shows the refined pictures (TEST v0.2) of stone, grain, flour,
   vegetables and fruit in place of the first ones (step A3b).
+- **U** takes the white outline off TEST v0.3's pictures, in the three rows at
+  the bottom of the board (step A3c).
 - **1** to **4** zoom to 16, 32, 40 or 64 pixels a tile.
 
 ## Why the pictures are shrunk ahead of time
@@ -100,6 +102,23 @@ Texture2D? ResourcePicture(string kind, string state)
 
 `RefinedKinds.Contains(kind)` asks whether the kind is in the list, as
 `kind in refined_kinds` does in Python.
+
+## Step A3c: containers and their contents apart
+
+TEST v0.3 draws the containers empty and their contents on their own, so the
+game could put any contents in any container. The board's last row lays them
+together, as one picture made ahead of time. In the game it would be two
+pictures, the container and then the contents, each with a `DrawTextureRect`:
+
+```csharp
+DrawTextureRect(basket, basketRect, false);
+DrawTextureRect(fruit, fruitRect, false);   // drawn later, so it covers the basket
+```
+
+What is drawn later covers what was drawn before, as in the colony's four
+passes (lesson 27b). That's why the fruit covers the basket's front rim. A
+true layered picture needs three pieces: the container's back, the contents,
+and the container's front over them.
 
 ## Exercise
 
