@@ -138,6 +138,40 @@ out, to compare.
 nested loop in a Python list comprehension:
 `[p + "_" + s for p in piles for s in states]`.
 
+## Step A3e: the peoples
+
+The peoples' first pictures come in two sizes, 48 × 48 and 64 × 64. If both
+were drawn at so many picture pixels a tile, the 64 would be a bigger person.
+The question is the other one: at the same size in the world, does the 64
+look better? So `AssetPreview.People.cs` works out the pixels a tile from the
+canvas:
+
+```csharp
+const float WorldCanvas = 1.5f;                // tiles across either canvas
+float pixels = size / WorldCanvas;             // 48 / 1.5 = 32, 64 / 1.5 = 42.7
+```
+
+and draws the picture `size / pixels` tiles wide, which is 1.5 for both.
+
+Each picture stands on its feet: the lowest solid row, measured once and kept
+in `PeopleFeet`. A `Dictionary` is Python's `dict`; `["human_48"] = 38` is
+`"human_48": 38`.
+
+In the small wood the trees and the peoples go into one list, and the list is
+drawn in the order of where their feet are:
+
+```csharp
+foreach (var (_, draw) in standing.OrderBy(s => s.Feet))
+    draw();
+```
+
+`OrderBy(s => s.Feet)` is Python's `sorted(standing, key=lambda s: s.feet)`.
+Whatever stands further south is drawn later, so it covers what stands behind
+it. Each `draw` is a lambda kept in the list, called only now.
+
+Press **Q** to go to the peoples and back, **Z** to switch the lower rows and
+the wood between 48 and 64, and **A** to see each one's feet.
+
 ## Exercise
 
 1. In `AssetPreview.Resources.cs`, change `BoardHalf` from 10 to 12. What
@@ -146,5 +180,9 @@ nested loop in a Python list comprehension:
    tile, and at 64?
 3. Remove `DrawSetTransform(Vector2.Zero);`. What happens to the tree and the
    colonist at the top, and why?
+4. In `AssetPreview.People.cs`, change `WorldCanvas` to 1. How big are the
+   peoples now against the tree, and do the 48 and the 64 still match?
+5. Change the elf's `["elf_48"] = 45` to 38. Press A. Where does the elf
+   stand now?
 
 Put each change back afterwards.

@@ -111,6 +111,7 @@ public partial class AssetPreview : Node2D
             Load("colonists/" + layer + "_idle_down");
         LoadColonyTrees();
         LoadResources();
+        LoadPeople();
         treeSet = Sets.Length + Experiments.Length;      // start on the colony's own trees
 
         TextureFilter = TextureFilterEnum.Nearest;
@@ -167,10 +168,10 @@ public partial class AssetPreview : Node2D
                      + (wood > 0 ? "\nWood: " + Woods[wood] + ", " + WoodTrees().Count() + " trees · drawing " + drawMs.ToString("0.0")
                                    + " ms (CPU) · rendering " + RenderingServer.ViewportGetMeasuredRenderTimeCpu(GetViewport().GetViewportRid()).ToString("0.0")
                                    + " ms CPU, " + RenderingServer.ViewportGetMeasuredRenderTimeGpu(GetViewport().GetViewportRid()).ToString("0.0") + " ms GPU" : "")
-                     + "\n" + CanopyLine() + "\n" + ResourceLine()
+                     + "\n" + CanopyLine() + "\n" + ResourceLine() + "\n" + PeopleLine()
                      + (missing.Count > 0 ? "\nMissing, drawn as shapes: " + string.Join(", ", missing) : "") + "\n"
                      + "1–4 zoom 16/32/40/64 · wheel ×1.15 · right drag or arrows move · F filter · P snap · A anchors · G grid · [ ] speed · Space walker"
-                     + " · T trees v0.2 to " + Sets[^1] + ", the experiments, the colony's · H an experiment's size · W test wood · V variant · Y age (v0.3) · K resources · J their size · L refined v0.2 · U v0.3 outline";
+                     + " · T trees v0.2 to " + Sets[^1] + ", the experiments, the colony's · H an experiment's size · W test wood · V variant · Y age (v0.3) · K resources · J their size · L refined v0.2 · U v0.3 outline · Q peoples · Z their size";
         QueueRedraw();
     }
 
@@ -220,6 +221,8 @@ public partial class AssetPreview : Node2D
                     case Key.J: fine = !fine; break;
                     case Key.L: refined = !refined; break;
                     case Key.U: outlineOff = !outlineOff; break;
+                    case Key.Q: TogglePeople(); break;
+                    case Key.Z: large = !large; break;
                     default: return;
                 }
                 break;
@@ -258,6 +261,7 @@ public partial class AssetPreview : Node2D
         if (wood > 0)
             DrawWood();
         DrawBoard();
+        DrawPeople();
         DrawMarks();
         drawMs = (Time.GetTicksUsec() - start) / 1000.0;
     }
