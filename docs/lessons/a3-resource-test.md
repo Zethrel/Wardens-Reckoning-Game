@@ -181,6 +181,25 @@ A3h) after a gap. A new picture needs only a line in `Humans` and a
 Press **Q** to go to the peoples and back, **Z** to switch the lower rows and
 the wood between 48 and 64, and **A** to see each one's feet.
 
+## Step A3i: clothing in layers
+
+The clothing test (C) draws each person from up to five pictures stacked on
+top of each other, the way the game would dress a colonist:
+
+```csharp
+foreach (string? layer in new[] { "neutral", outfit.Lower, outfit.Upper, "boots", "head" })
+```
+
+`string?` is a string that may be `null` (Python's `None`): the bare body has no
+trousers or tunic, so those entries are `null` and skipped with `continue`.
+Every layer is drawn into the same 1 × 1.5-tile rectangle, so the pictures line
+up pixel for pixel. The head comes last, so a dwarf's beard always hangs over
+the tunic.
+
+An outfit is a tuple of names, like `("tunic", "runtime_reference_lower",
+"alternate_upper")`: Python's `("tunic", "...", "...")`. Swapping a garment is
+only choosing another name.
+
 ## Exercise
 
 1. In `AssetPreview.Resources.cs`, change `BoardHalf` from 10 to 12. What
@@ -193,5 +212,7 @@ the wood between 48 and 64, and **A** to see each one's feet.
    peoples now against the tree, and do the 48 and the 64 still match?
 5. Change the elf's `["elf_48"] = 45` to 38. Press A. Where does the elf
    stand now?
+6. In `AssetPreview.Clothing.cs`, move `"head"` to the start of the layer
+   list in `DrawDressed`. Press C. What happens to the dwarf's beard, and why?
 
 Put each change back afterwards.

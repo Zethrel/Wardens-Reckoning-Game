@@ -93,6 +93,7 @@ in `docs/lessons/`.
 | A3f | A 32 × 48 human (the maintainer, 15 Nov 2026) in the people patch: drawn at 32 px a tile like the prototype colonist, left of it on each row (lesson A3) | |
 | A3g | Style C's human at 32 × 48 and 48 × 72 (the maintainer, 15 Nov 2026), both 1 × 1.5 tiles, right of the colonist on each row of the people patch (lesson A3) | |
 | A3h | The character resolution trial (the maintainer, 15 Nov 2026): style C's human at 32 × 48 and 48 × 72, at most 48 colours, both 1 × 1.5 tiles, after style C's first two in the people patch (lesson A3) | |
+| A3i | Clothing layers to judge (the maintainer, 16 Nov 2026): the clothing-layer trial's bodies, own outfits, a green tunic and blue-grey trousers for the human, dwarf and halfling, drawn in layers on grass, dark ground, snow and among trees (C; lesson A3). Not adopted | |
 | | Then: personality and convictions (with the first fighting or weapon-making); basic healthcare; the colony joins the world's years; the Wardens' war, peace, path and rituals; the legacy number; losing when the Wardens fall | |
 
 For each step, the generator adds what that system carries from year to year
